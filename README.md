@@ -1,4 +1,4 @@
-# image-cdn
+# pic-store
 
 Web service to convert images into multiple formats and sizes, and upload them to a CDN for usage with HTML `picture`, `srcset`, and so on.
 
