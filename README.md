@@ -6,7 +6,7 @@ While this is going to end up as a useful service, it is mostly designed to expe
 
 - [Biscuit Auth tokens](https://www.biscuitsec.org/)
 - The Axum web framework
-- SQLite3 as a data store
+- SQLite3 as a data store and Litestream replication/backup
 - Evaluate [fly.io](https://fly.io) for deployment
 - Vite plugins
 
