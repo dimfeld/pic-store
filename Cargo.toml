@@ -1,0 +1,9 @@
+[workspace]
+members = [
+  "auth",
+  "convert",
+  "db",
+  "storage",
+  "server"
+]
+resolver = "2"
