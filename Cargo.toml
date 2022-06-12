@@ -3,6 +3,7 @@ members = [
   "auth",
   "convert",
   "db",
+  "migration",
   "storage",
   "server"
 ]

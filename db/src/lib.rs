@@ -1,3 +1,8 @@
+pub mod base_image;
+pub mod output_image;
+pub mod team;
+pub mod user;
+
 #[cfg(test)]
 mod tests {
     #[test]
