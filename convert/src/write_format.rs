@@ -1,4 +1,4 @@
-use image::{DynamicImage, GenericImageView, ImageEncoder, ImageResult};
+use image::{DynamicImage, GenericImageView, ImageEncoder};
 use rgb::FromSlice;
 use std::{borrow::Cow, io::Write};
 use thiserror::Error;
@@ -25,18 +25,19 @@ fn write_png(image: &DynamicImage, writer: impl Write) -> Result<(), image::Imag
         image::codecs::png::FilterType::Adaptive,
     );
 
+    let image = to_8bit(image);
     let (width, height) = image.dimensions();
-    let source_image = to_8bit(image);
-    encoder.write_image(source_image.as_bytes(), width, height, source_image.color())
+    encoder.write_image(image.as_bytes(), width, height, image.color())
 }
 
 fn write_webp(image: &DynamicImage, mut writer: impl Write) -> Result<(), std::io::Error> {
-    let image = to_8bit(image);
     let format = if image.color().has_alpha() {
         webp::PixelLayout::Rgba
     } else {
         webp::PixelLayout::Rgb
     };
+
+    let image = to_8bit(image);
     let (width, height) = image.dimensions();
     let encoder = webp::Encoder::new(image.as_bytes(), format, width, height);
     let output = encoder.encode(60.0);
@@ -44,12 +45,23 @@ fn write_webp(image: &DynamicImage, mut writer: impl Write) -> Result<(), std::i
     writer.write_all(&output)
 }
 
+/// `cleared_alpha` only takes a Vec<RGBA<u8>>, not a slice, so recast the data as a Vec<rgb::RGBA<u8>>.
+/// This is the same thing that the rgb crate functions do, except on a Vec.
+fn cast_as_rgb_crate_format(data: image::RgbaImage) -> Vec<rgb::RGBA<u8>> {
+    let data = data.into_vec();
+
+    let mut data = std::mem::ManuallyDrop::new(data);
+    let raw_data = data.as_mut_ptr();
+    let len = data.len();
+    let cap = data.capacity();
+    unsafe { Vec::from_raw_parts(raw_data as *mut rgb::RGBA<u8>, len, cap) }
+}
+
 fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), EncodeError> {
     let quality = 60.0;
     // From https://github.com/kornelski/cavif-rs/blob/main/src/main.rs
     let alpha_quality = ((quality + 100.0_f32) / 2.).min(quality + quality / 4. + 2.);
 
-    let image = to_8bit(image);
     let (width, height) = image.dimensions();
 
     let config = ravif::Config {
@@ -61,13 +73,18 @@ fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), Encode
         threads: 0,
     };
 
+    let image = to_8bit(image);
+
     let output = if image.color().has_alpha() {
-        let pixel_buf = image.as_bytes().as_rgba();
-        let input_buf = ravif::Img::new(pixel_buf, width as usize, height as usize);
-        ravif::encode_rgba(input_buf, &config).map(|(o, _, _)| o)
+        let data = image.into_owned().into_rgba8();
+        let rgba_vec = cast_as_rgb_crate_format(data);
+
+        let input_buf = ravif::Img::new(rgba_vec, width as usize, height as usize);
+
+        let input_buf = ravif::cleared_alpha(input_buf);
+        ravif::encode_rgba(input_buf.as_ref(), &config).map(|(o, _, _)| o)
     } else {
-        let pixel_buf = image.as_bytes().as_rgb();
-        let input_buf = ravif::Img::new(pixel_buf, width as usize, height as usize);
+        let input_buf = ravif::Img::new(image.as_bytes().as_rgb(), width as usize, height as usize);
         ravif::encode_rgb(input_buf, &config).map(|(o, _)| o)
     };
 
