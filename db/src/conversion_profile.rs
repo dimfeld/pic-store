@@ -1,3 +1,4 @@
+use sea_orm::entity::prelude::TimeDateTimeWithTimeZone;
 use sea_orm::prelude::*;
 use uuid::Uuid;
 
@@ -11,6 +12,7 @@ pub struct Model {
     #[sea_orm(indexed)]
     pub team_id: Uuid,
     pub name: String,
+    pub updated: TimeDateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

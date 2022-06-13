@@ -1,3 +1,4 @@
+use sea_orm::entity::prelude::TimeDateTime;
 use sea_orm::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
@@ -15,6 +16,8 @@ pub struct Model {
     pub width: u32,
     pub height: u32,
     pub format: String,
+
+    pub created: TimeDateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

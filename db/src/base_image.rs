@@ -1,3 +1,4 @@
+use sea_orm::entity::prelude::TimeDateTimeWithTimeZone;
 use sea_orm::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
@@ -10,6 +11,8 @@ pub struct Model {
     #[sea_orm(indexed)]
     pub team_id: Uuid,
     #[sea_orm(indexed)]
+    pub project_id: Uuid,
+    #[sea_orm(indexed)]
     pub hash: String,
     pub filename: String,
     pub location: String,
@@ -20,6 +23,8 @@ pub struct Model {
     pub conversion_profile_id: Uuid,
     pub alt_text: String,
     pub placeholder: String,
+
+    pub updated: TimeDateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -36,6 +41,12 @@ pub enum Relation {
         to = "super::team::Column::Id"
     )]
     Team,
+    #[sea_orm(
+        belongs_to = "super::project::Entity",
+        from = "Column::ProjectId",
+        to = "super::project::Column::Id"
+    )]
+    Project,
     #[sea_orm(
         belongs_to = "super::conversion_profile::Entity",
         from = "Column::ConversionProfileId",
@@ -55,6 +66,12 @@ impl Related<super::user::Entity> for Entity {
 impl Related<super::team::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Team.def()
+    }
+}
+
+impl Related<super::project::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Project.def()
     }
 }
 

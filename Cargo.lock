@@ -1970,6 +1970,7 @@ name = "pic-store-db"
 version = "0.1.0"
 dependencies = [
  "sea-orm",
+ "time 0.3.9",
  "uuid",
 ]
 

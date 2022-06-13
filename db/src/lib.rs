@@ -2,6 +2,7 @@ pub mod base_image;
 pub mod conversion_profile;
 pub mod conversion_profile_item;
 pub mod output_image;
+pub mod project;
 pub mod team;
 pub mod user;
 
