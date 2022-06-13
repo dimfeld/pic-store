@@ -4,9 +4,9 @@ use sea_orm::prelude::*;
 #[sea_orm(table_name = "users")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: u64,
+    pub id: Uuid,
     #[sea_orm(indexed)]
-    pub team_id: u64,
+    pub team_id: Uuid,
     #[sea_orm(indexed)]
     pub email: String,
     pub name: String,

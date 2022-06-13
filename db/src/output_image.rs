@@ -4,12 +4,12 @@ use sea_orm::prelude::*;
 #[sea_orm(table_name = "output_images")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: u64,
+    pub id: Uuid,
     #[sea_orm(indexed)]
-    pub user_id: u64,
+    pub user_id: Uuid,
     #[sea_orm(indexed)]
-    pub team_id: u64,
-    pub base_image_id: u64,
+    pub team_id: Uuid,
+    pub base_image_id: Uuid,
     pub hash: String,
     pub location: String,
     pub width: u32,

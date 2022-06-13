@@ -4,11 +4,11 @@ use sea_orm::prelude::*;
 #[sea_orm(table_name = "base_images")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: u64,
+    pub id: Uuid,
     #[sea_orm(indexed)]
-    pub user_id: u64,
+    pub user_id: Uuid,
     #[sea_orm(indexed)]
-    pub team_id: u64,
+    pub team_id: Uuid,
     #[sea_orm(indexed)]
     pub hash: String,
     pub filename: String,
@@ -17,7 +17,9 @@ pub struct Model {
     pub height: u32,
     pub format: String,
 
+    pub conversion_profile_id: Uuid,
     pub alt_text: String,
+    pub placeholder: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -34,6 +36,12 @@ pub enum Relation {
         to = "super::team::Column::Id"
     )]
     Team,
+    #[sea_orm(
+        belongs_to = "super::conversion_profile::Entity",
+        from = "Column::ConversionProfileId",
+        to = "super::conversion_profile::Column::Id"
+    )]
+    ConversionProfile,
     #[sea_orm(has_many = "super::output_image::Entity")]
     OutputImage,
 }
@@ -47,6 +55,12 @@ impl Related<super::user::Entity> for Entity {
 impl Related<super::team::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Team.def()
+    }
+}
+
+impl Related<super::conversion_profile::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ConversionProfile.def()
     }
 }
 

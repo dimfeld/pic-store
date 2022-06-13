@@ -1,17 +1,22 @@
 use sea_orm::prelude::*;
+use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "conversion_profiles")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: u64,
+    pub id: Uuid,
     #[sea_orm(indexed)]
-    pub conversion_profile_id: u64,
+    pub conversion_profile_id: Uuid,
     #[sea_orm(indexed)]
-    pub user_id: u64,
+    pub user_id: Uuid,
     #[sea_orm(indexed)]
-    pub team_id: u64,
+    pub team_id: Uuid,
     pub name: String,
+
+    pub format: String,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
