@@ -22,8 +22,10 @@ impl MigrationTrait for Migration {
         create_table_and_indexes(&txn, team::Entity).await?;
         create_table_and_indexes(&txn, user::Entity).await?;
         create_table_and_indexes(&txn, project::Entity).await?;
+        create_table_and_indexes(&txn, storage_location::Entity).await?;
         create_table_and_indexes(&txn, conversion_profile::Entity).await?;
         create_table_and_indexes(&txn, conversion_profile_item::Entity).await?;
+        create_table_and_indexes(&txn, upload_settings::Entity).await?;
         create_table_and_indexes(&txn, base_image::Entity).await?;
         create_table_and_indexes(&txn, output_image::Entity).await?;
 
@@ -43,6 +45,7 @@ impl MigrationTrait for Migration {
             ),
         )
         .await?;
+
         txn.execute(
             db.build(
                 &sea_query::Table::drop()
@@ -51,6 +54,16 @@ impl MigrationTrait for Migration {
             ),
         )
         .await?;
+
+        txn.execute(
+            db.build(
+                &sea_query::Table::drop()
+                    .table(upload_settings::Entity)
+                    .to_owned(),
+            ),
+        )
+        .await?;
+
         txn.execute(
             db.build(
                 &sea_query::Table::drop()
@@ -59,6 +72,7 @@ impl MigrationTrait for Migration {
             ),
         )
         .await?;
+
         txn.execute(
             db.build(
                 &sea_query::Table::drop()
@@ -67,10 +81,22 @@ impl MigrationTrait for Migration {
             ),
         )
         .await?;
+
+        txn.execute(
+            db.build(
+                &sea_query::Table::drop()
+                    .table(storage_location::Entity)
+                    .to_owned(),
+            ),
+        )
+        .await?;
+
         txn.execute(db.build(&sea_query::Table::drop().table(project::Entity).to_owned()))
             .await?;
+
         txn.execute(db.build(&sea_query::Table::drop().table(user::Entity).to_owned()))
             .await?;
+
         txn.execute(db.build(&sea_query::Table::drop().table(team::Entity).to_owned()))
             .await?;
 

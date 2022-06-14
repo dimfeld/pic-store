@@ -10,7 +10,7 @@ pub struct Model {
     pub team_id: Uuid,
     pub name: String,
     pub base_location: String,
-    pub default_conversion_profile_id: Uuid,
+    pub default_upload_settings_id: Uuid,
 
     pub updated: TimeDateTimeWithTimeZone,
 }
@@ -23,12 +23,8 @@ pub enum Relation {
         to = "super::team::Column::Id"
     )]
     Team,
-    #[sea_orm(
-        belongs_to = "super::conversion_profile::Entity",
-        from = "Column::DefaultConversionProfileId",
-        to = "super::conversion_profile::Column::Id"
-    )]
-    ConversionProfile,
+    #[sea_orm(has_many = "super::upload_settings::Entity")]
+    UploadSettings,
     #[sea_orm(has_many = "super::base_image::Entity")]
     BaseImage,
 }
@@ -39,9 +35,9 @@ impl Related<super::team::Entity> for Entity {
     }
 }
 
-impl Related<super::conversion_profile::Entity> for Entity {
+impl Related<super::upload_settings::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::ConversionProfile.def()
+        Relation::UploadSettings.def()
     }
 }
 
