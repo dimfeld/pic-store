@@ -14,13 +14,19 @@ pub struct Model {
     pub project_id: Uuid,
     #[sea_orm(indexed)]
     pub hash: String,
+
+    /// The original filename of the image.
     pub filename: String,
+
+    /// A subpath at which the image can be found, with the linked StorageLocation in the
+    /// UploadSettings as the root location.
     pub location: String,
+
     pub width: u32,
     pub height: u32,
     pub format: String,
 
-    pub conversion_profile_id: Uuid,
+    pub upload_settings_id: Uuid,
     pub alt_text: String,
     pub placeholder: String,
 
@@ -48,11 +54,11 @@ pub enum Relation {
     )]
     Project,
     #[sea_orm(
-        belongs_to = "super::conversion_profile::Entity",
-        from = "Column::ConversionProfileId",
-        to = "super::conversion_profile::Column::Id"
+        belongs_to = "super::upload_settings::Entity",
+        from = "Column::UploadSettingsId",
+        to = "super::upload_settings::Column::Id"
     )]
-    ConversionProfile,
+    UploadSettings,
     #[sea_orm(has_many = "super::output_image::Entity")]
     OutputImage,
 }
@@ -75,9 +81,9 @@ impl Related<super::project::Entity> for Entity {
     }
 }
 
-impl Related<super::conversion_profile::Entity> for Entity {
+impl Related<super::upload_settings::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::ConversionProfile.def()
+        Relation::UploadSettings.def()
     }
 }
 

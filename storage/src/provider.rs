@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::Error;
 use opendal::{Accessor, Operator};
 

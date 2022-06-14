@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.56"
-opendal = { version = "0.8.0", features = ["retry"]}
+opendal = { version = "0.9.0", features = ["retry"]}
 thiserror = "1.0.31"
 tokio = { version = "1.19.2", features = ["fs"] }

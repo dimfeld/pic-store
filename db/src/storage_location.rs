@@ -9,9 +9,13 @@ pub struct Model {
     #[sea_orm(indexed)]
     pub project_id: Uuid,
     pub name: String,
+
     pub provider: String,
     pub base_location: String,
     pub credentials: serde_json::Value,
+
+    /// The base URL at which images in this StorageLocation can be accessed on the web.
+    pub public_url_base: String,
 
     pub updated: TimeDateTimeWithTimeZone,
 }
