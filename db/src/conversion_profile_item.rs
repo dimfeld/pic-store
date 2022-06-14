@@ -2,9 +2,9 @@ use sea_orm::prelude::*;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "conversion_profiles")]
+#[sea_orm(table_name = "conversion_profile_items")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     #[sea_orm(indexed)]
     pub conversion_profile_id: Uuid,

@@ -5,7 +5,7 @@ use uuid::Uuid;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "conversion_profiles")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     #[sea_orm(indexed)]
     pub user_id: Uuid,

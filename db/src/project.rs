@@ -4,7 +4,7 @@ use sea_orm::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "projects")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     #[sea_orm(indexed)]
     pub team_id: Uuid,
@@ -31,12 +31,6 @@ pub enum Relation {
     ConversionProfile,
     #[sea_orm(has_many = "super::base_image::Entity")]
     BaseImage,
-}
-
-impl Related<super::user::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::User.def()
-    }
 }
 
 impl Related<super::team::Entity> for Entity {
