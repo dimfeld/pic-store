@@ -1,5 +1,9 @@
+use crate::create_table_and_index::create_table_and_indexes;
 use pic_store_db::*;
-use sea_orm_migration::{prelude::*, sea_orm::Schema};
+use sea_orm_migration::{
+    prelude::*,
+    sea_orm::{ConnectionTrait, TransactionTrait},
+};
 
 pub struct Migration;
 
@@ -12,61 +16,65 @@ impl MigrationName for Migration {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let db = manager.get_database_backend();
-        let schema = Schema::new(db);
+        let db = manager.get_connection();
+        let txn = db.begin().await?;
 
-        manager
-            .create_table(schema.create_table_from_entity(team::Entity))
-            .await?;
-        for idx in schema.create_index_from_entity(team::Entity) {
-            manager.create_index(idx).await?;
-        }
+        create_table_and_indexes(&txn, team::Entity).await?;
+        create_table_and_indexes(&txn, user::Entity).await?;
+        create_table_and_indexes(&txn, project::Entity).await?;
+        create_table_and_indexes(&txn, conversion_profile::Entity).await?;
+        create_table_and_indexes(&txn, conversion_profile_item::Entity).await?;
+        create_table_and_indexes(&txn, base_image::Entity).await?;
+        create_table_and_indexes(&txn, output_image::Entity).await?;
 
-        manager
-            .create_table(schema.create_table_from_entity(user::Entity))
-            .await?;
-        for idx in schema.create_index_from_entity(user::Entity) {
-            manager.create_index(idx).await?;
-        }
-
-        manager
-            .create_table(schema.create_table_from_entity(base_image::Entity))
-            .await?;
-        for idx in schema.create_index_from_entity(base_image::Entity) {
-            manager.create_index(idx).await?;
-        }
-
-        manager
-            .create_table(schema.create_table_from_entity(output_image::Entity))
-            .await?;
-        for idx in schema.create_index_from_entity(output_image::Entity) {
-            manager.create_index(idx).await?;
-        }
-
-        Ok(())
+        txn.commit().await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_table(
-                sea_query::Table::drop()
+        let conn = manager.get_connection();
+        let db = conn.get_database_backend();
+        let txn = conn.begin().await?;
+
+        txn.execute(
+            db.build(
+                &sea_query::Table::drop()
                     .table(output_image::Entity)
                     .to_owned(),
-            )
-            .await?;
-        manager
-            .drop_table(
-                sea_query::Table::drop()
+            ),
+        )
+        .await?;
+        txn.execute(
+            db.build(
+                &sea_query::Table::drop()
                     .table(base_image::Entity)
                     .to_owned(),
-            )
+            ),
+        )
+        .await?;
+        txn.execute(
+            db.build(
+                &sea_query::Table::drop()
+                    .table(conversion_profile_item::Entity)
+                    .to_owned(),
+            ),
+        )
+        .await?;
+        txn.execute(
+            db.build(
+                &sea_query::Table::drop()
+                    .table(conversion_profile::Entity)
+                    .to_owned(),
+            ),
+        )
+        .await?;
+        txn.execute(db.build(&sea_query::Table::drop().table(project::Entity).to_owned()))
             .await?;
-        manager
-            .drop_table(sea_query::Table::drop().table(user::Entity).to_owned())
+        txn.execute(db.build(&sea_query::Table::drop().table(user::Entity).to_owned()))
             .await?;
-        manager
-            .drop_table(sea_query::Table::drop().table(team::Entity).to_owned())
+        txn.execute(db.build(&sea_query::Table::drop().table(team::Entity).to_owned()))
             .await?;
+
+        txn.commit().await?;
         Ok(())
     }
 }

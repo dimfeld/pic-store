@@ -1,5 +1,6 @@
 pub use sea_orm_migration::prelude::*;
 
+mod create_table_and_index;
 mod m20220101_000001_create_table;
 
 pub struct Migrator;
