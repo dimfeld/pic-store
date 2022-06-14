@@ -1,7 +1,10 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    #[error("todo")]
-    Todo,
+    #[error("Unknown storage type {0}")]
+    UnknownStorageType(String),
+
+    #[error("Unsupported storage type {0}")]
+    UnsupportedStorageType(String),
 }
