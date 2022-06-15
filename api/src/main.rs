@@ -1,4 +1,5 @@
 mod config;
+mod routes;
 mod tracing_config;
 
 use std::net::{IpAddr, SocketAddr};
@@ -11,6 +12,7 @@ use crate::tracing_config::HoneycombConfig;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    dotenv::dotenv().ok();
     let mut config = config::Config::parse();
 
     let honeycomb_config = if let Some(team) = config.honeycomb_team.take() {
@@ -22,9 +24,9 @@ async fn main() -> Result<(), anyhow::Error> {
         None
     };
 
-    tracing_config::configure("pic-store-api", std::io::stdout, honeycomb_config)?;
+    tracing_config::configure(honeycomb_config)?;
 
-    let app = Router::new();
+    let app = routes::configure_routes(Router::new());
 
     let bind_ip: IpAddr = config.host.parse()?;
     let addr = SocketAddr::from((bind_ip, config.port));

@@ -1,22 +1,15 @@
 use opentelemetry_otlp::WithExportConfig;
 use tracing::subscriber::set_global_default;
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_log::LogTracer;
-use tracing_subscriber::{fmt::MakeWriter, layer::SubscriberExt, EnvFilter, Registry};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
+use tracing_tree::HierarchicalLayer;
 
 pub struct HoneycombConfig {
     pub team: String,
     pub dataset: String,
 }
 
-pub fn configure<W>(
-    name: impl Into<String>,
-    console_sink: W,
-    honeycomb_config: Option<HoneycombConfig>,
-) -> Result<(), anyhow::Error>
-where
-    W: for<'a> MakeWriter<'a> + 'static + Send + Sync,
-{
+pub fn configure(honeycomb_config: Option<HoneycombConfig>) -> Result<(), anyhow::Error> {
     LogTracer::builder()
         .ignore_crate("rustls")
         .with_max_level(log::LevelFilter::Debug)
@@ -25,11 +18,10 @@ where
 
     let env_filter = EnvFilter::try_from_env("LOG").unwrap_or_else(|_| EnvFilter::new("info"));
 
-    let formatting_layer = BunyanFormattingLayer::new(name.into(), console_sink);
-    let subscriber = Registry::default()
-        .with(env_filter)
-        .with(JsonStorageLayer)
-        .with(formatting_layer);
+    let tree = HierarchicalLayer::new(2)
+        .with_targets(true)
+        .with_bracketed_fields(true);
+    let subscriber = Registry::default().with(env_filter).with(tree);
 
     if let Some(honeycomb_config) = honeycomb_config {
         let mut oltp_meta = tonic::metadata::MetadataMap::new();

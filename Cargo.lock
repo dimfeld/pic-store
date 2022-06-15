@@ -2725,6 +2725,8 @@ dependencies = [
  "num_cpus",
  "opentelemetry",
  "opentelemetry-otlp",
+ "serde",
+ "serde_json",
  "tokio 1.19.2",
  "tonic",
  "tracing",
@@ -2733,6 +2735,7 @@ dependencies = [
  "tracing-log",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "tracing-tree",
 ]
 
 [[package]]
@@ -4708,6 +4711,19 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tracing-tree"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d07e90b329c621ade432823988574e820212648aa40e7a2497777d58de0fb453"
+dependencies = [
+ "ansi_term",
+ "atty",
+ "tracing-core",
+ "tracing-log",
+ "tracing-subscriber",
 ]
 
 [[package]]

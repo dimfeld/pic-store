@@ -11,9 +11,6 @@ pub struct Config {
     pub database_url: String,
 
     #[clap(long, env)]
-    pub otel_endpoint: String,
-
-    #[clap(long, env)]
     pub honeycomb_team: Option<String>,
     #[clap(long, env, default_value_t = String::from("dev"))]
     pub honeycomb_dataset: String,
