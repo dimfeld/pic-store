@@ -10,7 +10,11 @@ pub struct Model {
     pub project_id: Uuid,
     pub name: String,
 
-    pub storage_location_id: Uuid,
+    /// Where to store the input images, since they may not want to be in the same place as the
+    /// output.
+    pub base_storage_location_ud: Uuid,
+    /// Where to store the converted output images.
+    pub output_storage_location_id: Uuid,
     pub conversion_profile_id: Uuid,
 
     pub updated: TimeDateTimeWithTimeZone,
