@@ -12,7 +12,7 @@ pub struct Model {
 
     /// Where to store the input images, since they may not want to be in the same place as the
     /// output.
-    pub base_storage_location_ud: Uuid,
+    pub base_storage_location_id: Uuid,
     /// Where to store the converted output images.
     pub output_storage_location_id: Uuid,
     pub conversion_profile_id: Uuid,
@@ -30,10 +30,16 @@ pub enum Relation {
     Project,
     #[sea_orm(
         belongs_to = "super::storage_location::Entity",
-        from = "Column::StorageLocationId",
+        from = "Column::BaseStorageLocationId",
         to = "super::storage_location::Column::Id"
     )]
-    StorageLocation,
+    BaseStorageLocation,
+    #[sea_orm(
+        belongs_to = "super::storage_location::Entity",
+        from = "Column::OutputStorageLocationId",
+        to = "super::storage_location::Column::Id"
+    )]
+    OutputStorageLocation,
     #[sea_orm(
         belongs_to = "super::conversion_profile::Entity",
         from = "Column::ConversionProfileId",
@@ -45,11 +51,6 @@ pub enum Relation {
 impl Related<super::conversion_profile::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ConversionProfile.def()
-    }
-}
-impl Related<super::storage_location::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::StorageLocation.def()
     }
 }
 

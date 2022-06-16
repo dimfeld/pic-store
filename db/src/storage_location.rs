@@ -1,6 +1,17 @@
 use sea_orm::entity::prelude::TimeDateTimeWithTimeZone;
 use sea_orm::prelude::*;
 
+#[derive(EnumIter, DeriveActiveEnum, PartialEq, Eq, Copy, Clone, Debug)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "storage_provider")]
+pub enum Provider {
+    /// Local filesystem
+    #[sea_orm(string_value = "local")]
+    Local,
+    /// S3 or compatible storage
+    #[sea_orm(string_value = "s3")]
+    S3,
+}
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "storage_locations")]
 pub struct Model {
@@ -10,9 +21,9 @@ pub struct Model {
     pub project_id: Uuid,
     pub name: String,
 
-    pub provider: String,
+    pub provider: Provider,
     pub base_location: String,
-    pub credentials: serde_json::Value,
+    pub credentials: Option<serde_json::Value>,
 
     /// The base URL at which images in this StorageLocation can be accessed on the web.
     pub public_url_base: String,
