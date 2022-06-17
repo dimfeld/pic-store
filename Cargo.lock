@@ -2685,6 +2685,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "pic-store-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap 3.2.4",
+ "dotenv",
+ "log",
+ "num_cpus",
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "pic-store-db",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "tokio 1.19.2",
+ "tonic",
+ "tower",
+ "tracing",
+ "tracing-bunyan-formatter",
+ "tracing-honeycomb",
+ "tracing-log",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "tracing-tree",
+]
+
+[[package]]
 name = "pic-store-auth"
 version = "0.1.0"
 dependencies = [
@@ -2714,38 +2742,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "pic-store-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "clap 3.2.4",
- "dotenv",
- "log",
- "num_cpus",
- "opentelemetry",
- "opentelemetry-otlp",
- "pic-store-db",
- "sea-orm",
- "serde",
- "serde_json",
- "tokio 1.19.2",
- "tonic",
- "tower",
- "tracing",
- "tracing-bunyan-formatter",
- "tracing-honeycomb",
- "tracing-log",
- "tracing-opentelemetry",
- "tracing-subscriber",
- "tracing-tree",
-]
-
-[[package]]
 name = "pic-store-storage"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "backon",
  "opendal",
  "thiserror",
  "tokio 1.19.2",
