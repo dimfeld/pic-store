@@ -1,3 +1,5 @@
+use sea_orm::{DatabaseConnection, DbErr};
+
 pub mod base_image;
 pub mod conversion_profile;
 pub mod conversion_profile_item;
@@ -7,6 +9,10 @@ pub mod storage_location;
 pub mod team;
 pub mod upload_settings;
 pub mod user;
+
+pub async fn connect(url: &str) -> Result<DatabaseConnection, DbErr> {
+    sea_orm::Database::connect(url).await
+}
 
 #[cfg(test)]
 mod tests {
