@@ -29,3 +29,4 @@ tracing-opentelemetry = "0.17.3"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 tracing-tree = "0.2.1"
 tower = "0.4.12"
+uuid = "0.8"
