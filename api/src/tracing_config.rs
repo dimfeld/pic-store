@@ -1,5 +1,6 @@
 use opentelemetry_otlp::WithExportConfig;
 use tracing::subscriber::set_global_default;
+use tracing_error::ErrorLayer;
 use tracing_log::LogTracer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 use tracing_tree::HierarchicalLayer;
@@ -21,7 +22,10 @@ pub fn configure(honeycomb_config: Option<HoneycombConfig>) -> Result<(), anyhow
     let tree = HierarchicalLayer::new(2)
         .with_targets(true)
         .with_bracketed_fields(true);
-    let subscriber = Registry::default().with(env_filter).with(tree);
+    let subscriber = Registry::default()
+        .with(env_filter)
+        .with(tree)
+        .with(ErrorLayer::default());
 
     if let Some(honeycomb_config) = honeycomb_config {
         let mut oltp_meta = tonic::metadata::MetadataMap::new();

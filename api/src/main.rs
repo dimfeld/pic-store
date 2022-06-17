@@ -1,13 +1,18 @@
 mod config;
+mod panic_handler;
 mod routes;
 mod tracing_config;
 
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    error::Error,
+    net::{IpAddr, SocketAddr},
+};
 
 use axum::{Extension, Router};
 use clap::Parser;
 use tower::ServiceBuilder;
 use tower_http::{
+    catch_panic::CatchPanicLayer,
     request_id::MakeRequestUuid,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
     ServiceBuilderExt,
@@ -17,7 +22,8 @@ use tracing::{event, Level};
 use crate::tracing_config::HoneycombConfig;
 
 #[tokio::main]
-async fn main() -> Result<(), anyhow::Error> {
+async fn main() -> Result<(), Box<dyn Error>> {
+    color_eyre::install()?;
     dotenv::dotenv().ok();
     let mut config = config::Config::parse();
 
@@ -34,6 +40,8 @@ async fn main() -> Result<(), anyhow::Error> {
 
     tracing_config::configure(honeycomb_config)?;
 
+    let production = (config.env != "development" && !cfg!(debug_assertions));
+
     let app = routes::configure_routes(Router::new()).layer(
         ServiceBuilder::new()
             .layer(Extension(db))
@@ -47,6 +55,9 @@ async fn main() -> Result<(), anyhow::Error> {
             .propagate_x_request_id()
             .compression()
             .decompression()
+            .layer(CatchPanicLayer::custom(move |err| {
+                panic_handler::handle_panic(production, err)
+            }))
             .into_inner(),
     );
 

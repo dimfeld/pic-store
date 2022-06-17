@@ -7,6 +7,9 @@ pub struct Config {
     #[clap(short, long, env, default_value_t = 7205)]
     pub port: u16,
 
+    #[clap(env, default_value_t = String::from("production"))]
+    pub env: String,
+
     #[clap(long = "db", env)]
     pub database_url: String,
 

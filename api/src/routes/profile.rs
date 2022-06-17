@@ -30,6 +30,7 @@ async fn get_profile(Path(profile_id): Path<Uuid>) -> impl IntoResponse {
 }
 
 async fn disable_profile() -> impl IntoResponse {
+    todo!();
     StatusCode::NOT_IMPLEMENTED
 }
 
