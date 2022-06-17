@@ -47,6 +47,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "250f629c0161ad8107cf89319e990051fae62832fd343083bea452d93e2205fd"
 
 [[package]]
+name = "alloc-no-stdlib"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35ef4730490ad1c4eae5c4325b2a95f521d023e5c885853ff7aca0a6a1631db3"
+
+[[package]]
+name = "alloc-stdlib"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "697ed7edc0f1711de49ce108c541623a0af97c6c60b2f6e2b65229847ac843c2"
+dependencies = [
+ "alloc-no-stdlib",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -114,6 +129,20 @@ dependencies = [
  "futures-core",
  "futures-io",
  "once_cell",
+ "pin-project-lite 0.2.9",
+ "tokio 1.19.2",
+]
+
+[[package]]
+name = "async-compression"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "345fd392ab01f746c717b1357165b76f0b67a60192007b234058c9045fdcf695"
+dependencies = [
+ "brotli",
+ "flate2",
+ "futures-core",
+ "memchr",
  "pin-project-lite 0.2.9",
  "tokio 1.19.2",
 ]
@@ -495,6 +524,27 @@ dependencies = [
  "fastrand",
  "futures-lite",
  "once_cell",
+]
+
+[[package]]
+name = "brotli"
+version = "3.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1a0b1dbcc8ae29329621f8d4f0d835787c1c38bb1401979b49d13b0b305ff68"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
+ "brotli-decompressor",
+]
+
+[[package]]
+name = "brotli-decompressor"
+version = "2.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59ad2d4653bf5ca36ae797b1f4bb4dbddb60ce49ca4aed8a2ce4829f60425b80"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
 ]
 
 [[package]]
@@ -2703,6 +2753,7 @@ dependencies = [
  "tokio 1.19.2",
  "tonic",
  "tower",
+ "tower-http",
  "tracing",
  "tracing-bunyan-formatter",
  "tracing-honeycomb",
@@ -2710,7 +2761,7 @@ dependencies = [
  "tracing-opentelemetry",
  "tracing-subscriber",
  "tracing-tree",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -2739,7 +2790,7 @@ dependencies = [
  "serde",
  "serde_json",
  "time 0.3.9",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -3452,7 +3503,7 @@ dependencies = [
  "time 0.2.27",
  "tracing",
  "url",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -3513,7 +3564,7 @@ dependencies = [
  "sea-query-driver",
  "serde_json",
  "time 0.2.27",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -3943,7 +3994,7 @@ dependencies = [
  "time 0.2.27",
  "tokio-stream",
  "url",
- "uuid",
+ "uuid 0.8.2",
  "webpki",
  "webpki-roots 0.21.1",
  "whoami",
@@ -4560,6 +4611,7 @@ version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c530c8675c1dbf98facee631536fa116b5fb6382d7dd6dc1b118d970eafe3ba"
 dependencies = [
+ "async-compression",
  "bitflags",
  "bytes 1.1.0",
  "futures-core",
@@ -4568,9 +4620,13 @@ dependencies = [
  "http-body 0.4.5",
  "http-range-header",
  "pin-project-lite 0.2.9",
+ "tokio 1.19.2",
+ "tokio-util 0.7.3",
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
+ "uuid 1.1.2",
 ]
 
 [[package]]
@@ -4673,7 +4729,7 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-distributed",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -4824,6 +4880,15 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom 0.2.6",
  "serde",
+]
+
+[[package]]
+name = "uuid"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd6469f4314d5f1ffec476e05f17cc9a78bc7a27a6a857842170bdf8d6f98d2f"
+dependencies = [
+ "getrandom 0.2.6",
 ]
 
 [[package]]

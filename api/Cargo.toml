@@ -29,4 +29,5 @@ tracing-opentelemetry = "0.17.3"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 tracing-tree = "0.2.1"
 tower = "0.4.12"
+tower-http = { version = "0.3.4", features = [ "decompression-gzip", "decompression-br", "compression-gzip", "compression-deflate", "limit", "request-id", "trace" ] }
 uuid = "0.8"
