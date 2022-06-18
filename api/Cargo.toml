@@ -34,6 +34,7 @@ uuid = "0.8"
 tracing-error = "0.2.0"
 color-eyre = "0.6.1"
 thiserror = "1.0.31"
+biscuit-auth = "2.2.0"
 
 [dependencies.tower-http]
 version = "0.3.4"

@@ -2839,6 +2839,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "biscuit-auth",
  "clap 3.2.4",
  "color-eyre",
  "dotenv",

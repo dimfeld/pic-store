@@ -14,9 +14,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
+use pic_store_auth::RequireBiscuit;
 use pic_store_db as db;
 
-use crate::shared_state::State;
+use crate::{shared_state::State, Error};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConversionProfileInput {
@@ -41,15 +42,23 @@ async fn write_profile() -> impl IntoResponse {
 
 async fn new_profile(
     Extension(ref state): Extension<State>,
+    biscuit: RequireBiscuit,
     Json(body): Json<ConversionProfileInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
     let now = sea_orm::prelude::TimeDateTimeWithTimeZone::now_utc();
     let profile_id = Uuid::new_v4();
+
+    let (team_id, user_id): (String, String) = biscuit
+        .authorizer()?
+        .query(r##"data($team, $user) <- team($team), user($user)"##)?
+        .pop()
+        .ok_or(Error::Unauthorized)?;
+
     let item = db::conversion_profile::ActiveModel {
         id: Set(profile_id),
         name: Set(body.name),
         updated: Set(now),
-        team_id: todo!(),
+        team_id: Set(team_id),
         ..Default::default()
     };
 

@@ -9,6 +9,8 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
 use serde::Serialize;
 use uuid::Uuid;
 
+use pic_store_auth::RequireBiscuit;
+
 async fn upload_image() -> impl IntoResponse {
     StatusCode::NOT_IMPLEMENTED
 }
