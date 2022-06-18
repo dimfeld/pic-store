@@ -11,6 +11,7 @@ pub struct Model {
     pub team_id: Uuid,
     pub name: String,
     pub updated: TimeDateTimeWithTimeZone,
+    pub deleted: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -21,8 +22,8 @@ pub enum Relation {
         to = "super::team::Column::Id"
     )]
     Team,
-    #[sea_orm(has_many = "super::upload_settings::Entity")]
-    UploadSettings,
+    #[sea_orm(has_many = "super::upload_profile::Entity")]
+    UploadProfile,
     #[sea_orm(has_many = "super::conversion_profile_item::Entity")]
     ConversionProfileItem,
 }
@@ -33,9 +34,9 @@ impl Related<super::team::Entity> for Entity {
     }
 }
 
-impl Related<super::upload_settings::Entity> for Entity {
+impl Related<super::upload_profile::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UploadSettings.def()
+        Relation::UploadProfile.def()
     }
 }
 

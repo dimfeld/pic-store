@@ -2,7 +2,7 @@ use sea_orm::entity::prelude::TimeDateTimeWithTimeZone;
 use sea_orm::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "upload_settings")]
+#[sea_orm(table_name = "upload_profiles")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
@@ -18,6 +18,7 @@ pub struct Model {
     pub conversion_profile_id: Uuid,
 
     pub updated: TimeDateTimeWithTimeZone,
+    pub deleted: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

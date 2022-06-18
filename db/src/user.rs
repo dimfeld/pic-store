@@ -12,6 +12,7 @@ pub struct Model {
     pub email: String,
     pub name: String,
     pub updated: TimeDateTimeWithTimeZone,
+    pub deleted: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

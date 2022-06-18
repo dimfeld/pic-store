@@ -18,6 +18,7 @@ pub struct Model {
     pub format: String,
 
     pub created: TimeDateTime,
+    pub deleted: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

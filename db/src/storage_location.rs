@@ -29,6 +29,7 @@ pub struct Model {
     pub public_url_base: String,
 
     pub updated: TimeDateTimeWithTimeZone,
+    pub deleted: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -19,18 +19,19 @@ pub struct Model {
     pub filename: String,
 
     /// A subpath at which the image can be found, with the linked StorageLocation in the
-    /// UploadSettings as the root location.
+    /// UploadProfile as the root location.
     pub location: String,
 
     pub width: u32,
     pub height: u32,
     pub format: String,
 
-    pub upload_settings_id: Uuid,
+    pub upload_profile_id: Uuid,
     pub alt_text: String,
     pub placeholder: String,
 
     pub updated: TimeDateTimeWithTimeZone,
+    pub deleted: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -54,11 +55,11 @@ pub enum Relation {
     )]
     Project,
     #[sea_orm(
-        belongs_to = "super::upload_settings::Entity",
-        from = "Column::UploadSettingsId",
-        to = "super::upload_settings::Column::Id"
+        belongs_to = "super::upload_profile::Entity",
+        from = "Column::UploadProfileId",
+        to = "super::upload_profile::Column::Id"
     )]
-    UploadSettings,
+    UploadProfile,
     #[sea_orm(has_many = "super::output_image::Entity")]
     OutputImage,
 }
@@ -81,9 +82,9 @@ impl Related<super::project::Entity> for Entity {
     }
 }
 
-impl Related<super::upload_settings::Entity> for Entity {
+impl Related<super::upload_profile::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UploadSettings.def()
+        Relation::UploadProfile.def()
     }
 }
 

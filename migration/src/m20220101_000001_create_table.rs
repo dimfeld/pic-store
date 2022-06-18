@@ -25,7 +25,7 @@ impl MigrationTrait for Migration {
         create_table_and_indexes(&txn, storage_location::Entity).await?;
         create_table_and_indexes(&txn, conversion_profile::Entity).await?;
         create_table_and_indexes(&txn, conversion_profile_item::Entity).await?;
-        create_table_and_indexes(&txn, upload_settings::Entity).await?;
+        create_table_and_indexes(&txn, upload_profile::Entity).await?;
         create_table_and_indexes(&txn, base_image::Entity).await?;
         create_table_and_indexes(&txn, output_image::Entity).await?;
 
@@ -58,7 +58,7 @@ impl MigrationTrait for Migration {
         txn.execute(
             db.build(
                 &sea_query::Table::drop()
-                    .table(upload_settings::Entity)
+                    .table(upload_profile::Entity)
                     .to_owned(),
             ),
         )

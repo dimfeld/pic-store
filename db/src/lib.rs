@@ -7,7 +7,7 @@ pub mod output_image;
 pub mod project;
 pub mod storage_location;
 pub mod team;
-pub mod upload_settings;
+pub mod upload_profile;
 pub mod user;
 
 pub async fn connect(url: &str) -> Result<DatabaseConnection, DbErr> {
