@@ -35,13 +35,11 @@ async fn disable_profile() -> impl IntoResponse {
 }
 
 pub fn configure() -> Router {
-    let routes = Router::new()
+    Router::new()
         .route("/", get(list_profiles))
         .route("/", post(new_profile))
         .route("/:profile_id", get(get_profile))
         .route("/:profile_id", put(write_profile))
         .route("/:profile_id", delete(disable_profile))
-        .route("/:profile_id/upload", post(upload_image));
-
-    Router::new().nest("/profiles", routes)
+        .route("/:profile_id/upload", post(upload_image))
 }

@@ -1,11 +1,15 @@
 mod config;
+mod error;
 mod panic_handler;
 mod routes;
+mod shared_state;
 mod tracing_config;
 
+pub use error::Error;
+
 use std::{
-    error::Error,
     net::{IpAddr, SocketAddr},
+    sync::Arc,
 };
 
 use axum::{Extension, Router};
@@ -19,15 +23,13 @@ use tower_http::{
 };
 use tracing::{event, Level};
 
-use crate::tracing_config::HoneycombConfig;
+use crate::{shared_state::InnerState, tracing_config::HoneycombConfig};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     color_eyre::install()?;
     dotenv::dotenv().ok();
     let mut config = config::Config::parse();
-
-    let db = pic_store_db::connect(config.database_url.as_str()).await?;
 
     let honeycomb_config = if let Some(team) = config.honeycomb_team.take() {
         Some(HoneycombConfig {
@@ -40,11 +42,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     tracing_config::configure(honeycomb_config)?;
 
-    let production = (config.env != "development" && !cfg!(debug_assertions));
+    let db = pic_store_db::connect(config.database_url.as_str()).await?;
+
+    let production = config.env != "development" && !cfg!(debug_assertions);
+
+    let state = Arc::new(InnerState { production, db });
 
     let app = routes::configure_routes(Router::new()).layer(
         ServiceBuilder::new()
-            .layer(Extension(db))
+            .layer(Extension(state))
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
