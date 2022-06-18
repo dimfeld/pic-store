@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use axum::{
     http::{header::AUTHORIZATION, Request, StatusCode},
     response::{IntoResponse, Response},
@@ -9,7 +11,7 @@ pub fn invalid_message() -> Response {
     (StatusCode::UNAUTHORIZED, "401 Unauthorized").into_response()
 }
 
-pub fn extract_bearer_auth_value<B>(req: &Request<B>) -> Result<Option<String>, Response> {
+pub fn extract_bearer_auth_value<B>(req: &Request<B>) -> Result<Option<Cow<str>>, Response> {
     match req.headers().get(AUTHORIZATION) {
         None => Ok(None),
         Some(value) => {
@@ -23,15 +25,20 @@ pub fn extract_bearer_auth_value<B>(req: &Request<B>) -> Result<Option<String>, 
                 return Err(invalid_message());
             }
 
-            Ok(Some(token.to_string()))
+            Ok(Some(Cow::Borrowed(token)))
         }
     }
 }
 
-pub fn extract_from_cookie<B>(req: &Request<B>, cookie_name: &str) -> Option<String> {
+pub fn extract_from_cookie<'a, B>(req: &'a Request<B>, cookie_name: &str) -> Option<Cow<'a, str>> {
     // Get the Cookies if it's already there, or parse it ourselves otherwise.
     req.extensions()
         .get::<Cookies>()
         .and_then(|cookies| cookies.get(cookie_name))
-        .map(|cookie| cookie.to_string())
+        .map(|cookie| {
+            cookie
+                .value_raw()
+                .map(Cow::Borrowed)
+                .unwrap_or_else(|| Cow::Owned(cookie.value().to_string()))
+        })
 }

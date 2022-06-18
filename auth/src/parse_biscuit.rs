@@ -89,7 +89,7 @@ where
 
         let parsed = extracted.transpose().map(|extracted| {
             extracted.and_then(|token| {
-                Biscuit::from(token.as_str(), |_| self.pubkey).map_err(|_| invalid_message())
+                Biscuit::from(token.as_ref(), |_| self.pubkey).map_err(|_| invalid_message())
             })
         });
 
