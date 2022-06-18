@@ -118,12 +118,3 @@ pub fn keypair_from_priv_key_base64(encoded_key: &str) -> Result<KeyPair, anyhow
     let key = PrivateKey::from_bytes(&bytes)?;
     Ok(keypair_from_priv_key(key))
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
