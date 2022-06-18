@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     body::{Body, Bytes, HttpBody},
     http::Request,
@@ -8,7 +10,7 @@ use biscuit_auth::{Biscuit, KeyPair, PrivateKey, PublicKey};
 use futures::future::BoxFuture;
 use tower::{Layer, Service};
 
-use crate::extract_token::*;
+use crate::{extract_token::*, BiscuitExtension};
 
 pub struct BiscuitToken(String);
 
@@ -96,7 +98,8 @@ where
         match parsed {
             None => {}
             Some(Ok(biscuit)) => {
-                req.extensions_mut().insert(biscuit);
+                req.extensions_mut()
+                    .insert::<BiscuitExtension>(Arc::new(biscuit));
             }
             Some(Err(e)) => return Box::pin(async move { Ok(e) }),
         };
