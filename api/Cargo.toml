@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+pic-store-auth = { path = "../auth" }
 pic-store-db = { path = "../db" }
 
 anyhow = "1.0.57"

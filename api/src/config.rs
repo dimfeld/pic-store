@@ -17,4 +17,7 @@ pub struct Config {
     pub honeycomb_team: Option<String>,
     #[clap(long, env, default_value_t = String::from("dev"))]
     pub honeycomb_dataset: String,
+
+    #[clap(long, env, help = "A biscuit private key")]
+    pub biscuit_key: String,
 }

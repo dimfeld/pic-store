@@ -6,6 +6,7 @@ mod shared_state;
 mod tracing_config;
 
 pub use error::Error;
+use pic_store_auth::keypair_from_priv_key_base64;
 
 use std::{
     net::{IpAddr, SocketAddr},
@@ -48,9 +49,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let state = Arc::new(InnerState { production, db });
 
+    let biscuit_keypair = keypair_from_priv_key_base64(config.biscuit_key.as_str())?;
+
     let app = routes::configure_routes(Router::new()).layer(
+        // Global middlewares
         ServiceBuilder::new()
             .layer(Extension(state))
+            .layer(pic_store_auth::BiscuitExtractorLayer::with_pubkey(
+                biscuit_keypair.public(),
+            ))
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

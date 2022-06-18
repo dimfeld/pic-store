@@ -2,8 +2,9 @@ use axum::{
     http::{header::AUTHORIZATION, Request, StatusCode},
     response::{IntoResponse, Response},
 };
+use tower_cookies::Cookies;
 
-fn invalid_message() -> Response {
+pub fn invalid_message() -> Response {
     // Intentionally vague error message
     (StatusCode::UNAUTHORIZED, "401 Unauthorized").into_response()
 }
@@ -25,4 +26,12 @@ pub fn extract_bearer_auth_value<B>(req: &Request<B>) -> Result<Option<String>, 
             Ok(Some(token.to_string()))
         }
     }
+}
+
+pub fn extract_from_cookie<B>(req: &Request<B>, cookie_name: &str) -> Option<String> {
+    // Get the Cookies if it's already there, or parse it ourselves otherwise.
+    req.extensions()
+        .get::<Cookies>()
+        .and_then(|cookies| cookies.get(cookie_name))
+        .map(|cookie| cookie.to_string())
 }
