@@ -8,13 +8,13 @@ use axum::{
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
-    ConnectionTrait, DatabaseConnection, Statement, TransactionTrait,
+    ConnectionTrait, DatabaseConnection, EntityTrait, Statement, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
-use pic_store_auth::RequireBiscuit;
+use pic_store_auth::{Fact, RequireBiscuit};
 use pic_store_db as db;
 
 use crate::{shared_state::State, Error};
@@ -36,8 +36,39 @@ async fn list_profiles() -> impl IntoResponse {
     StatusCode::NOT_IMPLEMENTED
 }
 
-async fn write_profile() -> impl IntoResponse {
-    StatusCode::NOT_IMPLEMENTED
+async fn write_profile(
+    Path(profile_id): Path<Uuid>,
+    Extension(ref state): Extension<State>,
+    biscuit: RequireBiscuit,
+    Json(body): Json<ConversionProfileInput>,
+) -> Result<impl IntoResponse, Error> {
+    let mut auth = state.auth.with_biscuit(&biscuit)?;
+
+    let existing_profile = db::conversion_profile::Model::find_by_id(profile_id)
+        .one(&state.db)
+        .ok_or(Error::NotFound)?;
+
+    auth.add_fact(Fact::Resource.with_value(profile_id))?;
+    auth.add_fact(Fact::Operation.with_value("write"))?;
+
+    // There isn't yet any real permissions model, so just make sure that the team matches.
+    auth.add_check(Fact::Team.check_if(existing_profile.team_id.as_str()))?;
+    auth.allow()?;
+
+    auth.authorize()?;
+
+    let user_info = auth.get_user_and_team()?;
+
+    let now = sea_orm::prelude::TimeDateTimeWithTimeZone::now_utc();
+
+    let mut item = db::conversion_profile::ActiveModel::from(existing_profile);
+
+    item.updated = Set(now);
+    item.name = Set(body.name);
+
+    let result = item.update(&state.db).await?;
+
+    Ok((StatusCode::OK, Json(result)))
 }
 
 async fn new_profile(
@@ -45,20 +76,17 @@ async fn new_profile(
     biscuit: RequireBiscuit,
     Json(body): Json<ConversionProfileInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
+    let mut auth = state.auth.with_biscuit(&biscuit)?;
+    let user_info = auth.get_user_and_team()?;
+
     let now = sea_orm::prelude::TimeDateTimeWithTimeZone::now_utc();
     let profile_id = Uuid::new_v4();
-
-    let (team_id, user_id): (String, String) = biscuit
-        .authorizer()?
-        .query(r##"data($team, $user) <- team($team), user($user)"##)?
-        .pop()
-        .ok_or(Error::Unauthorized)?;
 
     let item = db::conversion_profile::ActiveModel {
         id: Set(profile_id),
         name: Set(body.name),
         updated: Set(now),
-        team_id: Set(team_id),
+        team_id: Set(user_info.team_id),
         ..Default::default()
     };
 

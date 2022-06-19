@@ -6,7 +6,7 @@ mod shared_state;
 mod tracing_config;
 
 pub use error::Error;
-use pic_store_auth::keypair_from_priv_key_base64;
+use pic_store_auth::{keypair_from_priv_key_base64, RootAuthEvaulator};
 
 use std::{
     net::{IpAddr, SocketAddr},
@@ -47,7 +47,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let production = config.env != "development" && !cfg!(debug_assertions);
 
-    let state = Arc::new(InnerState { production, db });
+    let state = Arc::new(InnerState {
+        production,
+        db,
+        auth: RootAuthEvaulator::new(),
+    });
 
     let biscuit_keypair = keypair_from_priv_key_base64(config.biscuit_key.as_str())?;
 

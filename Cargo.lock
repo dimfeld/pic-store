@@ -2878,8 +2878,12 @@ dependencies = [
  "base64 0.13.0",
  "biscuit-auth",
  "futures",
+ "ouroboros",
+ "thiserror",
  "tower",
  "tower-cookies",
+ "tracing",
+ "uuid 0.8.2",
 ]
 
 [[package]]
