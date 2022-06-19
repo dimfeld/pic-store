@@ -9,6 +9,7 @@ use axum::{
 use biscuit_auth::{Biscuit, KeyPair, PrivateKey, PublicKey};
 use futures::future::BoxFuture;
 use tower::{Layer, Service};
+use tracing::{event, Level};
 
 use crate::{extract_token::*, BiscuitExtension};
 
@@ -98,6 +99,7 @@ where
         match parsed {
             None => {}
             Some(Ok(biscuit)) => {
+                event!(Level::DEBUG, ?biscuit, "Got token");
                 req.extensions_mut()
                     .insert::<BiscuitExtension>(Arc::new(biscuit));
             }

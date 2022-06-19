@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{fmt::Display, ops::Deref};
 
 #[derive(Debug, Copy, Clone)]
 pub enum Fact {
@@ -6,8 +6,7 @@ pub enum Fact {
     Team,
     User,
     Project,
-    UploadProfile,
-    Image,
+    Resource,
 }
 
 impl Fact {
@@ -17,8 +16,7 @@ impl Fact {
             Fact::Team => "team",
             Fact::User => "user",
             Fact::Project => "project",
-            Fact::UploadProfile => "profile",
-            Fact::Image => "image",
+            Fact::Resource => "resource",
         }
     }
 
@@ -34,9 +32,9 @@ impl Fact {
     }
 }
 
-impl ToString for Fact {
-    fn to_string(&self) -> String {
-        self.as_str().to_string()
+impl Display for Fact {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 

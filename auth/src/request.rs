@@ -7,6 +7,8 @@ use axum::{
 };
 use biscuit_auth::Biscuit;
 
+use crate::AuthEvaluator;
+
 pub type BiscuitExtension = Arc<Biscuit>;
 
 #[derive(Debug)]
