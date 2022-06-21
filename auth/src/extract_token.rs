@@ -6,9 +6,10 @@ use axum::{
 };
 use tower_cookies::Cookies;
 
+pub const INVALID_MESSAGE_BODY: &str = "401 Unauthorized";
 pub fn invalid_message() -> Response {
     // Intentionally vague error message
-    (StatusCode::UNAUTHORIZED, "401 Unauthorized").into_response()
+    (StatusCode::UNAUTHORIZED, INVALID_MESSAGE_BODY).into_response()
 }
 
 pub fn extract_bearer_auth_value<B>(req: &Request<B>) -> Result<Option<Cow<str>>, Response> {

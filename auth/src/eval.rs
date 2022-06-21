@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     fn set_and_retrieve_facts() {
-        let (root_auth, token, ids) = setup();
+        let (root_auth, token, _ids) = setup();
         let mut auth = root_auth.with_biscuit(&token).expect("Creating authorizer");
 
         auth.set_project("a-project").expect("Setting project");
