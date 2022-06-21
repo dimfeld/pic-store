@@ -2843,6 +2843,7 @@ dependencies = [
  "clap 3.2.4",
  "color-eyre",
  "dotenv",
+ "futures",
  "log",
  "num_cpus",
  "opentelemetry",

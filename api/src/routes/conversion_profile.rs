@@ -44,15 +44,20 @@ async fn write_profile(
 ) -> Result<impl IntoResponse, Error> {
     let mut auth = state.auth.with_biscuit(&biscuit)?;
 
-    let existing_profile = db::conversion_profile::Model::find_by_id(profile_id)
+    let existing_profile = db::conversion_profile::Entity::find_by_id(profile_id)
         .one(&state.db)
+        .await?
         .ok_or(Error::NotFound)?;
 
     auth.add_fact(Fact::Resource.with_value(profile_id))?;
     auth.add_fact(Fact::Operation.with_value("write"))?;
 
     // There isn't yet any real permissions model, so just make sure that the team matches.
-    auth.add_check(Fact::Team.check_if(existing_profile.team_id.as_str()))?;
+    auth.add_check(
+        Fact::Team
+            .check_if(existing_profile.team_id.to_string().as_str())
+            .as_str(),
+    )?;
     auth.allow()?;
 
     auth.authorize()?;
@@ -68,7 +73,14 @@ async fn write_profile(
 
     let result = item.update(&state.db).await?;
 
-    Ok((StatusCode::OK, Json(result)))
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "id": result.id,
+            "name": result.name,
+            "updated": result.updated.to_string(),
+        })),
+    ))
 }
 
 async fn new_profile(

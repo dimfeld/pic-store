@@ -41,6 +41,6 @@ impl IntoResponse for Error {
 
 impl From<biscuit_auth::error::Token> for Error {
     fn from(err: biscuit_auth::error::Token) -> Self {
-        Error::AuthError(pic_store_auth::Error::DatalogTokenError(err))
+        Error::AuthError(pic_store_auth::Error::TokenError(err))
     }
 }

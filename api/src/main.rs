@@ -1,5 +1,6 @@
 mod config;
 mod error;
+mod obfuscate_errors;
 mod panic_handler;
 mod routes;
 mod shared_state;
@@ -24,7 +25,10 @@ use tower_http::{
 };
 use tracing::{event, Level};
 
-use crate::{shared_state::InnerState, tracing_config::HoneycombConfig};
+use crate::{
+    obfuscate_errors::ObfuscateErrorLayer, shared_state::InnerState,
+    tracing_config::HoneycombConfig,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -58,23 +62,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = routes::configure_routes(Router::new()).layer(
         // Global middlewares
         ServiceBuilder::new()
+            .layer(CatchPanicLayer::custom(move |err| {
+                panic_handler::handle_panic(production, err)
+            }))
+            .layer(ObfuscateErrorLayer::new(production))
+            .compression()
+            .decompression()
+            .set_x_request_id(MakeRequestUuid)
+            .propagate_x_request_id()
             .layer(Extension(state))
-            .layer(pic_store_auth::BiscuitExtractorLayer::with_pubkey(
-                biscuit_keypair.public(),
-            ))
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
                     .on_response(DefaultOnResponse::new().level(Level::INFO))
                     .on_request(DefaultOnRequest::new().level(Level::INFO)),
             )
-            .set_x_request_id(MakeRequestUuid)
-            .propagate_x_request_id()
-            .compression()
-            .decompression()
-            .layer(CatchPanicLayer::custom(move |err| {
-                panic_handler::handle_panic(production, err)
-            }))
+            .layer(pic_store_auth::BiscuitExtractorLayer::with_pubkey(
+                biscuit_keypair.public(),
+            ))
             .into_inner(),
     );
 

@@ -1,9 +1,8 @@
 use sea_orm::entity::prelude::TimeDateTimeWithTimeZone;
 use sea_orm::prelude::*;
-use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "conversion_profiles")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
