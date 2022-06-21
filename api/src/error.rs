@@ -4,6 +4,7 @@ use axum::{
     Json,
 };
 use sea_orm::DbErr;
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -21,21 +22,27 @@ pub enum Error {
     NotFound,
 }
 
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
+impl Error {
+    pub fn response_tuple(&self) -> (StatusCode, serde_json::Value) {
         match self {
-            Error::Unauthorized => (StatusCode::UNAUTHORIZED, "401 Unauthorized").into_response(),
-            Error::NotFound => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
+            Error::Unauthorized => (StatusCode::UNAUTHORIZED, json!("401 Unauthorized")),
+            Error::NotFound => (StatusCode::NOT_FOUND, json!("404 Not Found")),
             _ => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({
+                serde_json::json!({
                     "error": {
                         "details": self.to_string()
                     }
-                })),
-            )
-                .into_response(),
+                }),
+            ),
         }
+    }
+}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        let (code, json) = self.response_tuple();
+        (code, Json(json)).into_response()
     }
 }
 

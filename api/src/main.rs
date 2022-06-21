@@ -51,10 +51,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let production = config.env != "development" && !cfg!(debug_assertions);
 
+    let root_eval = RootAuthEvaulator::new();
     let state = Arc::new(InnerState {
         production,
         db,
-        auth: RootAuthEvaulator::new(),
+        auth: root_eval.clone(),
     });
 
     let biscuit_keypair = keypair_from_priv_key_base64(config.biscuit_key.as_str())?;
@@ -71,6 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .set_x_request_id(MakeRequestUuid)
             .propagate_x_request_id()
             .layer(Extension(state))
+            .layer(Extension(Arc::new(root_eval)))
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

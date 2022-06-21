@@ -3,6 +3,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use axum::http::{Method, Request};
 use biscuit_auth::{error, Authorizer, Biscuit};
 use uuid::Uuid;
 
@@ -30,9 +31,15 @@ impl RootAuthEvaulator {
     }
 
     pub fn with_biscuit<'a>(&self, token: &'a Biscuit) -> Result<AuthEvaluator<'a>, Error> {
-        let mut authorizer = self.root_authorizer.clone();
-        authorizer.add_token(token)?;
-        Ok(AuthEvaluator::new(authorizer))
+        let authorizer = AuthEvaluator::new(self.root_authorizer.clone()).with_biscuit(token)?;
+        Ok(authorizer)
+    }
+
+    /// Get an authorizer without associating it with a token.
+    /// This can be useful when you want to do some other things with the authorizer first,
+    /// and associating it with the lifetime of the token isn't convenient until later.
+    pub fn get_authorizer(&self) -> AuthEvaluator<'static> {
+        AuthEvaluator::new(self.root_authorizer.clone())
     }
 }
 
@@ -51,7 +58,8 @@ impl Debug for RootAuthEvaulator {
 }
 
 /** A structure to help with evaluating authorization information, created by
- * RootAuthEvaulator::with_biscuit */
+ * RootAuthEvaulator */
+#[derive(Clone)]
 pub struct AuthEvaluator<'a> {
     pub authorizer: Authorizer<'a>,
 }
@@ -59,6 +67,13 @@ pub struct AuthEvaluator<'a> {
 impl<'a> AuthEvaluator<'a> {
     fn new(authorizer: Authorizer<'a>) -> Self {
         AuthEvaluator { authorizer }
+    }
+
+    // We need to restrict the lifetime of the Authorizer here, so consume it and return
+    // it again.
+    pub fn with_biscuit(mut self, token: &'a Biscuit) -> Result<AuthEvaluator<'a>, Error> {
+        self.authorizer.add_token(token)?;
+        Ok(self)
     }
 
     pub fn set_project(&mut self, project: impl ToString) -> Result<(), Error> {
@@ -70,6 +85,25 @@ impl<'a> AuthEvaluator<'a> {
     pub fn set_resource(&mut self, resource_id: impl ToString) -> Result<(), Error> {
         self.authorizer
             .add_fact(crate::Fact::Resource.with_value(resource_id))?;
+        Ok(())
+    }
+
+    pub fn set_operation_from_request<B>(&mut self, req: &Request<B>) -> Result<(), Error> {
+        let operation = match *req.method() {
+            Method::GET => "read",
+            Method::HEAD => "read",
+            Method::POST => "create",
+            Method::PUT => "write",
+            Method::PATCH => "write",
+            Method::DELETE => "delete",
+            _ => "",
+        };
+
+        if !operation.is_empty() {
+            self.authorizer
+                .add_fact(crate::Fact::Operation.with_value(operation))?;
+        }
+
         Ok(())
     }
 

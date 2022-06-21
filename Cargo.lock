@@ -2838,12 +2838,14 @@ name = "pic-store-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "biscuit-auth",
  "clap 3.2.4",
  "color-eyre",
  "dotenv",
  "futures",
+ "http-body 0.4.5",
  "log",
  "num_cpus",
  "opentelemetry",
@@ -2854,6 +2856,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "time 0.2.27",
  "tokio 1.19.2",
  "tonic",
  "tower",
@@ -2879,7 +2882,9 @@ dependencies = [
  "base64 0.13.0",
  "biscuit-auth",
  "futures",
+ "http-body 0.4.5",
  "ouroboros",
+ "serde_json",
  "thiserror",
  "tower",
  "tower-cookies",
@@ -2905,7 +2910,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "time 0.3.9",
+ "time 0.2.27",
  "uuid 0.8.2",
 ]
 
@@ -4447,6 +4452,7 @@ checksum = "4752a97f8eebd6854ff91f1c1824cd6160626ac4bd44287f7f4ea2035a02a242"
 dependencies = [
  "const_fn",
  "libc",
+ "serde",
  "standback",
  "stdweb",
  "time-macros 0.1.1",
