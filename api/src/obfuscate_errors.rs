@@ -1,14 +1,12 @@
-use std::future::Future;
-
 use axum::{
-    body::{boxed, Body, BoxBody},
+    body::{Body, BoxBody},
     http::{Request, StatusCode},
-    middleware::Next,
     response::{IntoResponse, Response},
+    Json,
 };
-use futures::future::{BoxFuture, FutureExt, MapOk};
+use futures::future::BoxFuture;
 use serde_json::json;
-use tower::{util::MapResponseLayer, Layer, Service, ServiceExt};
+use tower::{Layer, Service};
 
 pub struct ObfuscateErrorLayer {
     enabled: bool,
@@ -37,11 +35,12 @@ pub struct ObfuscateError<S> {
     enabled: bool,
 }
 
-impl<S> Service<Request<Body>> for ObfuscateError<S>
+impl<S, B> Service<Request<B>> for ObfuscateError<S>
 where
-    S: Service<Request<Body>> + Send + 'static,
+    S: Service<Request<B>> + Send + 'static,
     S::Future: Send + 'static,
     S::Response: IntoResponse + Send + 'static,
+    B: Send,
 {
     type Response = Response<BoxBody>;
     type Error = S::Error;
@@ -54,7 +53,7 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
+    fn call(&mut self, req: Request<B>) -> Self::Future {
         let enabled = self.enabled;
         let fut = self.inner.call(req);
         Box::pin(async move {
@@ -81,9 +80,109 @@ where
                 }
             });
 
-            let new_res = (status, message).into_response();
+            let new_res = (status, Json(new_response)).into_response();
 
             Ok(new_res)
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use axum::{
+        body::Body,
+        http::{Method, Request, Response, StatusCode},
+        routing::get,
+        Router,
+    };
+    use tower::ServiceExt;
+
+    use super::ObfuscateErrorLayer;
+
+    fn make_app(enabled: bool) -> Router {
+        Router::new()
+            .route("/200", get(|| async { (StatusCode::OK, "success") }))
+            .route(
+                "/500",
+                get(|| async { (StatusCode::INTERNAL_SERVER_ERROR, "error 500") }),
+            )
+            .route(
+                "/401",
+                get(|| async { (StatusCode::UNAUTHORIZED, "error 401") }),
+            )
+            .route(
+                "/403",
+                get(|| async { (StatusCode::FORBIDDEN, "error 403") }),
+            )
+            .layer(ObfuscateErrorLayer::new(enabled))
+    }
+
+    async fn send_req(app: &Router, url: &str) -> (StatusCode, String) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(url)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let status = response.status();
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        (status, String::from_utf8(body.to_vec()).unwrap())
+    }
+
+    #[tokio::test]
+    async fn test_disabled() {
+        let app = make_app(false);
+
+        let (code, body) = send_req(&app, "/200").await;
+        assert_eq!(code, 200, "/200 status code");
+        assert_eq!(body, "success", "/200 body");
+
+        let (code, body) = send_req(&app, "/401").await;
+        assert_eq!(code, 401, "/401 status code");
+        assert_eq!(body, "error 401", "/401 body");
+
+        let (code, body) = send_req(&app, "/403").await;
+        assert_eq!(code, 403, "/403 status code");
+        assert_eq!(body, "error 403", "/403 body");
+
+        let (code, body) = send_req(&app, "/500").await;
+        assert_eq!(code, 500, "/500 status code");
+        assert_eq!(body, "error 500", "/500 body");
+    }
+
+    #[tokio::test]
+    async fn test_enabled() {
+        let app = make_app(true);
+
+        let (code, body) = send_req(&app, "/200").await;
+        assert_eq!(code, 200, "/200 status code");
+        assert_eq!(body, "success", "/200 body");
+
+        let (code, body) = send_req(&app, "/401").await;
+        assert_eq!(code, 401, "/401 status code");
+        assert_eq!(
+            body, r##"{"error":{"detail":"Unauthorized"}}"##,
+            "/401 body should be obfuscated"
+        );
+
+        let (code, body) = send_req(&app, "/403").await;
+        assert_eq!(code, 403, "/403 status code");
+        assert_eq!(
+            body, r##"{"error":{"detail":"Forbidden"}}"##,
+            "/403 body should be obfuscated"
+        );
+
+        let (code, body) = send_req(&app, "/500").await;
+        assert_eq!(code, 500, "/500 status code");
+        assert_eq!(
+            body, r##"{"error":{"detail":"Internal error"}}"##,
+            "/500 body should be obfuscated"
+        );
     }
 }
