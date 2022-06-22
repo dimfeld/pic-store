@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use sea_orm::entity::prelude::TimeDateTimeWithTimeZone;
 use sea_orm::prelude::*;
 
@@ -10,6 +12,17 @@ pub enum Provider {
     /// S3 or compatible storage
     #[sea_orm(string_value = "s3")]
     S3,
+}
+
+impl Display for Provider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            Self::Local => "Local",
+            Self::S3 => "S3",
+        };
+
+        f.write_str(label)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]

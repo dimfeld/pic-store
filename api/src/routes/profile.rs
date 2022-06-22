@@ -60,10 +60,8 @@ async fn get_upload_url(
 
     let response = match output_path.provider {
         db::storage_location::Provider::S3 => todo!("Generate S3 upload URL"),
-        db::storage_location::Provider::Local => {
-            (StatusCode::CONFLICT, Json(serde_json::Value::Null))
-        }
-    };
+        db::storage_location::Provider::Local => Err(Error::NoUploadUrlError(output_path.provider)),
+    }?;
 
     // Add the entry to the database with some sort of pending tag
     // The client then uploads it to the backing store, and calls another endpoint (TBD) to mark it

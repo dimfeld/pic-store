@@ -4,12 +4,13 @@ use async_trait::async_trait;
 use axum::{
     body::{Body, Bytes, HttpBody},
     extract::{FromRequest, RequestParts},
-    http::{Request, StatusCode},
+    http::{header::HeaderName, HeaderValue, Request, StatusCode},
     response::{ErrorResponse, IntoResponse, Response},
     BoxError, Json,
 };
 use biscuit_auth::Biscuit;
 use futures::{future::BoxFuture, Future, FutureExt, TryFutureExt};
+use serde::Serialize;
 use thiserror::Error;
 use tower::{Layer, Service};
 
@@ -159,7 +160,7 @@ pub enum BiscuitExtractorError {
     #[error("{}", crate::extract_token::INVALID_MESSAGE_BODY)]
     Token(#[from] biscuit_auth::error::Token),
     #[error("{0} {1}")]
-    CustomError(StatusCode, serde_json::Value),
+    CustomError(StatusCode, String),
     #[error(transparent)]
     InternalServerError(#[from] tower::BoxError),
 }
@@ -170,9 +171,15 @@ impl BiscuitExtractorError {
     }
 }
 
-impl From<(StatusCode, serde_json::Value)> for BiscuitExtractorError {
-    fn from(err: (StatusCode, serde_json::Value)) -> Self {
-        BiscuitExtractorError::CustomError(err.0, err.1)
+impl<T> From<(StatusCode, T)> for BiscuitExtractorError
+where
+    T: Serialize + Debug,
+{
+    fn from(err: (StatusCode, T)) -> Self {
+        BiscuitExtractorError::CustomError(
+            err.0,
+            serde_json::to_string(&err.1).unwrap_or_else(|_| format!("{:?}", err.1)),
+        )
     }
 }
 
@@ -191,7 +198,14 @@ impl IntoResponse for BiscuitExtractorError {
             Self::InternalServerError(err) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response()
             }
-            Self::CustomError(code, json) => (code, Json(json)).into_response(),
+            Self::CustomError(code, json) => {
+                let mut response = (code, json).into_response();
+                // The JSON is pre-serialized so we set the content-type manually.
+                response
+                    .headers_mut()
+                    .insert("content-type", HeaderValue::from_static("application/json"));
+                response
+            }
             _ => invalid_message(),
         }
     }

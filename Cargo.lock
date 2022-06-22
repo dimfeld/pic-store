@@ -2904,6 +2904,7 @@ dependencies = [
  "futures",
  "http-body 0.4.5",
  "ouroboros",
+ "serde",
  "serde_json",
  "thiserror",
  "tower",

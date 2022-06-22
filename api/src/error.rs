@@ -4,8 +4,28 @@ use axum::{
     Json,
 };
 use sea_orm::DbErr;
-use serde_json::json;
+use serde::Serialize;
 use thiserror::Error;
+
+use pic_store_db as db;
+
+#[derive(Debug, Serialize)]
+pub struct ErrorResponseData {
+    error: ErrorDetails,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorDetails {
+    details: String,
+}
+
+impl ErrorResponseData {
+    pub fn new(message: String) -> ErrorResponseData {
+        ErrorResponseData {
+            error: ErrorDetails { details: message },
+        }
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -20,22 +40,21 @@ pub enum Error {
 
     #[error("Not found")]
     NotFound,
+
+    #[error("Storage provider {0} does not support pre-signed URLs")]
+    NoUploadUrlError(db::storage_location::Provider),
 }
 
 impl Error {
-    pub fn response_tuple(&self) -> (StatusCode, serde_json::Value) {
-        match self {
-            Error::Unauthorized => (StatusCode::UNAUTHORIZED, json!("401 Unauthorized")),
-            Error::NotFound => (StatusCode::NOT_FOUND, json!("404 Not Found")),
-            _ => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                serde_json::json!({
-                    "error": {
-                        "details": self.to_string()
-                    }
-                }),
-            ),
-        }
+    pub fn response_tuple(&self) -> (StatusCode, ErrorResponseData) {
+        let status = match self {
+            Error::NoUploadUrlError(_) => StatusCode::BAD_REQUEST,
+            Error::Unauthorized => StatusCode::UNAUTHORIZED,
+            Error::NotFound => StatusCode::NOT_FOUND,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+
+        (status, ErrorResponseData::new(self.to_string()))
     }
 }
 
