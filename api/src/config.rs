@@ -20,4 +20,12 @@ pub struct Config {
 
     #[clap(long, env, help = "A biscuit private key")]
     pub biscuit_key: String,
+
+    #[clap(
+        long,
+        env,
+        help = "Allow using the local filesystem as an upload destination",
+        default_value_t = false
+    )]
+    pub allow_local_fs: bool,
 }
