@@ -160,6 +160,8 @@ pub enum BiscuitExtractorError {
     #[error("{}", crate::extract_token::INVALID_MESSAGE_BODY)]
     Token(#[from] biscuit_auth::error::Token),
     #[error("{0} {1}")]
+    StringError(StatusCode, String),
+    #[error("{0} {1}")]
     CustomError(StatusCode, String),
     #[error(transparent)]
     InternalServerError(#[from] tower::BoxError),
@@ -187,7 +189,13 @@ impl From<crate::Error> for BiscuitExtractorError {
     fn from(err: crate::Error) -> Self {
         match err {
             crate::Error::TokenError(token) => BiscuitExtractorError::Token(token),
-            _ => BiscuitExtractorError::Unauthorized,
+            crate::Error::MissingCredentials => {
+                BiscuitExtractorError::StringError(StatusCode::UNAUTHORIZED, err.to_string())
+            }
+            _ => BiscuitExtractorError::StringError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                err.to_string(),
+            ),
         }
     }
 }
@@ -198,6 +206,11 @@ impl IntoResponse for BiscuitExtractorError {
             Self::InternalServerError(err) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response()
             }
+            Self::StringError(code, message) => (
+                code,
+                Json(pic_store_http_errors::ErrorResponseData::new(message)),
+            )
+                .into_response(),
             Self::CustomError(code, json) => {
                 let mut response = (code, json).into_response();
                 // The JSON is pre-serialized so we set the content-type manually.

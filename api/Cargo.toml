@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 pic-store-auth = { path = "../auth" }
 pic-store-db = { path = "../db" }
+pic-store-http-errors = { path = "../http-errors" }
 
 anyhow = "1.0.57"
 axum = { version="0.5.7", features = ["multipart"] }

@@ -2872,6 +2872,7 @@ dependencies = [
  "opentelemetry-otlp",
  "pic-store-auth",
  "pic-store-db",
+ "pic-store-http-errors",
  "sea-orm",
  "serde",
  "serde_json",
@@ -2904,6 +2905,7 @@ dependencies = [
  "futures",
  "http-body 0.4.5",
  "ouroboros",
+ "pic-store-http-errors",
  "serde",
  "serde_json",
  "thiserror",
@@ -2932,6 +2934,20 @@ dependencies = [
  "serde",
  "serde_json",
  "time 0.2.27",
+ "uuid 0.8.2",
+]
+
+[[package]]
+name = "pic-store-http-errors"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "http-body 0.4.5",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
  "uuid 0.8.2",
 ]
 

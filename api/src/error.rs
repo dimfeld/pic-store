@@ -4,28 +4,10 @@ use axum::{
     Json,
 };
 use sea_orm::DbErr;
-use serde::Serialize;
 use thiserror::Error;
 
 use pic_store_db as db;
-
-#[derive(Debug, Serialize)]
-pub struct ErrorResponseData {
-    error: ErrorDetails,
-}
-
-#[derive(Debug, Serialize)]
-struct ErrorDetails {
-    details: String,
-}
-
-impl ErrorResponseData {
-    pub fn new(message: String) -> ErrorResponseData {
-        ErrorResponseData {
-            error: ErrorDetails { details: message },
-        }
-    }
-}
+use pic_store_http_errors::ErrorResponseData;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -54,7 +36,10 @@ impl Error {
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
-        (status, ErrorResponseData::new(self.to_string()))
+        (
+            status,
+            pic_store_http_errors::ErrorResponseData::new(self.to_string()),
+        )
     }
 }
 

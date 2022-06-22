@@ -4,6 +4,7 @@ members = [
   "auth",
   "convert",
   "db",
+  "http-errors",
   "migration",
   "storage"
 ]
