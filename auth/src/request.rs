@@ -57,6 +57,18 @@ impl<T: BiscuitInfoExtractor> CheckBiscuitLayer<T> {
     }
 }
 
+// impl<F, Fut> CheckBiscuitLayer<ExtractorFnWrapper<F>>
+// where
+//     for<'r> F:
+//         Fn(RequestParts<Body>, &mut AuthEvaluator<'r>) -> Fut + Clone + Send + Sync + 'static,
+//     Fut: Future<Output = Result<RequestParts<Body>, BiscuitExtractorError>> + Send,
+// {
+//     pub fn from_fn(f: F) -> Self {
+//         let extractor = ExtractorFnWrapper(f);
+//         Self::new(extractor)
+//     }
+// }
+
 impl<S, T: BiscuitInfoExtractor> Layer<S> for CheckBiscuitLayer<T> {
     type Service = CheckBiscuit<S, T>;
 
@@ -196,17 +208,22 @@ pub trait BiscuitInfoExtractor: Clone + Send + Sync + 'static {
 
 // This is designed allow passing a function instead of an object to CheckBiscuitLayer,
 // but I'm having trouble getting all the lifetimes and other requirements to line up.
+
+// #[derive(Clone)]
+// struct ExtractorFnWrapper<F>(F);
+
 // #[async_trait]
-// impl<F, Fut> BiscuitInfoExtractor for F
+// impl<F, Fut> BiscuitInfoExtractor for ExtractorFnWrapper<F>
 // where
-//     F: Fn(RequestParts<Body>, &mut AuthEvaluator<'static>) -> Fut + Clone + Send + Sync + 'static,
+//     for<'a> F:
+//         Fn(RequestParts<Body>, &'a mut AuthEvaluator<'a>) -> Fut + Clone + Send + Sync + 'static,
 //     Fut: Future<Output = Result<RequestParts<Body>, BiscuitExtractorError>> + Send,
 // {
 //     async fn extract(
 //         &self,
 //         req: RequestParts<Body>,
-//         auth: &mut AuthEvaluator<'static>,
+//         authorizer: &'a mut AuthEvaluator<'a>,
 //     ) -> Result<RequestParts<Body>, BiscuitExtractorError> {
-//         (self)(req, auth).await
+//         (self.0)(req, authorizer).await
 //     }
 // }

@@ -10,7 +10,7 @@ pic-store-auth = { path = "../auth" }
 pic-store-db = { path = "../db" }
 
 anyhow = "1.0.57"
-axum = "0.5.7"
+axum = { version="0.5.7", features = ["multipart"] }
 clap = { version = "3.2.4", features = ["derive", "env", "wrap_help"] }
 dotenv = "0.15.0"
 log = "0.4.17"

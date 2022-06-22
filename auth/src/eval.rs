@@ -88,8 +88,8 @@ impl<'a> AuthEvaluator<'a> {
         Ok(())
     }
 
-    pub fn set_operation_from_request<B>(&mut self, req: &Request<B>) -> Result<(), Error> {
-        let operation = match *req.method() {
+    pub fn set_operation_from_method(&mut self, method: &Method) -> Result<(), Error> {
+        let operation = match *method {
             Method::GET => "read",
             Method::HEAD => "read",
             Method::POST => "create",

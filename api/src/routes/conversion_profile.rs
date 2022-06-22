@@ -68,7 +68,7 @@ impl BiscuitInfoExtractor for CheckProfileId {
             .ok_or_else(|| Error::NotFound.response_tuple())?;
 
         auth.add_fact(Fact::Resource.with_value(profile_id))?;
-        auth.add_fact(Fact::Operation.with_value("write"))?;
+        auth.set_operation_from_method(req.method())?;
 
         // There isn't yet any real permissions model, so just make sure that the team matches.
         auth.add_check(
