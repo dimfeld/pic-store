@@ -1,5 +1,12 @@
+use std::time::Duration;
+
+use aws_sdk_s3::presigning::config::PresigningConfig;
 use aws_sdk_s3::{client::Client as S3Client, Credentials};
 use http::Uri;
+
+use crate::provider::Provider;
+
+use crate::provider::Provider;
 
 #[derive(Debug, Clone)]
 pub struct S3ProviderConfig {
@@ -24,4 +31,29 @@ pub fn create_client(config: &S3ProviderConfig) -> S3Client {
     let config = builder.build();
 
     S3Client::from_conf(config)
+}
+
+impl Provider {
+    async fn create_s3_presigned_upload_url(
+        &self,
+        client: S3Client,
+        destination: &str,
+    ) -> Result<String, ()> {
+        let uri = destination.parse::<Uri>().unwrap();
+        let host = uri.host().unwrap();
+
+        let req = client
+            .put_object()
+            .bucket(host)
+            .presigned(
+                PresigningConfig::builder()
+                    .expires_in(Duration::from_secs(15 * 60))
+                    .build()
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        todo!()
+    }
 }
