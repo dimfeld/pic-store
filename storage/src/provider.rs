@@ -32,37 +32,8 @@ impl Provider {
 
     pub async fn create_operator(&self, base_location: &str) -> Result<Operator, anyhow::Error> {
         let accessor = match self {
-            Self::S3 {
-                config:
-                    S3ProviderConfig {
-                        endpoint,
-                        secret_key,
-                        access_key_id,
-                    },
-                ..
-            } => {
-                let mut builder = opendal::services::s3::Backend::build();
-                builder
-                    .access_key_id(access_key_id)
-                    .secret_access_key(secret_key);
-                if let Some(endpoint) = endpoint {
-                    let e = endpoint.to_string();
-                    builder.endpoint(e.as_str());
-                }
-
-                if !base_location.is_empty() {
-                    let (bucket, root) = match base_location.find('/') {
-                        Some(slash_pos) => base_location.split_at(slash_pos),
-                        None => (base_location, ""),
-                    };
-
-                    builder.bucket(bucket);
-                    if !root.is_empty() {
-                        builder.root(root);
-                    }
-                }
-
-                builder.finish().await?
+            Self::S3 { config, .. } => {
+                crate::s3::create_opendal_accessor(config, base_location).await?
             }
             Self::Local => {
                 let mut builder = opendal::services::fs::Backend::build();

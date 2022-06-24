@@ -1,8 +1,10 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use aws_sdk_s3::presigning::config::PresigningConfig;
 use aws_sdk_s3::{client::Client as S3Client, Credentials};
 use http::Uri;
+use opendal::Accessor;
 
 use crate::error::Error;
 use crate::presigned_url::PresignedUrl;
@@ -31,6 +33,34 @@ pub fn create_client(config: &S3ProviderConfig) -> S3Client {
     let config = builder.build();
 
     S3Client::from_conf(config)
+}
+
+pub(crate) async fn create_opendal_accessor(
+    config: &S3ProviderConfig,
+    base_location: &str,
+) -> Result<Arc<dyn Accessor>, anyhow::Error> {
+    let mut builder = opendal::services::s3::Backend::build();
+    builder
+        .access_key_id(config.access_key_id.as_str())
+        .secret_access_key(config.secret_key.as_str());
+    if let Some(endpoint) = config.endpoint.as_ref() {
+        let e = endpoint.to_string();
+        builder.endpoint(e.as_str());
+    }
+
+    if !base_location.is_empty() {
+        let (bucket, root) = match base_location.find('/') {
+            Some(slash_pos) => base_location.split_at(slash_pos),
+            None => (base_location, ""),
+        };
+
+        builder.bucket(bucket);
+        if !root.is_empty() {
+            builder.root(root);
+        }
+    }
+
+    builder.finish().await.map_err(|e| e.into())
 }
 
 impl Provider {
