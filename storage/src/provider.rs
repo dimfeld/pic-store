@@ -2,12 +2,26 @@ use aws_sdk_s3::client::Client as S3Client;
 use backon::ExponentialBackoff;
 use opendal::Operator;
 
-use crate::s3::S3ProviderConfig;
+use crate::{error::Error, s3::S3ProviderConfig, PresignedUrl};
 
 #[derive(Debug, Clone)]
 pub enum ProviderConfig {
     S3(S3ProviderConfig),
     Local,
+}
+
+impl ProviderConfig {
+    pub fn from_db(
+        provider_type: pic_store_db::storage_location::Provider,
+        credentials: serde_json::Value,
+    ) -> Result<ProviderConfig, Error> {
+        match provider_type {
+            pic_store_db::storage_location::Provider::S3 => {
+                S3ProviderConfig::try_from(credentials).map(ProviderConfig::S3)
+            }
+            pic_store_db::storage_location::Provider::Local => Ok(Self::Local),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -48,5 +62,18 @@ impl Provider {
 
         let operator = Operator::new(accessor).with_backoff(ExponentialBackoff::default());
         Ok(operator)
+    }
+
+    pub async fn create_presigned_upload_url(
+        &self,
+        destination: &str,
+    ) -> Result<PresignedUrl, Error> {
+        match self {
+            Self::Local => Err(Error::PresignedUriNotSupported),
+            Self::S3 { client, .. } => {
+                self.create_s3_presigned_upload_url(client, destination)
+                    .await
+            }
+        }
     }
 }

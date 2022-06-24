@@ -3205,6 +3205,9 @@ dependencies = [
  "backon",
  "http",
  "opendal",
+ "pic-store-db",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio 1.19.2",
 ]

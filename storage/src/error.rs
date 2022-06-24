@@ -16,11 +16,14 @@ pub enum Error {
     PresignedUriNotSupported,
 
     #[error("URI must be absolute")]
-    RelativeUri,
+    UriMustBeAbsolute,
 
     #[error("URI must have a path")]
     UriMissingPath,
 
     #[error(transparent)]
     PresignedUriCreation(#[from] anyhow::Error),
+
+    #[error("Missing field {0}")]
+    MissingField(&'static str),
 }
