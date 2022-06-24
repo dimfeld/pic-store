@@ -26,4 +26,7 @@ pub enum Error {
 
     #[error("Missing field {0}")]
     MissingField(&'static str),
+
+    #[error("Operator error {0}")]
+    OperatorError(anyhow::Error),
 }

@@ -28,6 +28,9 @@ pub enum Error {
 
     #[error("Storage provider {0} does not support pre-signed URLs")]
     NoUploadUrlError(db::storage_location::Provider),
+
+    #[error("IO Error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 impl Error {

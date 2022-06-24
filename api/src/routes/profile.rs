@@ -1,10 +1,12 @@
 use axum::{
+    body::Body,
     extract::{BodyStream, ContentLengthLimit, Multipart, Path},
-    http::StatusCode,
+    http::{Request, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
+use futures::TryStreamExt;
 use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
 use serde::Serialize;
 use serde_json::json;
@@ -18,8 +20,8 @@ use crate::Error;
 
 async fn upload_image(
     Path((profile_id, file_name)): Path<(String, String)>,
-    ContentLengthLimit(mut stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
-) -> impl IntoResponse {
+    ContentLengthLimit(stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
+) -> Result<impl IntoResponse, Error> {
     // TODO once it's built out this will fetch from the database
     let output_path = db::storage_location::Model {
         id: Uuid::new_v4(),
@@ -33,8 +35,32 @@ async fn upload_image(
         deleted: None,
     };
 
-    // Create the upload stream
-    // Stream the request BodyStream to the destination stream
+    let provider = storage::Provider::from_db(
+        output_path.provider,
+        output_path
+            .credentials
+            .as_ref()
+            .unwrap_or(&serde_json::Value::Null),
+    )?;
+
+    let operator = provider
+        .create_operator(output_path.public_url_base.as_str())
+        .await
+        .map_err(storage::Error::OperatorError)?;
+
+    let object = operator.object(file_name.as_str());
+    let mut writer = object.writer(512 * 1024).await?;
+
+    let stream = stream
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        .into_async_read();
+
+    futures::io::copy(stream, &mut writer).await?;
+
+    // TODO Add a base_image to the database
+    // TODO Schedule conversions
+
+    Ok((StatusCode::OK, Json(json!({}))))
 }
 
 #[derive(Serialize)]
