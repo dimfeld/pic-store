@@ -728,6 +728,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c22a3887c886a667267306073fa8622f4c8ce0c94d38ea8a0605c9a8efa5bfa8"
 
 [[package]]
+name = "blake2"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9cf849ee05b2ee5fba5e36f97ff8ec2533916700fc0758d40d92136a42f3388"
+dependencies = [
+ "digest 0.10.3",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2069,6 +2078,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "imageinfo"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ea23ef3116c34efeddcbfe8979e0ca95501dc257cf5c5b9c374b5246873351d"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "imgref"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3104,12 +3122,16 @@ dependencies = [
  "async-trait",
  "axum",
  "biscuit-auth",
+ "blake2",
+ "bytes 1.1.0",
  "clap 3.2.4",
  "color-eyre",
  "dotenv",
  "futures",
  "http-body 0.4.5",
  "hyper 0.14.19",
+ "image",
+ "imageinfo",
  "log",
  "num_cpus",
  "opentelemetry",

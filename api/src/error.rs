@@ -31,6 +31,12 @@ pub enum Error {
 
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
+
+    #[error(transparent)]
+    AxumError(#[from] axum::Error),
+
+    #[error("Failed to decode image information: {0}")]
+    ImageHeaderDecode(#[from] imageinfo::ImageInfoError),
 }
 
 impl Error {
@@ -39,6 +45,9 @@ impl Error {
             Error::NoUploadUrlError(_) => StatusCode::BAD_REQUEST,
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::NotFound => StatusCode::NOT_FOUND,
+            Error::ImageHeaderDecode(imageinfo::ImageInfoError::UnrecognizedFormat) => {
+                StatusCode::BAD_REQUEST
+            }
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
 

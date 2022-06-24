@@ -9,6 +9,11 @@ pub struct InnerState {
     pub db: DatabaseConnection,
 
     pub auth: RootAuthEvaulator,
+
+    // Hardcoded values until we have real user auth and such.
+    pub user_id: Uuid,
+    pub team_id: Uuid,
+    pub project_id: Uuid,
 }
 
 pub type State = Arc<InnerState>;
