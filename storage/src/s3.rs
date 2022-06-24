@@ -4,8 +4,8 @@ use aws_sdk_s3::presigning::config::PresigningConfig;
 use aws_sdk_s3::{client::Client as S3Client, Credentials};
 use http::Uri;
 
-use crate::provider::Provider;
-
+use crate::error::Error;
+use crate::presigned_url::PresignedUrl;
 use crate::provider::Provider;
 
 #[derive(Debug, Clone)]
@@ -34,26 +34,39 @@ pub fn create_client(config: &S3ProviderConfig) -> S3Client {
 }
 
 impl Provider {
-    async fn create_s3_presigned_upload_url(
+    pub(crate) async fn create_s3_presigned_upload_url(
         &self,
-        client: S3Client,
+        client: &S3Client,
         destination: &str,
-    ) -> Result<String, ()> {
-        let uri = destination.parse::<Uri>().unwrap();
-        let host = uri.host().unwrap();
+    ) -> Result<crate::presigned_url::PresignedUrl, Error> {
+        let uri = destination.parse::<Uri>()?;
+        let host = uri.host().ok_or(Error::RelativeUri)?;
+        let path = uri.path();
 
-        let req = client
-            .put_object()
-            .bucket(host)
-            .presigned(
-                PresigningConfig::builder()
-                    .expires_in(Duration::from_secs(15 * 60))
-                    .build()
-                    .unwrap(),
-            )
-            .await
+        if path.is_empty() {
+            return Err(Error::UriMissingPath);
+        }
+
+        let presign_config = PresigningConfig::builder()
+            .expires_in(Duration::from_secs(15 * 60))
+            .build()
             .unwrap();
 
-        todo!()
+        let (req, _) = client
+            .put_object()
+            .bucket(host)
+            .key(path)
+            .presigned(presign_config)
+            .await
+            .map_err(|e| Error::PresignedUriCreation(anyhow::Error::from(e)))?
+            .to_http_request(())
+            .map_err(|e| Error::PresignedUriCreation(anyhow::Error::from(e)))?
+            .into_parts();
+
+        Ok(PresignedUrl {
+            method: req.method,
+            uri: req.uri,
+            headers: req.headers,
+        })
     }
 }
