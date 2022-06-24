@@ -17,10 +17,10 @@ pub struct S3ProviderConfig {
     pub secret_key: String,
 }
 
-impl TryFrom<serde_json::Value> for S3ProviderConfig {
+impl TryFrom<&serde_json::Value> for S3ProviderConfig {
     type Error = Error;
 
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+    fn try_from(value: &serde_json::Value) -> Result<Self, Self::Error> {
         let endpoint = value
             .get("endpoint")
             .and_then(|e| e.as_str())

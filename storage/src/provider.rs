@@ -13,7 +13,7 @@ pub enum ProviderConfig {
 impl ProviderConfig {
     pub fn from_db(
         provider_type: pic_store_db::storage_location::Provider,
-        credentials: serde_json::Value,
+        credentials: &serde_json::Value,
     ) -> Result<ProviderConfig, Error> {
         match provider_type {
             pic_store_db::storage_location::Provider::S3 => {
@@ -42,6 +42,14 @@ impl Provider {
             }
             ProviderConfig::Local => Provider::Local,
         }
+    }
+
+    pub fn from_db(
+        provider_type: pic_store_db::storage_location::Provider,
+        credentials: &serde_json::Value,
+    ) -> Result<Self, Error> {
+        let config = ProviderConfig::from_db(provider_type, credentials)?;
+        Ok(Provider::new(config))
     }
 
     pub async fn create_operator(&self, base_location: &str) -> Result<Operator, anyhow::Error> {

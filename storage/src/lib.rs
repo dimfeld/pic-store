@@ -1,7 +1,11 @@
 pub mod error;
-pub mod provider;
+mod provider;
 mod s3;
 
+pub use error::*;
+pub use provider::*;
+
+#[derive(Debug)]
 pub struct PresignedUrl {
     pub method: http::Method,
     pub uri: http::Uri,

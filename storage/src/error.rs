@@ -21,7 +21,7 @@ pub enum Error {
     #[error("URI must have a path")]
     UriMissingPath,
 
-    #[error(transparent)]
+    #[error("Creating presigned url: {0}")]
     PresignedUriCreation(#[from] anyhow::Error),
 
     #[error("Missing field {0}")]
