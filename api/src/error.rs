@@ -20,6 +20,9 @@ pub enum Error {
     #[error("Auth error: {0}")]
     AuthError(#[from] pic_store_auth::Error),
 
+    #[error("Storage error: {0}")]
+    StorageError(#[from] pic_store_storage::Error),
+
     #[error("Not found")]
     NotFound,
 

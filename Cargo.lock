@@ -3117,6 +3117,7 @@ dependencies = [
  "pic-store-auth",
  "pic-store-db",
  "pic-store-http-errors",
+ "pic-store-storage",
  "sea-orm",
  "serde",
  "serde_json",

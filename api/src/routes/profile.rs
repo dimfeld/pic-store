@@ -7,11 +7,12 @@ use axum::{
 };
 use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
 use serde::Serialize;
+use serde_json::json;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use pic_store_auth::RequireBiscuit;
 use pic_store_db as db;
+use pic_store_storage as storage;
 
 use crate::Error;
 
@@ -58,16 +59,39 @@ async fn get_upload_url(
         deleted: None,
     };
 
-    let response = match output_path.provider {
-        db::storage_location::Provider::S3 => todo!("Generate S3 upload URL"),
-        db::storage_location::Provider::Local => Err(Error::NoUploadUrlError(output_path.provider)),
-    }?;
+    let provider = storage::Provider::from_db(
+        output_path.provider,
+        output_path
+            .credentials
+            .as_ref()
+            .unwrap_or(&serde_json::Value::Null),
+    )?;
+
+    let destination = format!("{}/{}", output_path.base_location, file_name);
+
+    let presigned_url = provider
+        .create_presigned_upload_url(destination.as_str())
+        .await?;
 
     // Add the entry to the database with some sort of pending tag
     // The client then uploads it to the backing store, and calls another endpoint (TBD) to mark it
     // done.
 
-    Ok(response)
+    let headers = presigned_url
+        .headers
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.to_str().unwrap_or_default()))
+        .filter(|(_, v)| !v.is_empty())
+        .collect::<Vec<_>>();
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "method": presigned_url.method.as_str(),
+            "uri": presigned_url.uri.to_string(),
+            "headers": headers,
+        })),
+    ))
 }
 
 async fn list_profiles() -> impl IntoResponse {
