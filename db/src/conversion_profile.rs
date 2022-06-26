@@ -1,5 +1,5 @@
 use sea_orm::entity::prelude::TimeDateTimeWithTimeZone;
-use sea_orm::prelude::*;
+use sea_orm::{prelude::*, Set};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
@@ -46,4 +46,12 @@ impl Related<super::conversion_profile_item::Entity> for Entity {
     }
 }
 
-impl ActiveModelBehavior for ActiveModel {}
+impl ActiveModelBehavior for ActiveModel {
+    fn new() -> Self {
+        Self {
+            id: Set(Uuid::new_v4()),
+            updated: Set(TimeDateTimeWithTimeZone::now_utc()),
+            ..ActiveModelTrait::default()
+        }
+    }
+}

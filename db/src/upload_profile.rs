@@ -1,5 +1,5 @@
 use sea_orm::entity::prelude::TimeDateTimeWithTimeZone;
-use sea_orm::prelude::*;
+use sea_orm::{prelude::*, Set};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "upload_profiles")]
@@ -9,6 +9,9 @@ pub struct Model {
     #[sea_orm(indexed)]
     pub project_id: Uuid,
     pub name: String,
+
+    #[sea_orm(indexed)]
+    pub short_id: String,
 
     /// Where to store the input images, since they may not want to be in the same place as the
     /// output.
@@ -61,4 +64,12 @@ impl Related<super::project::Entity> for Entity {
     }
 }
 
-impl ActiveModelBehavior for ActiveModel {}
+impl ActiveModelBehavior for ActiveModel {
+    fn new() -> Self {
+        Self {
+            id: Set(Uuid::new_v4()),
+            updated: Set(TimeDateTimeWithTimeZone::now_utc()),
+            ..ActiveModelTrait::default()
+        }
+    }
+}

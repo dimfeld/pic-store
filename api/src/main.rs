@@ -8,6 +8,7 @@ mod tracing_config;
 
 pub use error::Error;
 use pic_store_auth::{keypair_from_priv_key_base64, RootAuthEvaulator};
+use uuid::Uuid;
 
 use std::{
     net::{IpAddr, SocketAddr},
@@ -56,6 +57,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         production,
         db,
         auth: root_eval.clone(),
+        // Temporary hardcoded values
+        project_id: std::env::var("PROJECT_ID")
+            .expect("PROJECT_ID")
+            .parse::<Uuid>()
+            .unwrap(),
+        team_id: std::env::var("TEAM_ID")
+            .expect("TEAM_ID")
+            .parse::<Uuid>()
+            .unwrap(),
+        user_id: std::env::var("USER_ID")
+            .expect("USER_ID")
+            .parse::<Uuid>()
+            .unwrap(),
     });
 
     let biscuit_keypair = keypair_from_priv_key_base64(config.biscuit_key.as_str())?;

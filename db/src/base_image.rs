@@ -27,11 +27,35 @@ pub struct Model {
     pub format: String,
 
     pub upload_profile_id: Uuid,
+    pub status: BaseImageStatus,
     pub alt_text: String,
     pub placeholder: String,
 
     pub updated: TimeDateTimeWithTimeZone,
     pub deleted: Option<TimeDateTimeWithTimeZone>,
+}
+
+#[derive(EnumIter, DeriveActiveEnum, PartialEq, Eq, Copy, Clone, Debug)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "storage_provider")]
+pub enum BaseImageStatus {
+    #[sea_orm(string_value = "awaiting_upload")]
+    AwaitingUpload,
+    #[sea_orm(string_value = "converting")]
+    Converting,
+    #[sea_orm(string_value = "ready")]
+    Ready,
+    #[sea_orm(string_value = "queued_for_delete")]
+    QueuedForDelete,
+    #[sea_orm(string_value = "deleting")]
+    Deleting,
+    #[sea_orm(string_value = "deleted")]
+    Deleted,
+}
+
+impl Default for BaseImageStatus {
+    fn default() -> Self {
+        Self::AwaitingUpload
+    }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

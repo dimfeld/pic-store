@@ -37,6 +37,12 @@ pub enum Error {
 
     #[error("Failed to decode image information: {0}")]
     ImageHeaderDecode(#[from] imageinfo::ImageInfoError),
+
+    #[error("content-length header is required")]
+    ContentLengthRequired,
+
+    #[error("request too large")]
+    RequestTooLarge,
 }
 
 impl Error {
@@ -45,6 +51,8 @@ impl Error {
             Error::NoUploadUrlError(_) => StatusCode::BAD_REQUEST,
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::NotFound => StatusCode::NOT_FOUND,
+            Error::ContentLengthRequired => StatusCode::BAD_REQUEST,
+            Error::RequestTooLarge => StatusCode::BAD_REQUEST,
             Error::ImageHeaderDecode(imageinfo::ImageInfoError::UnrecognizedFormat) => {
                 StatusCode::BAD_REQUEST
             }

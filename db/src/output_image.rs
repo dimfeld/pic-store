@@ -17,8 +17,31 @@ pub struct Model {
     pub height: u32,
     pub format: String,
 
+    pub status: OutputImageStatus,
+
     pub created: TimeDateTime,
     pub deleted: Option<TimeDateTimeWithTimeZone>,
+}
+
+#[derive(EnumIter, DeriveActiveEnum, PartialEq, Eq, Copy, Clone, Debug)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "storage_provider")]
+pub enum OutputImageStatus {
+    #[sea_orm(string_value = "queued")]
+    Queued,
+    #[sea_orm(string_value = "converting")]
+    Converting,
+    #[sea_orm(string_value = "ready")]
+    Ready,
+    #[sea_orm(string_value = "queued_for_delete")]
+    QueuedForDelete,
+    #[sea_orm(string_value = "deleted")]
+    Deleted,
+}
+
+impl Default for OutputImageStatus {
+    fn default() -> Self {
+        Self::Queued
+    }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

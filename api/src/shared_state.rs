@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use pic_store_auth::RootAuthEvaulator;
 use sea_orm::DatabaseConnection;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct InnerState {
