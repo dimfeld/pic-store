@@ -7,14 +7,10 @@ use axum::{
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
-use sea_orm::{
-    ActiveModelTrait,
-    ActiveValue::{NotSet, Set},
-    ConnectionTrait, DatabaseConnection, EntityTrait, Statement, TransactionTrait,
-};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use time::OffsetDateTime;
+use sqlx::query;
+use chrono::DateTime<chrono::Utc>;
 use uuid::Uuid;
 
 use pic_store_auth::{
@@ -60,6 +56,17 @@ impl BiscuitInfoExtractor for CheckProfileId {
             .map_err(BiscuitExtractorError::internal_error)?;
 
         let db = &req.extensions().get::<State>().unwrap().db;
+
+        let existing_profile = sqlx::query!(
+            r##"SELECT cp.*, team_id
+            FROM conversion_profile cp
+            JOIN project pr USING (project_id)
+            WHERE cp.id=$1
+            "##,
+            profile_id
+        )
+        .fetch_one(db)
+        .await?;
 
         let existing_profile = db::conversion_profile::Entity::find_by_id(profile_id)
             .one(db)

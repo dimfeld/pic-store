@@ -26,6 +26,9 @@ pub enum Error {
     #[error("Not found")]
     NotFound,
 
+    #[error("Unknown {0}")]
+    ObjectNotFound(&'static str),
+
     #[error("Storage provider {0} does not support pre-signed URLs")]
     NoUploadUrlError(db::storage_location::Provider),
 
@@ -51,6 +54,7 @@ impl Error {
             Error::NoUploadUrlError(_) => StatusCode::BAD_REQUEST,
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::NotFound => StatusCode::NOT_FOUND,
+            Error::ObjectNotFound(_) => StatusCode::NOT_FOUND,
             Error::ContentLengthRequired => StatusCode::BAD_REQUEST,
             Error::RequestTooLarge => StatusCode::BAD_REQUEST,
             Error::ImageHeaderDecode(imageinfo::ImageInfoError::UnrecognizedFormat) => {

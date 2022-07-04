@@ -5,14 +5,9 @@ use axum::{
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
-use blake2::Digest;
-use bytes::Bytes;
-use futures::{AsyncWriteExt, TryStreamExt};
-use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
-use sea_orm::{EntityTrait, Set};
 use serde::Serialize;
 use serde_json::json;
-use time::OffsetDateTime;
+use chrono::DateTime<chrono::Utc>;
 use uuid::Uuid;
 
 use pic_store_db as db;
@@ -30,25 +25,18 @@ async fn get_upload_url(
     Path((profile_id, file_name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, Error> {
     // TODO once it's built out this will fetch from the database
-    let output_path = db::storage_location::Model {
-        id: Uuid::new_v4(),
-        project_id: Uuid::new_v4(),
+    let output_path = db::StorageLocation {
+        storage_location_id: Uuid::new_v4(),
+        team_id: Uuid::new_v4(),
         name: "test storage location".to_string(),
         provider: db::storage_location::Provider::Local,
         base_location: "./test_uploads".to_string(),
-        credentials: None,
         public_url_base: "https://images.example.com".to_string(),
         updated: OffsetDateTime::now_utc(),
         deleted: None,
     };
 
-    let provider = storage::Provider::from_db(
-        output_path.provider,
-        output_path
-            .credentials
-            .as_ref()
-            .unwrap_or(&serde_json::Value::Null),
-    )?;
+    let provider = storage::Provider::from_db(output_path.provider)?;
 
     let destination = format!("{}/{}", output_path.base_location, file_name);
 

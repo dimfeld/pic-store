@@ -13,13 +13,14 @@ use uuid::Uuid;
 
 use pic_store_auth::RequireBiscuit;
 use pic_store_db as db;
+use pic_store_storage as storage;
 
 use crate::{shared_state::State, Error};
 
 #[derive(Deserialize, Debug)]
 struct NewBaseImageInput {
     filename: String,
-    upload_profile_id: Uuid,
+    upload_profile_id: String,
     alt_text: Option<String>,
 }
 
@@ -33,6 +34,14 @@ async fn new_base_image(
     let mut auth = state.auth.with_biscuit(&biscuit)?;
     let user_info = auth.get_user_and_team()?;
 
+    let a = db::upload_profile::Entity::find_by_id_or_short_id(
+        user_info.team_id,
+        payload.upload_profile_id.as_str(),
+    )
+    .one(&state.db)
+    .await?
+    .ok_or(Error::ObjectNotFound("upload_profile_id"))?;
+
     let image_id = Uuid::new_v4();
 
     let obj = db::base_image::ActiveModel {
@@ -43,7 +52,7 @@ async fn new_base_image(
         // TODO verify that user has access to upload images to this project
         project_id: Set(state.project_id),
         // TODO verify that this profile exists and that we have access to it
-        upload_profile_id: Set(payload.upload_profile_id),
+        upload_profile_id: Set(profile.id),
         // TODO add a small random string to the end?
         location: Set(payload.filename),
         ..Default::default()
@@ -51,7 +60,6 @@ async fn new_base_image(
 
     obj.insert(&state.db).await?;
 
-    // TODO Generate upload url if applicable.
     Ok((StatusCode::OK, Json(json!({}))))
 }
 
@@ -70,7 +78,7 @@ async fn update_base_image_info() -> impl IntoResponse {
 }
 
 async fn get_upload_url() -> impl IntoResponse {
-    // Generate an upload url, if applicable.
+    // Generate a new upload url, if applicable.
     todo!();
 }
 

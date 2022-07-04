@@ -2,6 +2,8 @@ use aws_sdk_s3::client::Client as S3Client;
 use backon::ExponentialBackoff;
 use opendal::Operator;
 
+use pic_store_db as db;
+
 use crate::{error::Error, s3::S3ProviderConfig, PresignedUrl};
 
 #[derive(Debug, Clone)]
@@ -11,15 +13,22 @@ pub enum ProviderConfig {
 }
 
 impl ProviderConfig {
-    pub fn from_db(
-        provider_type: pic_store_db::storage_location::Provider,
-        credentials: &serde_json::Value,
-    ) -> Result<ProviderConfig, Error> {
+    pub fn from_db(provider_type: db::Provider) -> Result<ProviderConfig, Error> {
         match provider_type {
-            pic_store_db::storage_location::Provider::S3 => {
-                S3ProviderConfig::try_from(credentials).map(ProviderConfig::S3)
+            db::Provider::S3 {
+                endpoint,
+                access_key_id,
+                secret_key,
+            } => {
+                let uri = endpoint.map(|ep| ep.parse::<http::Uri>()).transpose()?;
+
+                Ok(ProviderConfig::S3(S3ProviderConfig {
+                    endpoint: uri,
+                    access_key_id,
+                    secret_key,
+                }))
             }
-            pic_store_db::storage_location::Provider::Local => Ok(Self::Local),
+            db::Provider::Local => Ok(Self::Local),
         }
     }
 }
@@ -44,11 +53,8 @@ impl Provider {
         }
     }
 
-    pub fn from_db(
-        provider_type: pic_store_db::storage_location::Provider,
-        credentials: &serde_json::Value,
-    ) -> Result<Self, Error> {
-        let config = ProviderConfig::from_db(provider_type, credentials)?;
+    pub fn from_db(provider_type: db::Provider) -> Result<Self, Error> {
+        let config = ProviderConfig::from_db(provider_type)?;
         Ok(Provider::new(config))
     }
 

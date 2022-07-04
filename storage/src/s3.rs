@@ -17,36 +17,6 @@ pub struct S3ProviderConfig {
     pub secret_key: String,
 }
 
-impl TryFrom<&serde_json::Value> for S3ProviderConfig {
-    type Error = Error;
-
-    fn try_from(value: &serde_json::Value) -> Result<Self, Self::Error> {
-        let endpoint = value
-            .get("endpoint")
-            .and_then(|e| e.as_str())
-            .map(|e| e.parse::<Uri>().map_err(Error::from))
-            .transpose()?;
-
-        let access_key_id = value
-            .get("access_key_id")
-            .and_then(|s| s.as_str())
-            .map(|s| s.to_string())
-            .ok_or(Error::MissingField("access_key_id"))?;
-
-        let secret_key = value
-            .get("secret_key")
-            .and_then(|s| s.as_str())
-            .map(|s| s.to_string())
-            .ok_or(Error::MissingField("secret_key"))?;
-
-        Ok(S3ProviderConfig {
-            endpoint,
-            access_key_id,
-            secret_key,
-        })
-    }
-}
-
 pub fn create_client(config: &S3ProviderConfig) -> S3Client {
     let mut builder = aws_sdk_s3::Config::builder().credentials_provider(Credentials::new(
         config.access_key_id.as_str(),

@@ -12,7 +12,7 @@ use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
 use sea_orm::{EntityTrait, Set};
 use serde::Serialize;
 use serde_json::json;
-use time::OffsetDateTime;
+use chrono::DateTime<chrono::Utc>;
 use uuid::Uuid;
 
 use pic_store_db as db;
@@ -131,25 +131,18 @@ pub async fn upload_image(
     // TODO once it's built out this will fetch from the database
     let team_id = state.team_id;
     let user_id = state.user_id;
-    let output_path = db::storage_location::Model {
-        id: Uuid::new_v4(),
-        project_id: state.project_id,
+    let output_path = db::StorageLocation {
+        storage_location_id: Uuid::new_v4(),
+        team_id: state.team_id,
         name: "test storage location".to_string(),
         provider: db::storage_location::Provider::Local,
         base_location: "./test_uploads".to_string(),
-        credentials: None,
         public_url_base: "https://images.example.com".to_string(),
         updated: OffsetDateTime::now_utc(),
         deleted: None,
     };
 
-    let provider = storage::Provider::from_db(
-        output_path.provider,
-        output_path
-            .credentials
-            .as_ref()
-            .unwrap_or(&serde_json::Value::Null),
-    )?;
+    let provider = storage::Provider::from_db(output_path.provider)?;
 
     let operator = provider
         .create_operator(output_path.public_url_base.as_str())
@@ -171,8 +164,8 @@ pub async fn upload_image(
     };
 
     let image_id = Uuid::new_v4();
-    let base_image = db::base_image::ActiveModel {
-        id: Set(image_id),
+    let base_image = db::BaseImage {
+        base_image_id: 
         project_id: Set(output_path.project_id),
         hash: Set(hash_hex),
         format: Set(format.to_string()),
