@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing_config::configure(honeycomb_config)?;
 
-    let db = pic_store_db::connect(config.database_url.as_str()).await?;
+    let db = pic_store_db::connect(config.database_url.as_str())?;
 
     let production = config.env != "development" && !cfg!(debug_assertions);
 

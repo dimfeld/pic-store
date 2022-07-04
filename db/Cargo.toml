@@ -6,8 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sea-orm = { version = "0.8.0", features = ["runtime-tokio-rustls", "sqlx-postgres", "sqlx-mysql", "sqlx-sqlite", "with-time", "with-uuid"]}
+anyhow = "1.0.58"
+chrono = { version = "0.4.19", features = ["serde"] }
+diesel = { version = "2.0.0-rc.0", features = ["chrono", "postgres", "uuid", "serde_json"] }
+diesel-derive-enum = { git = "https://github.com/adwhit/diesel-derive-enum", features = ["postgres"] }
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
-time = { version = "0.2", features = ["serde"] }
-uuid = "0.8"
+uuid = { version = "1.1.2", features = ["v4", "serde"] }
+
+[dependencies.deadpool-diesel]
+git = "https://github.com/bikeshedder/deadpool"
+branch = "feature/diesel-2"
+features = ["postgres"]

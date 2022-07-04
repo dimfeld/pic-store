@@ -1,24 +1,20 @@
-use sea_orm::{DatabaseConnection, DbErr};
+#[macro_use]
+extern crate diesel;
 
-pub mod base_image;
-pub mod conversion_profile;
-pub mod conversion_profile_item;
-pub mod output_image;
-pub mod project;
-pub mod storage_location;
-pub mod team;
-pub mod upload_profile;
-pub mod user;
+mod enums;
+mod json;
+mod models;
+mod schema;
 
-pub async fn connect(url: &str) -> Result<DatabaseConnection, DbErr> {
-    sea_orm::Database::connect(url).await
-}
+pub use enums::*;
+pub use json::*;
+pub use models::*;
+pub use schema::*;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
+pub type Pool = deadpool_diesel::postgres::Pool;
+
+pub fn connect(conn_str: &str) -> Result<Pool, impl std::error::Error> {
+    let manager =
+        deadpool_diesel::postgres::Manager::new(conn_str, deadpool_diesel::Runtime::Tokio1);
+    deadpool_diesel::Pool::builder(manager).build()
 }

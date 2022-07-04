@@ -1,0 +1,12 @@
+DROP TABLE output_images;
+DROP TYPE output_image_status;
+DROP TABLE base_images;
+DROP TYPE base_image_status;
+DROP TABLE upload_profiles;
+DROP TABLE storage_locations;
+DROP TABLE conversion_profile_items;
+DROP TABLE conversion_profiles;
+DROP TABLE projects;
+DROP TABLE users;
+DROP TABLE teams;
+DROP TYPE image_format;

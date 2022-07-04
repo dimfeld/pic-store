@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
 use pic_store_auth::RootAuthEvaulator;
-use sea_orm::DatabaseConnection;
+use pic_store_db as db;
 use uuid::Uuid;
 
-#[derive(Debug)]
 pub struct InnerState {
     pub production: bool,
-    pub db: DatabaseConnection,
+    pub db: db::Pool,
 
     pub auth: RootAuthEvaulator,
 
@@ -15,6 +14,18 @@ pub struct InnerState {
     pub user_id: Uuid,
     pub team_id: Uuid,
     pub project_id: Uuid,
+}
+
+impl std::fmt::Debug for InnerState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InnerState")
+            .field("production", &self.production)
+            .field("auth", &self.auth)
+            .field("user_id", &self.user_id)
+            .field("team_id", &self.team_id)
+            .field("project_id", &self.project_id)
+            .finish_non_exhaustive()
+    }
 }
 
 pub type State = Arc<InnerState>;
