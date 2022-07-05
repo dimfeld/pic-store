@@ -3,12 +3,18 @@ extern crate diesel;
 
 mod enums;
 mod json;
-mod models;
 mod schema;
+
+pub mod conversion_profiles;
+pub mod images;
+pub mod projects;
+pub mod storage_locations;
+pub mod teams;
+pub mod upload_profiles;
+pub mod users;
 
 pub use enums::*;
 pub use json::*;
-pub use models::*;
 pub use schema::*;
 
 pub type Pool = deadpool_diesel::postgres::Pool;

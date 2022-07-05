@@ -13,9 +13,11 @@ pub enum ProviderConfig {
 }
 
 impl ProviderConfig {
-    pub fn from_db(provider_type: db::Provider) -> Result<ProviderConfig, Error> {
+    pub fn from_db(
+        provider_type: db::storage_locations::Provider,
+    ) -> Result<ProviderConfig, Error> {
         match provider_type {
-            db::Provider::S3 {
+            db::storage_locations::Provider::S3 {
                 endpoint,
                 access_key_id,
                 secret_key,
@@ -28,7 +30,7 @@ impl ProviderConfig {
                     secret_key,
                 }))
             }
-            db::Provider::Local => Ok(Self::Local),
+            db::storage_locations::Provider::Local => Ok(Self::Local),
         }
     }
 }
@@ -53,7 +55,7 @@ impl Provider {
         }
     }
 
-    pub fn from_db(provider_type: db::Provider) -> Result<Self, Error> {
+    pub fn from_db(provider_type: db::storage_locations::Provider) -> Result<Self, Error> {
         let config = ProviderConfig::from_db(provider_type)?;
         Ok(Provider::new(config))
     }

@@ -23,3 +23,8 @@ tower = "0.4.13"
 tower-cookies = "0.7.0"
 tracing = "0.1.35"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
+
+[dependencies.deadpool-diesel]
+git = "https://github.com/bikeshedder/deadpool"
+branch = "feature/diesel-2"
+features = ["postgres"]

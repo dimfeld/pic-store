@@ -1,4 +1,3 @@
-use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
 
 #[derive(Debug, Clone, Copy, DbEnum)]

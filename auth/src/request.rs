@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::Deref, sync::Arc};
+use std::{borrow::Cow, fmt::Debug, ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
 use axum::{
@@ -13,8 +13,9 @@ use futures::{future::BoxFuture, Future, FutureExt, TryFutureExt};
 use serde::Serialize;
 use thiserror::Error;
 use tower::{Layer, Service};
+use uuid::Uuid;
 
-use crate::{extract_token::invalid_message, AuthEvaluator, RootAuthEvaulator};
+use crate::{extract_token::invalid_message, AuthEvaluator, RootAuthEvaulator, UserAndTeamIds};
 
 pub type BiscuitExtension = Arc<Biscuit>;
 
@@ -91,21 +92,43 @@ impl<S, T: BiscuitInfoExtractor> CheckBiscuit<S, T> {
     async fn check(
         root_auth: Arc<RootAuthEvaulator>,
         extractor: T,
-        req: RequestParts<Body>,
-    ) -> Result<RequestParts<Body>, BiscuitExtractorError> {
-        let mut authorizer = root_auth.get_authorizer();
-
-        let req = extractor.extract(req, &mut authorizer).await?;
-
+        req: Request<Body>,
+    ) -> Result<Request<Body>, BiscuitExtractorError> {
+        let mut req = RequestParts::new(req);
         let token = req
             .extensions()
             .get::<BiscuitExtension>()
             .ok_or(BiscuitExtractorError::Unauthorized)?;
+        let mut authorizer = root_auth.with_biscuit(token)?;
 
-        let mut authorizer = authorizer.with_biscuit(token)?;
+        let user_info = authorizer.get_user_and_team()?;
+
+        // TODO Also get the user's roles and the permissions for those roles.
+        let (auth_info, obj) = extractor.extract(&req, &user_info).await?;
+
+        let project_id = auth_info.project_id.unwrap_or_else(Uuid::nil);
+        authorizer.set_project(project_id)?;
+        authorizer.set_resource_team(auth_info.team_id)?;
+        authorizer.set_resource(auth_info.resource_id)?;
+        authorizer.set_resource_type(auth_info.resource_type)?;
+        authorizer.set_deleted(auth_info.deleted)?;
+
+        if let Some(operation) = auth_info.operation {
+            authorizer.add_fact(crate::Fact::Operation.with_value(operation))?;
+        } else {
+            authorizer.set_operation_from_method(req.method())?;
+        }
+
         authorizer.authorize()?;
 
         drop(authorizer);
+
+        req.extensions_mut().insert(obj);
+        req.extensions_mut().insert(user_info);
+
+        let req = req
+            .try_into_request()
+            .map_err(BiscuitExtractorError::internal_error)?;
 
         Ok(req)
     }
@@ -139,10 +162,9 @@ where
         let extractor = self.extractor.clone();
 
         Box::pin(async move {
-            let extract_result = Self::check(root_auth, extractor, RequestParts::new(req))
+            let extract_result = Self::check(root_auth, extractor, req)
                 .await
-                .map_err(|e| e.into_response())
-                .and_then(|req| req.try_into_request().map_err(|e| e.into_response()));
+                .map_err(|e| e.into_response());
 
             match extract_result {
                 Ok(req) => Ok(inner.call(req).await?.map(axum::body::boxed)),
@@ -170,6 +192,12 @@ pub enum BiscuitExtractorError {
 impl BiscuitExtractorError {
     pub fn internal_error(e: impl Into<tower::BoxError>) -> Self {
         Self::InternalServerError(e.into())
+    }
+}
+
+impl From<deadpool_diesel::InteractError> for BiscuitExtractorError {
+    fn from(e: deadpool_diesel::InteractError) -> Self {
+        Self::InternalServerError(tower::BoxError::from(anyhow::anyhow!("{}", e)))
     }
 }
 
@@ -226,11 +254,24 @@ impl IntoResponse for BiscuitExtractorError {
 
 #[async_trait]
 pub trait BiscuitInfoExtractor: Clone + Send + Sync + 'static {
+    type Object: Send + Sync + 'static;
+
     async fn extract(
         &self,
-        req: RequestParts<Body>,
-        authorizer: &mut AuthEvaluator<'_>,
-    ) -> Result<RequestParts<Body>, BiscuitExtractorError>;
+        req: &RequestParts<Body>,
+        user: &UserAndTeamIds,
+    ) -> Result<(AuthInfo, Self::Object), BiscuitExtractorError>;
+}
+
+pub struct AuthInfo {
+    pub resource_type: &'static str,
+    pub resource_id: Uuid,
+    pub team_id: Uuid,
+    pub project_id: Option<Uuid>,
+    /** The operation to check against, if different from what the HTTP method implies */
+    pub operation: Option<Cow<'static, str>>,
+    /** If this object has been deleted */
+    pub deleted: bool,
 }
 
 // This is designed allow passing a function instead of an object to CheckBiscuitLayer,

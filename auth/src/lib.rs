@@ -29,7 +29,7 @@ impl BiscuitBuilder {
         let mut builder = Biscuit::builder(&self.keypair);
 
         builder.add_authority_fact(Fact::User.with_value(ids.user_id))?;
-        builder.add_authority_fact(Fact::Team.with_value(ids.team_id))?;
+        builder.add_authority_fact(Fact::UserTeam.with_value(ids.team_id))?;
 
         Ok(builder)
     }

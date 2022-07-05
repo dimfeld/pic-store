@@ -36,6 +36,7 @@ CREATE TABLE projects (
 CREATE TABLE conversion_profiles (
   conversion_profile_id uuid primary key,
   team_id uuid not null references teams(team_id),
+  project_id uuid references projects(project_id),
   name text not null,
   updated timestamptz not null default now(),
   deleted timestamptz
@@ -59,6 +60,7 @@ CREATE INDEX conversion_profile_items_conversion_profile_id ON conversion_profil
 CREATE TABLE storage_locations (
   storage_location_id uuid primary key,
   team_id uuid not null references teams(team_id),
+  project_id uuid references projects(project_id),
   name text not null,
   provider jsonb not null,
   base_location text not null,

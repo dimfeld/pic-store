@@ -82,9 +82,28 @@ impl<'a> AuthEvaluator<'a> {
         Ok(())
     }
 
+    pub fn set_resource_type(&mut self, resource_type: impl ToString) -> Result<(), Error> {
+        self.authorizer
+            .add_fact(crate::Fact::ResourceType.with_value(resource_type))?;
+        Ok(())
+    }
+
     pub fn set_resource(&mut self, resource_id: impl ToString) -> Result<(), Error> {
         self.authorizer
             .add_fact(crate::Fact::Resource.with_value(resource_id))?;
+        Ok(())
+    }
+
+    pub fn set_resource_team(&mut self, resource_team: impl ToString) -> Result<(), Error> {
+        self.authorizer
+            .add_fact(crate::Fact::ResourceTeam.with_value(resource_team))?;
+        Ok(())
+    }
+
+    pub fn set_deleted(&mut self, deleted: bool) -> Result<(), Error> {
+        let d_str = deleted.then_some("true").unwrap_or("false");
+        self.authorizer
+            .add_fact(crate::Fact::Deleted.with_value(d_str))?;
         Ok(())
     }
 

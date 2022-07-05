@@ -63,6 +63,7 @@ diesel::table! {
     conversion_profiles (conversion_profile_id) {
         conversion_profile_id -> Uuid,
         team_id -> Uuid,
+        project_id -> Nullable<Uuid>,
         name -> Text,
         updated -> Timestamptz,
         deleted -> Nullable<Timestamptz>,
@@ -111,6 +112,7 @@ diesel::table! {
     storage_locations (storage_location_id) {
         storage_location_id -> Uuid,
         team_id -> Uuid,
+        project_id -> Nullable<Uuid>,
         name -> Text,
         provider -> Jsonb,
         base_location -> Text,
@@ -169,11 +171,13 @@ diesel::joinable!(base_images -> upload_profiles (upload_profile_id));
 diesel::joinable!(base_images -> users (user_id));
 diesel::joinable!(conversion_profile_items -> conversion_profiles (conversion_profile_id));
 diesel::joinable!(conversion_profile_items -> teams (team_id));
+diesel::joinable!(conversion_profiles -> projects (project_id));
 diesel::joinable!(conversion_profiles -> teams (team_id));
 diesel::joinable!(output_images -> base_images (base_image_id));
 diesel::joinable!(output_images -> conversion_profile_items (conversion_profile_item_id));
 diesel::joinable!(output_images -> teams (team_id));
 diesel::joinable!(projects -> teams (team_id));
+diesel::joinable!(storage_locations -> projects (project_id));
 diesel::joinable!(storage_locations -> teams (team_id));
 diesel::joinable!(upload_profiles -> conversion_profiles (conversion_profile_id));
 diesel::joinable!(upload_profiles -> projects (project_id));

@@ -2,20 +2,20 @@ use async_trait::async_trait;
 use axum::{
     body::Body,
     extract::{FromRequest, Path, RequestParts},
-    http::{Request, StatusCode},
+    http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
+use chrono::{DateTime, Utc};
+use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use sqlx::query;
-use chrono::DateTime<chrono::Utc>;
 use uuid::Uuid;
 
+use db::conversion_profiles::{ConversionProfile, NewConversionProfile};
 use pic_store_auth::{
-    AuthEvaluator, BiscuitExtractorError, BiscuitInfoExtractor, CheckBiscuitLayer, Fact,
-    RequireBiscuit,
+    AuthInfo, BiscuitExtractorError, BiscuitInfoExtractor, CheckBiscuitLayer, Fact, RequireBiscuit,
+    UserAndTeamIds,
 };
 use pic_store_db as db;
 
@@ -24,6 +24,7 @@ use crate::{shared_state::State, Error};
 #[derive(Debug, Deserialize)]
 pub struct ConversionProfileInput {
     pub name: String,
+    pub project_id: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,7 +39,17 @@ pub struct ConversionProfileItemInput {
 pub struct ConversionProfileOutput {
     id: Uuid,
     name: String,
-    updated: OffsetDateTime,
+    updated: DateTime<Utc>,
+}
+
+impl From<ConversionProfile> for ConversionProfileOutput {
+    fn from(value: ConversionProfile) -> Self {
+        ConversionProfileOutput {
+            id: value.conversion_profile_id,
+            name: value.name,
+            updated: value.updated,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -46,49 +57,46 @@ struct CheckProfileId {}
 
 #[async_trait]
 impl BiscuitInfoExtractor for CheckProfileId {
+    type Object = db::conversion_profiles::ConversionProfile;
+
     async fn extract(
         &self,
-        mut req: RequestParts<Body>,
-        auth: &mut AuthEvaluator<'_>,
-    ) -> Result<RequestParts<Body>, BiscuitExtractorError> {
-        let Path(profile_id) = Path::from_request(&mut req)
+        req: &RequestParts<Body>,
+        user: &UserAndTeamIds,
+    ) -> Result<(AuthInfo, ConversionProfile), BiscuitExtractorError> {
+        let Path(profile_id) = Path::<Uuid>::from_request(&mut req)
             .await
             .map_err(BiscuitExtractorError::internal_error)?;
 
-        let db = &req.extensions().get::<State>().unwrap().db;
-
-        let existing_profile = sqlx::query!(
-            r##"SELECT cp.*, team_id
-            FROM conversion_profile cp
-            JOIN project pr USING (project_id)
-            WHERE cp.id=$1
-            "##,
-            profile_id
-        )
-        .fetch_one(db)
-        .await?;
-
-        let existing_profile = db::conversion_profile::Entity::find_by_id(profile_id)
-            .one(db)
+        let conn = &req
+            .extensions()
+            .get::<State>()
+            .unwrap()
+            .db
+            .get()
             .await
-            .map_err(BiscuitExtractorError::internal_error)?
-            .ok_or_else(|| Error::NotFound.response_tuple())?;
+            .map_err(BiscuitExtractorError::internal_error)?;
 
-        auth.add_fact(Fact::Resource.with_value(profile_id))?;
-        auth.set_operation_from_method(req.method())?;
+        let conversion_profile = conn
+            .interact(|conn| {
+                db::conversion_profiles::table
+                    .filter(db::conversion_profiles::conversion_profile_id.eq(profile_id))
+                    .filter(db::conversion_profiles::team_id.eq(user.team_id))
+                    .first::<ConversionProfile>(conn)
+            })
+            .await?
+            .map_err(BiscuitExtractorError::internal_error)?;
 
-        // There isn't yet any real permissions model, so just make sure that the team matches.
-        auth.add_check(
-            Fact::Team
-                .check_if(existing_profile.team_id.to_string().as_str())
-                .as_str(),
-        )?;
-        auth.allow()?;
+        let auth_info = AuthInfo {
+            resource_type: "conversion_profile",
+            resource_id: conversion_profile.conversion_profile_id,
+            team_id: conversion_profile.team_id,
+            project_id: conversion_profile.project_id,
+            deleted: conversion_profile.deleted.is_some(),
+            operation: None,
+        };
 
-        req.extensions_mut()
-            .insert::<db::conversion_profile::Model>(existing_profile);
-
-        Ok(req)
+        Ok((auth_info, conversion_profile))
     }
 }
 
@@ -99,50 +107,50 @@ async fn list_profiles() -> impl IntoResponse {
 async fn write_profile(
     Path(profile_id): Path<Uuid>,
     Extension(ref state): Extension<State>,
-    Extension(profile): Extension<db::conversion_profile::Model>,
+    Extension(profile): Extension<ConversionProfile>,
     Json(body): Json<ConversionProfileInput>,
 ) -> Result<impl IntoResponse, Error> {
-    let now = sea_orm::prelude::TimeDateTimeWithTimeZone::now_utc();
+    use db::conversion_profiles::dsl;
 
-    let mut item = db::conversion_profile::ActiveModel::from(profile);
+    let conn = state.db.get().await?;
+    let result = conn
+        .interact(move |conn| {
+            diesel::update(&profile)
+                .set((dsl::name.eq(body.name), dsl::updated.eq(Utc::now())))
+                .get_result::<ConversionProfile>(conn)
+        })
+        .await??;
 
-    item.updated = Set(now);
-    item.name = Set(body.name);
-
-    let result = item.update(&state.db).await?;
-
-    Ok((
-        StatusCode::OK,
-        Json(ConversionProfileOutput {
-            id: result.id,
-            name: result.name,
-            updated: result.updated,
-        }),
-    ))
+    Ok((StatusCode::OK, Json(ConversionProfileOutput::from(result))))
 }
 
 async fn new_profile(
     Extension(ref state): Extension<State>,
-    biscuit: RequireBiscuit,
+    Extension(ref user): Extension<UserAndTeamIds>,
     Json(body): Json<ConversionProfileInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
-    let mut auth = state.auth.with_biscuit(&biscuit)?;
-    let user_info = auth.get_user_and_team()?;
+    use db::conversion_profiles::dsl;
 
-    let now = sea_orm::prelude::TimeDateTimeWithTimeZone::now_utc();
-    let profile_id = Uuid::new_v4();
-
-    let item = db::conversion_profile::ActiveModel {
-        id: Set(profile_id),
-        name: Set(body.name),
-        updated: Set(now),
-        team_id: Set(user_info.team_id),
-        ..Default::default()
+    let value = NewConversionProfile {
+        conversion_profile_id: Uuid::new_v4(),
+        name: body.name,
+        team_id: user.team_id,
+        project_id: body.project_id,
     };
 
-    item.insert(&state.db).await?;
+    let conn = state.db.get().await?;
+    let result = conn
+        .interact(move |conn| {
+            diesel::insert_into(dsl::conversion_profiles)
+                .values(&value)
+                .get_result::<ConversionProfile>(conn)
+        })
+        .await??;
 
-    Ok((StatusCode::ACCEPTED, Json(json!({}))))
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(ConversionProfileOutput::from(result)),
+    ))
 }
 
 async fn get_profile(Path(profile_id): Path<Uuid>) -> impl IntoResponse {

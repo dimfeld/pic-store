@@ -3,20 +3,26 @@ use std::{fmt::Display, ops::Deref};
 #[derive(Debug, Copy, Clone)]
 pub enum Fact {
     Operation,
-    Team,
     User,
+    UserTeam,
     Project,
     Resource,
+    ResourceTeam,
+    ResourceType,
+    Deleted,
 }
 
 impl Fact {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Fact::Operation => "operation",
-            Fact::Team => "team",
             Fact::User => "user",
+            Fact::UserTeam => "team",
             Fact::Project => "project",
+            Fact::ResourceTeam => "resource_team",
             Fact::Resource => "resource",
+            Fact::ResourceType => "resource_type",
+            Fact::Deleted => "deleted",
         }
     }
 
