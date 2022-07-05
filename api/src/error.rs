@@ -30,7 +30,7 @@ pub enum Error {
     ObjectNotFound(&'static str),
 
     #[error("Storage provider {0} does not support pre-signed URLs")]
-    NoUploadUrlError(db::storage_location::Provider),
+    NoUploadUrlError(db::storage_locations::Provider),
 
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),

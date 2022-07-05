@@ -1,6 +1,8 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Extension, Json, Router};
-use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
+use diesel::{sql_query, RunQueryDsl};
 use serde::Serialize;
+
+use crate::{shared_state::State, Error};
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -10,13 +12,16 @@ struct HealthResponse {
     healthy: bool,
 }
 
-async fn health(Extension(ref db): Extension<DatabaseConnection>) -> impl IntoResponse {
-    let db_result = db
-        .query_one(Statement::from_string(
-            sea_orm::DatabaseBackend::Sqlite,
-            "SELECT 1".to_owned(),
-        ))
-        .await;
+async fn check_db(state: &State) -> Result<(), Error> {
+    let conn = state.db.get().await?;
+    conn.interact(|conn| sql_query("SELECT 1").execute(conn))
+        .await??;
+
+    Ok(())
+}
+
+async fn health(Extension(ref state): Extension<State>) -> impl IntoResponse {
+    let db_result = check_db(state).await;
 
     (
         StatusCode::OK,

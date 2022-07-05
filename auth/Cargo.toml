@@ -13,6 +13,7 @@ async-trait = "0.1.56"
 axum = "0.5.7"
 base64 = "0.13.0"
 biscuit-auth = "2.2.0"
+diesel = { version = "2.0.0-rc.0", features = ["chrono", "postgres", "uuid", "serde_json"] }
 futures = "0.3.21"
 http-body = "0.4.5"
 ouroboros = "0.15.0"

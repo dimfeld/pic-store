@@ -3002,6 +3002,7 @@ dependencies = [
  "base64 0.13.0",
  "biscuit-auth",
  "deadpool-diesel",
+ "diesel",
  "futures",
  "http-body 0.4.5",
  "ouroboros",

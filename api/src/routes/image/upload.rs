@@ -7,12 +7,11 @@ use axum::{
 };
 use blake2::Digest;
 use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use futures::{AsyncWrite, AsyncWriteExt, TryStreamExt};
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
-use sea_orm::{EntityTrait, Set};
 use serde::Serialize;
 use serde_json::json;
-use chrono::DateTime<chrono::Utc>;
 use uuid::Uuid;
 
 use pic_store_db as db;
@@ -131,14 +130,15 @@ pub async fn upload_image(
     // TODO once it's built out this will fetch from the database
     let team_id = state.team_id;
     let user_id = state.user_id;
-    let output_path = db::StorageLocation {
+    let output_path = db::storage_locations::StorageLocation {
         storage_location_id: Uuid::new_v4(),
         team_id: state.team_id,
+        project_id: None,
         name: "test storage location".to_string(),
-        provider: db::storage_location::Provider::Local,
+        provider: db::storage_locations::Provider::Local,
         base_location: "./test_uploads".to_string(),
         public_url_base: "https://images.example.com".to_string(),
-        updated: OffsetDateTime::now_utc(),
+        updated: Utc::now(),
         deleted: None,
     };
 
@@ -164,20 +164,22 @@ pub async fn upload_image(
     };
 
     let image_id = Uuid::new_v4();
-    let base_image = db::BaseImage {
-        base_image_id: 
-        project_id: Set(output_path.project_id),
-        hash: Set(hash_hex),
-        format: Set(format.to_string()),
-        location: Set(file_name.clone()),
-        filename: Set(file_name),
-        width: Set(info.size.width as u32),
-        height: Set(info.size.height as u32),
-        upload_profile_id: Set(profile_id),
-        user_id: Set(state.user_id),
-        team_id: Set(state.team_id),
-        updated: Set(OffsetDateTime::now_utc()),
-        ..Default::default()
+    let base_image = db::images::NewBaseImage {
+        base_image_id: Uuid::new_v4(),
+        project_id: output_path.project_id,
+        hash: hash_hex,
+        format: format.to_string(),
+        location: file_name.clone(),
+        filename: file_name,
+        width: info.size.width as u32,
+        height: info.size.height as u32,
+        upload_profile_id: profile_id,
+        user_id: state.user_id,
+        team_id: state.team_id,
+        alt_text: String::new(),
+        placeholder: String::new(),
+        // We already started the upload
+        status: db::BaseImageStatus::Converting,
     };
 
     db::base_image::Entity::insert(base_image)

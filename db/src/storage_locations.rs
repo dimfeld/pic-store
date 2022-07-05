@@ -21,6 +21,17 @@ pub enum Provider {
 
 diesel_jsonb!(Provider);
 
+impl std::fmt::Display for Provider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let desc = match self {
+            Self::Local => "local",
+            Self::S3 { .. } => "s3",
+        };
+
+        f.write_str(desc)
+    }
+}
+
 #[derive(Clone, Debug, Queryable, Identifiable)]
 #[diesel(primary_key(storage_location_id))]
 pub struct StorageLocation {

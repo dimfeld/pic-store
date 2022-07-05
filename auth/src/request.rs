@@ -179,6 +179,8 @@ pub enum BiscuitExtractorError {
     #[error("{}", crate::extract_token::INVALID_MESSAGE_BODY)]
     /// A generic unauthorized error
     Unauthorized,
+    #[error("Not found")]
+    NotFound,
     #[error("{}", crate::extract_token::INVALID_MESSAGE_BODY)]
     Token(#[from] biscuit_auth::error::Token),
     #[error("{0} {1}")]
@@ -192,6 +194,15 @@ pub enum BiscuitExtractorError {
 impl BiscuitExtractorError {
     pub fn internal_error(e: impl Into<tower::BoxError>) -> Self {
         Self::InternalServerError(e.into())
+    }
+}
+
+impl From<diesel::result::Error> for BiscuitExtractorError {
+    fn from(err: diesel::result::Error) -> Self {
+        match err {
+            diesel::result::Error::NotFound => Self::NotFound,
+            _ => Self::InternalServerError(err.into()),
+        }
     }
 }
 
@@ -234,6 +245,13 @@ impl IntoResponse for BiscuitExtractorError {
             Self::InternalServerError(err) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response()
             }
+            Self::NotFound => (
+                StatusCode::NOT_FOUND,
+                Json(pic_store_http_errors::ErrorResponseData::new(
+                    self.to_string(),
+                )),
+            )
+                .into_response(),
             Self::StringError(code, message) => (
                 code,
                 Json(pic_store_http_errors::ErrorResponseData::new(message)),
