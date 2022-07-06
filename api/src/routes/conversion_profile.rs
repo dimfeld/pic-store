@@ -61,10 +61,10 @@ impl BiscuitInfoExtractor for CheckProfileId {
 
     async fn extract(
         &self,
-        req: &RequestParts<Body>,
+        req: &mut RequestParts<Body>,
         user: &UserAndTeamIds,
     ) -> Result<(AuthInfo, ConversionProfile), BiscuitExtractorError> {
-        let Path(profile_id) = Path::<Uuid>::from_request(&mut req)
+        let Path(profile_id) = Path::<Uuid>::from_request(req)
             .await
             .map_err(BiscuitExtractorError::internal_error)?;
 
@@ -77,11 +77,12 @@ impl BiscuitInfoExtractor for CheckProfileId {
             .await
             .map_err(BiscuitExtractorError::internal_error)?;
 
+        let team_id = user.team_id;
         let conversion_profile = conn
-            .interact(|conn| {
+            .interact(move |conn| {
                 db::conversion_profiles::table
                     .filter(db::conversion_profiles::conversion_profile_id.eq(profile_id))
-                    .filter(db::conversion_profiles::team_id.eq(user.team_id))
+                    .filter(db::conversion_profiles::team_id.eq(team_id))
                     .first::<ConversionProfile>(conn)
             })
             .await?

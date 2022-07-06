@@ -6,7 +6,6 @@ use axum::{
     Extension, Json, Router,
 };
 use http::StatusCode;
-use sea_orm::{ActiveModelTrait, Set};
 use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -34,31 +33,31 @@ async fn new_base_image(
     let mut auth = state.auth.with_biscuit(&biscuit)?;
     let user_info = auth.get_user_and_team()?;
 
-    let a = db::upload_profile::Entity::find_by_id_or_short_id(
-        user_info.team_id,
-        payload.upload_profile_id.as_str(),
-    )
-    .one(&state.db)
-    .await?
-    .ok_or(Error::ObjectNotFound("upload_profile_id"))?;
+    // let a = db::upload_profiles::UploadProfile::find_by_id_or_short_id(
+    //     user_info.team_id,
+    //     payload.upload_profile_id.as_str(),
+    // )
+    // .one(&state.db)
+    // .await?
+    // .ok_or(Error::ObjectNotFound("upload_profile_id"))?;
 
-    let image_id = Uuid::new_v4();
+    // let image_id = Uuid::new_v4();
 
-    let obj = db::base_image::ActiveModel {
-        filename: Set(payload.filename.clone()),
-        user_id: Set(user_info.user_id),
-        team_id: Set(user_info.team_id),
-        // TODO Use the project id linked to the upload profile
-        // TODO verify that user has access to upload images to this project
-        project_id: Set(state.project_id),
-        // TODO verify that this profile exists and that we have access to it
-        upload_profile_id: Set(profile.id),
-        // TODO add a small random string to the end?
-        location: Set(payload.filename),
-        ..Default::default()
-    };
+    // let obj = db::base_image::ActiveModel {
+    //     filename: Set(payload.filename.clone()),
+    //     user_id: Set(user_info.user_id),
+    //     team_id: Set(user_info.team_id),
+    //     // TODO Use the project id linked to the upload profile
+    //     // TODO verify that user has access to upload images to this project
+    //     project_id: Set(state.project_id),
+    //     // TODO verify that this profile exists and that we have access to it
+    //     upload_profile_id: Set(profile.id),
+    //     // TODO add a small random string to the end?
+    //     location: Set(payload.filename),
+    //     ..Default::default()
+    // };
 
-    obj.insert(&state.db).await?;
+    // obj.insert(&state.db).await?;
 
     Ok((StatusCode::OK, Json(json!({}))))
 }

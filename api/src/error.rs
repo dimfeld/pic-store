@@ -3,16 +3,20 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use sea_orm::DbErr;
 use thiserror::Error;
 
-use pic_store_db as db;
 use pic_store_http_errors::ErrorResponseData;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error(transparent)]
-    DbErr(#[from] DbErr),
+    #[error("Database Error: {0}")]
+    DbErr(#[from] diesel::result::Error),
+
+    #[error("Database Pool Error: {0}")]
+    PoolError(#[from] deadpool_diesel::PoolError),
+
+    #[error("Database Error: {0}")]
+    DeadpoolInteractError(#[from] deadpool_diesel::InteractError),
 
     #[error("Unauthorized")]
     Unauthorized,
@@ -29,8 +33,8 @@ pub enum Error {
     #[error("Unknown {0}")]
     ObjectNotFound(&'static str),
 
-    #[error("Storage provider {0} does not support pre-signed URLs")]
-    NoUploadUrlError(db::storage_locations::Provider),
+    #[error("Storage provider does not support pre-signed URLs")]
+    NoUploadUrlError,
 
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
@@ -46,12 +50,22 @@ pub enum Error {
 
     #[error("request too large")]
     RequestTooLarge,
+
+    #[error(transparent)]
+    Generic(#[from] anyhow::Error),
 }
 
 impl Error {
+    pub fn from_presign_error(err: std::io::Error) -> Self {
+        match err.kind() {
+            std::io::ErrorKind::Unsupported => Self::NoUploadUrlError,
+            _ => Self::from(err),
+        }
+    }
+
     pub fn response_tuple(&self) -> (StatusCode, ErrorResponseData) {
         let status = match self {
-            Error::NoUploadUrlError(_) => StatusCode::BAD_REQUEST,
+            Error::NoUploadUrlError => StatusCode::BAD_REQUEST,
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::ObjectNotFound(_) => StatusCode::NOT_FOUND,

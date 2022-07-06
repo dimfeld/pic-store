@@ -8,10 +8,10 @@ use crate::schema::*;
 #[diesel(primary_key(base_image_id))]
 pub struct BaseImage {
     pub base_image_id: Uuid,
-    pub user_id: Uuid,
     pub team_id: Uuid,
     pub project_id: Uuid,
-    pub hash: String,
+    pub user_id: Uuid,
+    pub hash: Option<String>,
 
     /// The original filename of the image.
     pub filename: String,
@@ -22,12 +22,12 @@ pub struct BaseImage {
 
     pub width: i32,
     pub height: i32,
-    pub format: ImageFormat,
+    pub format: Option<ImageFormat>,
 
     pub upload_profile_id: Uuid,
     pub status: BaseImageStatus,
     pub alt_text: String,
-    pub placeholder: String,
+    pub placeholder: Option<String>,
 
     pub updated: chrono::DateTime<chrono::Utc>,
     pub deleted: Option<chrono::DateTime<chrono::Utc>>,
@@ -51,7 +51,7 @@ pub struct NewBaseImage {
 
     pub width: i32,
     pub height: i32,
-    pub format: ImageFormat,
+    pub format: Option<ImageFormat>,
 
     pub upload_profile_id: Uuid,
     pub status: BaseImageStatus,

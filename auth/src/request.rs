@@ -98,13 +98,14 @@ impl<S, T: BiscuitInfoExtractor> CheckBiscuit<S, T> {
         let token = req
             .extensions()
             .get::<BiscuitExtension>()
-            .ok_or(BiscuitExtractorError::Unauthorized)?;
-        let mut authorizer = root_auth.with_biscuit(token)?;
+            .ok_or(BiscuitExtractorError::Unauthorized)?
+            .clone();
+        let mut authorizer = root_auth.with_biscuit(&token)?;
 
         let user_info = authorizer.get_user_and_team()?;
 
         // TODO Also get the user's roles and the permissions for those roles.
-        let (auth_info, obj) = extractor.extract(&req, &user_info).await?;
+        let (auth_info, obj) = extractor.extract(&mut req, &user_info).await?;
 
         let project_id = auth_info.project_id.unwrap_or_else(Uuid::nil);
         authorizer.set_project(project_id)?;
@@ -276,7 +277,7 @@ pub trait BiscuitInfoExtractor: Clone + Send + Sync + 'static {
 
     async fn extract(
         &self,
-        req: &RequestParts<Body>,
+        req: &mut RequestParts<Body>,
         user: &UserAndTeamIds,
     ) -> Result<(AuthInfo, Self::Object), BiscuitExtractorError>;
 }

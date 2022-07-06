@@ -8,6 +8,7 @@ use axum::{
 use blake2::Digest;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
+use diesel::prelude::*;
 use futures::{AsyncWrite, AsyncWriteExt, TryStreamExt};
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
 use serde::Serialize;
@@ -41,7 +42,7 @@ const HEADER_CAP: usize = 1024;
 
 impl Header {
     fn as_slice(&self) -> &[u8] {
-        match self.buf {
+        match &self.buf {
             HeaderBuf::Vec(vec) => vec.as_slice(),
             HeaderBuf::Ref(bytes) => bytes.as_ref(),
             HeaderBuf::Empty => panic!("as_slice on empty header"),
@@ -49,7 +50,7 @@ impl Header {
     }
 
     fn ready(&self) -> bool {
-        let len = match self.buf {
+        let len = match &self.buf {
             HeaderBuf::Vec(vec) => vec.len(),
             HeaderBuf::Ref(bytes) => bytes.len(),
             HeaderBuf::Empty => 0,
@@ -63,7 +64,7 @@ impl Header {
             return;
         }
 
-        self.buf = match self.buf {
+        self.buf = match std::mem::replace(&mut self.buf, HeaderBuf::Empty) {
             HeaderBuf::Empty => HeaderBuf::Ref(bytes.clone()),
             HeaderBuf::Vec(mut vec) => {
                 let needed = HEADER_CAP - vec.len();
@@ -149,31 +150,31 @@ pub async fn upload_image(
         .await
         .map_err(storage::Error::OperatorError)?;
 
+    let file_name = "FAKE_FILENAME".to_string(); // TODO
     let object = operator.object(file_name.as_str());
     let mut writer = object.writer(512 * 1024).await?;
 
     let (hash_hex, info) = handle_upload(writer, stream).await?;
 
     let format = match info.format {
-        ImageFormat::PNG => "png",
-        ImageFormat::AVIF => "avif",
-        ImageFormat::JPEG => "jpeg",
-        ImageFormat::GIF => "gif",
-        ImageFormat::WEBP => "webp",
+        ImageFormat::PNG => db::ImageFormat::Png,
+        ImageFormat::AVIF => db::ImageFormat::Avif,
+        ImageFormat::JPEG => db::ImageFormat::Jpg,
+        ImageFormat::WEBP => db::ImageFormat::Webp,
         _ => return Err(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat)),
     };
 
     let image_id = Uuid::new_v4();
     let base_image = db::images::NewBaseImage {
         base_image_id: Uuid::new_v4(),
-        project_id: output_path.project_id,
+        project_id: Uuid::new_v4(),
         hash: hash_hex,
-        format: format.to_string(),
+        format: Some(format),
         location: file_name.clone(),
         filename: file_name,
-        width: info.size.width as u32,
-        height: info.size.height as u32,
-        upload_profile_id: profile_id,
+        width: info.size.width as i32,
+        height: info.size.height as i32,
+        upload_profile_id: Uuid::new_v4(),
         user_id: state.user_id,
         team_id: state.team_id,
         alt_text: String::new(),
@@ -182,8 +183,14 @@ pub async fn upload_image(
         status: db::BaseImageStatus::Converting,
     };
 
-    db::base_image::Entity::insert(base_image)
-        .exec(&state.db)
+    let conn = state.db.get().await?;
+    let result = conn
+        .interact(move |conn| {
+            diesel::insert_into(db::base_images::table)
+                .values(&base_image)
+                .returning(db::base_images::all_columns)
+                .get_result::<db::images::BaseImage>(conn)
+        })
         .await?;
 
     // TODO Schedule conversions
