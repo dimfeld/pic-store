@@ -4,7 +4,7 @@ use opendal::Operator;
 
 use pic_store_db as db;
 
-use crate::{error::Error, s3::S3ProviderConfig, PresignedUrl};
+use crate::{error::Error, s3::S3ProviderConfig};
 
 #[derive(Debug, Clone)]
 pub enum ProviderConfig {
@@ -78,18 +78,5 @@ impl Provider {
 
         let operator = Operator::new(accessor).with_backoff(ExponentialBackoff::default());
         Ok(operator)
-    }
-
-    pub async fn create_presigned_upload_url(
-        &self,
-        destination: &str,
-    ) -> Result<PresignedUrl, Error> {
-        match self {
-            Self::Local => Err(Error::PresignedUriNotSupported),
-            Self::S3 { client, .. } => {
-                self.create_s3_presigned_upload_url(client, destination)
-                    .await
-            }
-        }
     }
 }

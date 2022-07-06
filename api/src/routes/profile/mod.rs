@@ -5,9 +5,9 @@ use axum::{
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::json;
-use chrono::DateTime<chrono::Utc>;
 use uuid::Uuid;
 
 use pic_store_db as db;
@@ -25,14 +25,15 @@ async fn get_upload_url(
     Path((profile_id, file_name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, Error> {
     // TODO once it's built out this will fetch from the database
-    let output_path = db::StorageLocation {
+    let output_path = db::storage_locations::StorageLocation {
         storage_location_id: Uuid::new_v4(),
         team_id: Uuid::new_v4(),
+        project_id: None,
         name: "test storage location".to_string(),
-        provider: db::storage_location::Provider::Local,
+        provider: db::storage_locations::Provider::Local,
         base_location: "./test_uploads".to_string(),
         public_url_base: "https://images.example.com".to_string(),
-        updated: OffsetDateTime::now_utc(),
+        updated: Utc::now(),
         deleted: None,
     };
 
@@ -41,15 +42,18 @@ async fn get_upload_url(
     let destination = format!("{}/{}", output_path.base_location, file_name);
 
     let presigned_url = provider
-        .create_presigned_upload_url(destination.as_str())
-        .await?;
+        .create_operator(output_path.base_location.as_str())
+        .await?
+        .object(&file_name)
+        .presign_write(time::Duration::hours(1))
+        .map_err(Error::from_presign_error)?;
 
     // Add the entry to the database with some sort of pending tag
     // The client then uploads it to the backing store, and calls another endpoint (TBD) to mark it
     // done.
 
     let headers = presigned_url
-        .headers
+        .header()
         .iter()
         .map(|(k, v)| (k.as_str(), v.to_str().unwrap_or_default()))
         .filter(|(_, v)| !v.is_empty())
@@ -58,8 +62,8 @@ async fn get_upload_url(
     Ok((
         StatusCode::ACCEPTED,
         Json(json!({
-            "method": presigned_url.method.as_str(),
-            "uri": presigned_url.uri.to_string(),
+            "method": presigned_url.method().as_str(),
+            "uri": presigned_url.uri().to_string(),
             "headers": headers,
         })),
     ))
