@@ -1,13 +1,16 @@
 use diesel::prelude::*;
 use uuid::Uuid;
 
-use crate::schema::*;
+use crate::{
+    object_id::{ProjectId, TeamId},
+    schema::*,
+};
 
 #[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
 #[diesel(primary_key(project_id))]
 pub struct Project {
-    pub project_id: Uuid,
-    pub team_id: Uuid,
+    pub project_id: ProjectId,
+    pub team_id: TeamId,
     pub name: String,
     pub base_location: String,
 

@@ -3,7 +3,11 @@ use diesel::sql_types::Jsonb;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{diesel_jsonb, schema::*};
+use crate::{
+    diesel_jsonb,
+    object_id::{ProjectId, StorageLocationId, TeamId},
+    schema::*,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, AsExpression)]
 #[serde(tag = "type")]
@@ -35,9 +39,9 @@ impl std::fmt::Display for Provider {
 #[derive(Clone, Debug, Queryable, Identifiable)]
 #[diesel(primary_key(storage_location_id))]
 pub struct StorageLocation {
-    pub storage_location_id: Uuid,
-    pub team_id: Uuid,
-    pub project_id: Option<Uuid>,
+    pub storage_location_id: StorageLocationId,
+    pub team_id: TeamId,
+    pub project_id: Option<ProjectId>,
     pub name: String,
 
     pub provider: Provider,
@@ -53,9 +57,9 @@ pub struct StorageLocation {
 #[derive(Debug, Insertable)]
 #[diesel(table_name = storage_locations)]
 pub struct NewStorageLocation {
-    pub storage_location_id: Uuid,
-    pub team_id: Uuid,
-    pub project_id: Option<Uuid>,
+    pub storage_location_id: StorageLocationId,
+    pub team_id: TeamId,
+    pub project_id: Option<ProjectId>,
     pub name: String,
 
     pub provider: Provider,

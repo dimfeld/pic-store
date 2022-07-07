@@ -200,8 +200,7 @@ impl<const PREFIX: usize> FromSql<diesel::sql_types::Uuid, diesel::pg::Pg> for O
     fn from_sql(
         bytes: diesel::backend::RawValue<'_, diesel::pg::Pg>,
     ) -> diesel::deserialize::Result<Self> {
-        <Uuid as FromSql<diesel::sql_types::Uuid, diesel::pg::Pg>>::from_sql(&bytes)
-            .map(|u| Self(u))
+        <Uuid as FromSql<diesel::sql_types::Uuid, diesel::pg::Pg>>::from_sql(bytes).map(|u| Self(u))
     }
 }
 impl<const PREFIX: usize> ToSql<::diesel::sql_types::Uuid, ::diesel::pg::Pg> for ObjectId<PREFIX> {
@@ -209,7 +208,10 @@ impl<const PREFIX: usize> ToSql<::diesel::sql_types::Uuid, ::diesel::pg::Pg> for
         &self,
         out: &mut ::diesel::serialize::Output<diesel::pg::Pg>,
     ) -> diesel::serialize::Result {
-        <Uuid as ToSql<diesel::sql_types::Uuid, diesel::pg::Pg>>::to_sql(&self.0)
+        <Uuid as ToSql<diesel::sql_types::Uuid, diesel::pg::Pg>>::to_sql(
+            &self.0,
+            &mut out.reborrow(),
+        )
     }
 }
 
@@ -219,18 +221,18 @@ mod tests {
 
     #[test]
     fn to_from_str() {
-        let id = TaskId::new();
+        let id = TeamId::new();
 
         let s = id.to_string();
-        let id2 = TaskId::from_str(&s).unwrap();
+        let id2 = TeamId::from_str(&s).unwrap();
         assert_eq!(id, id2, "ID converts to string and back");
     }
 
     #[test]
     fn serde() {
-        let id = TaskId::new();
+        let id = TeamId::new();
         let json_str = serde_json::to_string(&id).unwrap();
-        let id2: TaskId = serde_json::from_str(&json_str).unwrap();
+        let id2: TeamId = serde_json::from_str(&json_str).unwrap();
         assert_eq!(id, id2, "Value serializes and deserializes to itself");
     }
 }

@@ -2,15 +2,18 @@ use diesel::prelude::*;
 use uuid::Uuid;
 
 use crate::enums::{BaseImageStatus, ImageFormat, OutputImageStatus};
+use crate::object_id::{
+    BaseImageId, ConversionProfileItemId, OutputImageId, ProjectId, TeamId, UploadProfileId, UserId,
+};
 use crate::schema::*;
 
 #[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
 #[diesel(primary_key(base_image_id))]
 pub struct BaseImage {
-    pub base_image_id: Uuid,
-    pub team_id: Uuid,
-    pub project_id: Uuid,
-    pub user_id: Uuid,
+    pub base_image_id: BaseImageId,
+    pub team_id: TeamId,
+    pub project_id: ProjectId,
+    pub user_id: UserId,
     pub hash: Option<String>,
 
     /// The original filename of the image.
@@ -24,7 +27,7 @@ pub struct BaseImage {
     pub height: i32,
     pub format: Option<ImageFormat>,
 
-    pub upload_profile_id: Uuid,
+    pub upload_profile_id: UploadProfileId,
     pub status: BaseImageStatus,
     pub alt_text: String,
     pub placeholder: Option<String>,
@@ -36,10 +39,10 @@ pub struct BaseImage {
 #[derive(Debug, Insertable)]
 #[diesel(table_name = base_images)]
 pub struct NewBaseImage {
-    pub base_image_id: Uuid,
-    pub user_id: Uuid,
-    pub team_id: Uuid,
-    pub project_id: Uuid,
+    pub base_image_id: BaseImageId,
+    pub user_id: UserId,
+    pub team_id: TeamId,
+    pub project_id: ProjectId,
     pub hash: String,
 
     /// The original filename of the image.
@@ -53,7 +56,7 @@ pub struct NewBaseImage {
     pub height: i32,
     pub format: Option<ImageFormat>,
 
-    pub upload_profile_id: Uuid,
+    pub upload_profile_id: UploadProfileId,
     pub status: BaseImageStatus,
     pub alt_text: String,
     pub placeholder: String,
@@ -62,14 +65,14 @@ pub struct NewBaseImage {
 #[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
 #[diesel(primary_key(output_image_id))]
 pub struct OutputImage {
-    pub output_image_id: Uuid,
-    pub team_id: Uuid,
-    pub base_image_id: Uuid,
+    pub output_image_id: OutputImageId,
+    pub team_id: TeamId,
+    pub base_image_id: BaseImageId,
     pub location: String,
     pub width: i32,
     pub height: i32,
     pub format: ImageFormat,
-    pub conversion_profile_item_id: Uuid,
+    pub conversion_profile_item_id: ConversionProfileItemId,
 
     pub status: OutputImageStatus,
 
@@ -80,14 +83,14 @@ pub struct OutputImage {
 #[derive(Debug, Insertable)]
 #[diesel(table_name = output_images)]
 pub struct NewOutputImage {
-    pub output_image_id: Uuid,
-    pub team_id: Uuid,
-    pub base_image_id: Uuid,
+    pub output_image_id: OutputImageId,
+    pub team_id: TeamId,
+    pub base_image_id: BaseImageId,
     pub location: String,
     pub width: i32,
     pub height: i32,
     pub format: ImageFormat,
-    pub conversion_profile_item_id: Uuid,
+    pub conversion_profile_item_id: ConversionProfileItemId,
 
     pub status: OutputImageStatus,
 }
