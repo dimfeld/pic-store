@@ -8,6 +8,8 @@ use crate::{
     Permission,
 };
 
+pub use crate::schema::api_keys::*;
+
 #[derive(Clone, Debug, Queryable, Identifiable, Insertable)]
 #[diesel(primary_key(api_key_id))]
 pub struct ApiKey {

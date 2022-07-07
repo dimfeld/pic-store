@@ -1,4 +1,4 @@
-mod api_key;
+pub mod api_key;
 mod error;
 mod extract_token;
 mod password;

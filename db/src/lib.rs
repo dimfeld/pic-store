@@ -5,7 +5,7 @@ mod enums;
 mod json;
 mod schema;
 
-pub mod api_key;
+pub mod api_keys;
 pub mod conversion_profiles;
 pub mod images;
 pub mod object_id;
