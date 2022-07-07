@@ -13,6 +13,9 @@ diesel-derive-enum = { git = "https://github.com/adwhit/diesel-derive-enum", fea
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
+base64 = "0.13.0"
+thiserror = "1.0.31"
+ulid = { version = "0.6.0", features = ["serde", "uuid"] }
 
 [dependencies.deadpool-diesel]
 git = "https://github.com/bikeshedder/deadpool"

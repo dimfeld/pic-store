@@ -9,7 +9,9 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
+use http::Method;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 
 use db::conversion_profiles::{ConversionProfile, NewConversionProfile};
@@ -68,14 +70,7 @@ impl BiscuitInfoExtractor for CheckProfileId {
             .await
             .map_err(BiscuitExtractorError::internal_error)?;
 
-        let conn = &req
-            .extensions()
-            .get::<State>()
-            .unwrap()
-            .db
-            .get()
-            .await
-            .map_err(BiscuitExtractorError::internal_error)?;
+        let conn = &req.extensions().get::<State>().unwrap().db.get().await?;
 
         let team_id = user.team_id;
         let conversion_profile = conn
@@ -85,8 +80,7 @@ impl BiscuitInfoExtractor for CheckProfileId {
                     .filter(db::conversion_profiles::team_id.eq(team_id))
                     .first::<ConversionProfile>(conn)
             })
-            .await?
-            .map_err(BiscuitExtractorError::internal_error)?;
+            .await??;
 
         let auth_info = AuthInfo {
             resource_type: "conversion_profile",
@@ -101,12 +95,50 @@ impl BiscuitInfoExtractor for CheckProfileId {
     }
 }
 
-async fn list_profiles() -> impl IntoResponse {
-    StatusCode::NOT_IMPLEMENTED
+async fn list_profiles(
+    Extension(ref state): Extension<State>,
+    biscuit: RequireBiscuit,
+) -> Result<impl IntoResponse, crate::Error> {
+    let mut auth = state.auth.with_biscuit(&biscuit)?;
+    let user = auth.get_user_and_team()?;
+
+    auth.set_resource_type("conversion_profile")?;
+    auth.set_resource_team(user.team_id)?;
+    auth.set_operation_from_method(&Method::GET)?;
+
+    let conn = state.db.get().await?;
+
+    let objects = conn
+        .interact(move |conn| {
+            // TODO PERM Extra checks for role permissions and such, once they exist, to reduce query load
+            db::conversion_profiles::table
+                .filter(db::conversion_profiles::team_id.eq(user.team_id))
+                .load::<ConversionProfile>(conn)
+        })
+        .await??;
+
+    let objects = objects
+        .into_iter()
+        .filter_map(|o| {
+            let mut auth = auth.clone();
+            auth.set_resource(o.conversion_profile_id.to_string())
+                .ok()?;
+            auth.set_deleted(o.deleted.is_some()).ok()?;
+
+            if let Some(project_id) = o.project_id.as_ref() {
+                auth.set_project(project_id).ok()?;
+            }
+
+            auth.authorize()
+                .ok()
+                .map(|_| ConversionProfileOutput::from(o))
+        })
+        .collect::<Vec<_>>();
+
+    Ok((StatusCode::OK, Json(objects)))
 }
 
 async fn write_profile(
-    Path(profile_id): Path<Uuid>,
     Extension(ref state): Extension<State>,
     Extension(profile): Extension<ConversionProfile>,
     Json(body): Json<ConversionProfileInput>,
@@ -154,13 +186,25 @@ async fn new_profile(
     ))
 }
 
-async fn get_profile(Path(profile_id): Path<Uuid>) -> impl IntoResponse {
-    (StatusCode::NOT_IMPLEMENTED, profile_id.to_string())
+async fn get_profile(Extension(profile): Extension<ConversionProfile>) -> impl IntoResponse {
+    (StatusCode::OK, Json(ConversionProfileOutput::from(profile)))
 }
 
-async fn disable_profile() -> impl IntoResponse {
-    todo!();
-    StatusCode::NOT_IMPLEMENTED
+async fn disable_profile(
+    Extension(ref state): Extension<State>,
+    Extension(profile): Extension<ConversionProfile>,
+) -> Result<impl IntoResponse, crate::Error> {
+    use db::conversion_profiles::dsl;
+
+    let conn = state.db.get().await?;
+    conn.interact(move |conn| {
+        diesel::update(&profile)
+            .set((dsl::deleted.eq(Some(Utc::now())),))
+            .execute(conn)
+    })
+    .await??;
+
+    Ok((StatusCode::OK, Json(json!({}))))
 }
 
 pub fn configure() -> Router {

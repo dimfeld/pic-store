@@ -17,12 +17,76 @@ CREATE TABLE users (
   user_id uuid primary key,
   team_id uuid not null references teams(team_id),
   email text not null,
+  password_hash bytea,
   name text not null,
   updated timestamptz not null default now(),
   deleted timestamptz
 );
 
+CREATE TABLE roles (
+  role_id uuid primary key,
+  team_id uuid not null references teams(team_id),
+  name text not null,
+  created timestamptz not null default now(),
+  deleted timestamptz
+);
+
+CREATE TABLE user_roles (
+  user_id uuid not null references users(user_id) on delete cascade,
+  role_id uuid not null references roles(role_id) on delete cascade,
+  added timestamptz not null default now(),
+  primary key(user_id, role_id)
+);
+
 CREATE INDEX users_team_id ON users(team_id);
+
+CREATE TABLE sessions (
+  session_id uuid primary key,
+  user_id uuid not null references users(user_id),
+  expires timestamptz not null
+);
+
+CREATE TABLE api_keys (
+  api_key_id uuid primary key,
+  name text not null default '',
+  prefix text not null,
+  hash bytea not null,
+  team_id uuid not null references teams(team_id),
+  user_id uuid not null references users(user_id),
+  inherits_user_permissions boolean not null,
+  created timestamptz not null default now(),
+  expires timestamptz
+);
+
+CREATE INDEX api_keys_team_id_user_id ON api_keys(team_id, user_id);
+
+CREATE TYPE permission AS ENUM (
+  'team:admin',
+  'team:write',
+  'project:create',
+  'project:write',
+  'project:read',
+  'image:edit',
+  'image:create',
+  'conversion_profile:write',
+  'storage_location:write'
+);
+
+CREATE TABLE api_key_permissions (
+  team_id uuid not null,
+  api_key_id uuid not null references api_keys(api_key_id) on delete cascade,
+  project_id uuid,
+  permission permission not null,
+  primary key(team_id, api_key_id, project_id, permission)
+);
+
+CREATE TABLE role_permissions (
+  team_id uuid not null,
+  role_id uuid not null,
+  project_id uuid,
+  permission permission not null,
+  primary key(team_id, role_id, project_id, permission)
+);
 
 CREATE TABLE projects (
   project_id uuid primary key,
@@ -95,6 +159,7 @@ CREATE TYPE base_image_status AS ENUM (
   'deleting',
   'deleted'
 );
+
 CREATE TABLE base_images (
   base_image_id uuid primary key,
   team_id uuid not null references teams(team_id),

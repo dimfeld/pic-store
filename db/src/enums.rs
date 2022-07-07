@@ -38,3 +38,25 @@ impl Default for OutputImageStatus {
         Self::Queued
     }
 }
+
+#[derive(Copy, Clone, Debug, DbEnum)]
+pub enum Permission {
+    #[db_rename = "team:admin"]
+    TeamAdmin,
+    #[db_rename = "team:write"]
+    TeamWrite,
+    #[db_rename = "project:create"]
+    ProjectCreate,
+    #[db_rename = "project:write"]
+    ProjectWrite,
+    #[db_rename = "project:read"]
+    ProjectRead,
+    #[db_rename = "image:edit"]
+    ImageEdit,
+    #[db_rename = "image:create"]
+    ImageCreate,
+    #[db_rename = "conversion_profile:write"]
+    ConversionProfileWrite,
+    #[db_rename = "storage_location:write"]
+    StorageLocationWrite,
+}

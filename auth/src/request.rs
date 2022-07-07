@@ -82,99 +82,6 @@ impl<S, T: BiscuitInfoExtractor> Layer<S> for CheckBiscuitLayer<T> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct CheckBiscuit<S, T: BiscuitInfoExtractor> {
-    inner: S,
-    extractor: T,
-}
-
-impl<S, T: BiscuitInfoExtractor> CheckBiscuit<S, T> {
-    async fn check(
-        root_auth: Arc<RootAuthEvaulator>,
-        extractor: T,
-        req: Request<Body>,
-    ) -> Result<Request<Body>, BiscuitExtractorError> {
-        let mut req = RequestParts::new(req);
-        let token = req
-            .extensions()
-            .get::<BiscuitExtension>()
-            .ok_or(BiscuitExtractorError::Unauthorized)?
-            .clone();
-        let mut authorizer = root_auth.with_biscuit(&token)?;
-
-        let user_info = authorizer.get_user_and_team()?;
-
-        // TODO Also get the user's roles and the permissions for those roles.
-        let (auth_info, obj) = extractor.extract(&mut req, &user_info).await?;
-
-        let project_id = auth_info.project_id.unwrap_or_else(Uuid::nil);
-        authorizer.set_project(project_id)?;
-        authorizer.set_resource_team(auth_info.team_id)?;
-        authorizer.set_resource(auth_info.resource_id)?;
-        authorizer.set_resource_type(auth_info.resource_type)?;
-        authorizer.set_deleted(auth_info.deleted)?;
-
-        if let Some(operation) = auth_info.operation {
-            authorizer.add_fact(crate::Fact::Operation.with_value(operation))?;
-        } else {
-            authorizer.set_operation_from_method(req.method())?;
-        }
-
-        authorizer.authorize()?;
-
-        drop(authorizer);
-
-        req.extensions_mut().insert(obj);
-        req.extensions_mut().insert(user_info);
-
-        let req = req
-            .try_into_request()
-            .map_err(BiscuitExtractorError::internal_error)?;
-
-        Ok(req)
-    }
-}
-
-impl<S, T: BiscuitInfoExtractor, ResBody> Service<Request<Body>> for CheckBiscuit<S, T>
-where
-    S: Service<Request<Body>, Response = Response<ResBody>> + Send + Clone + 'static,
-    S::Future: Send + 'static,
-    ResBody: HttpBody<Data = Bytes> + Send + 'static,
-    ResBody::Error: Into<BoxError> + Send,
-{
-    type Response = Response;
-    type Error = S::Error;
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
-    }
-
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let mut inner = self.inner.clone();
-        let root_auth = req
-            .extensions()
-            .get::<Arc<RootAuthEvaulator>>()
-            .cloned()
-            .expect("RootAuthEvaulator is present on request");
-        let extractor = self.extractor.clone();
-
-        Box::pin(async move {
-            let extract_result = Self::check(root_auth, extractor, req)
-                .await
-                .map_err(|e| e.into_response());
-
-            match extract_result {
-                Ok(req) => Ok(inner.call(req).await?.map(axum::body::boxed)),
-                Err(e) => Ok(e),
-            }
-        })
-    }
-}
-
 #[derive(Debug, Error)]
 pub enum BiscuitExtractorError {
     #[error("{}", crate::extract_token::INVALID_MESSAGE_BODY)]
@@ -188,6 +95,10 @@ pub enum BiscuitExtractorError {
     StringError(StatusCode, String),
     #[error("{0} {1}")]
     CustomError(StatusCode, String),
+    #[error("Database error: {0}")]
+    DbError(diesel::result::Error),
+    #[error("Database pool error: {0}")]
+    DbPoolError(#[from] deadpool_diesel::PoolError),
     #[error(transparent)]
     InternalServerError(#[from] tower::BoxError),
 }
@@ -202,7 +113,7 @@ impl From<diesel::result::Error> for BiscuitExtractorError {
     fn from(err: diesel::result::Error) -> Self {
         match err {
             diesel::result::Error::NotFound => Self::NotFound,
-            _ => Self::InternalServerError(err.into()),
+            _ => Self::DbError(err),
         }
     }
 }

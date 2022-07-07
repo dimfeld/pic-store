@@ -14,7 +14,6 @@ pic-store-storage = { path = "../storage" }
 anyhow = "1.0.57"
 async-trait = "0.1.56"
 axum = { version="0.5.7", features = ["headers", "json", "multipart"] }
-biscuit-auth = "2.2.0"
 blake2 = "0.10.4"
 bytes = "1.1.0"
 chrono = "0.4.19"

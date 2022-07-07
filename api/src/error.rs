@@ -68,6 +68,7 @@ impl Error {
             Error::NoUploadUrlError => StatusCode::BAD_REQUEST,
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::NotFound => StatusCode::NOT_FOUND,
+            Error::AuthError(_) => StatusCode::FORBIDDEN,
             Error::ObjectNotFound(_) => StatusCode::NOT_FOUND,
             Error::ContentLengthRequired => StatusCode::BAD_REQUEST,
             Error::RequestTooLarge => StatusCode::BAD_REQUEST,

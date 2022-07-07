@@ -109,10 +109,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "argon2"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db4ce4441f99dbd377ca8a8f57b698c44d0d6e712d8329b5040da5a64aa1ce73"
+dependencies = [
+ "base64ct",
+ "blake2",
+ "password-hash",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
+
+[[package]]
+name = "assert_matches"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
 
 [[package]]
 name = "async-channel"
@@ -529,6 +546,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "base64ct"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bdca834647821e0b13d9539a8634eb62d3501b6b6c2cec1722786ee6671b851"
+
+[[package]]
 name = "bindgen"
 version = "0.59.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -549,29 +572,6 @@ dependencies = [
  "rustc-hash",
  "shlex",
  "which",
-]
-
-[[package]]
-name = "biscuit-auth"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "610aa5ab70f4c4be5819ec27314e254d71a7ef992829005f85fd84467499db44"
-dependencies = [
- "base64 0.13.0",
- "ed25519-dalek",
- "getrandom 0.1.16",
- "hex",
- "nom",
- "prost",
- "prost-types",
- "quote",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "regex",
- "sha2 0.9.9",
- "thiserror",
- "time 0.3.11",
- "zeroize",
 ]
 
 [[package]]
@@ -1076,19 +1076,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "curve25519-dalek"
-version = "3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b9fdf9972b2bd6af2d913799d9ebc165ea4d2e65878e329d9c6b372c4491b61"
-dependencies = [
- "byteorder",
- "digest 0.9.0",
- "rand_core 0.5.1",
- "subtle",
- "zeroize",
-]
-
-[[package]]
 name = "dav1d"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1254,29 +1241,6 @@ name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
-
-[[package]]
-name = "ed25519"
-version = "1.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e9c280362032ea4203659fc489832d0204ef09f247a0506f170dafcac08c369"
-dependencies = [
- "signature",
-]
-
-[[package]]
-name = "ed25519-dalek"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c762bae6dcaf24c4c84667b8579785430908723d5c889f469d76a41d59cc7a9d"
-dependencies = [
- "curve25519-dalek",
- "ed25519",
- "rand 0.7.3",
- "serde",
- "sha2 0.9.9",
- "zeroize",
-]
 
 [[package]]
 name = "either"
@@ -2914,6 +2878,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "password-hash"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7676374caaee8a325c9e7a2ae557f216c5563a171d6997b0ef8a65af35147700"
+dependencies = [
+ "base64ct",
+ "rand_core 0.6.3",
+ "subtle",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2957,7 +2932,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
- "biscuit-auth",
  "blake2",
  "bytes 1.1.0",
  "chrono",
@@ -3005,10 +2979,13 @@ name = "pic-store-auth"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "argon2",
+ "assert_matches",
  "async-trait",
  "axum",
  "base64 0.13.0",
- "biscuit-auth",
+ "blake2",
+ "chrono",
  "deadpool-diesel",
  "diesel",
  "futures",
@@ -3040,12 +3017,15 @@ name = "pic-store-db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.13.0",
  "chrono",
  "deadpool-diesel",
  "diesel",
  "diesel-derive-enum",
  "serde",
  "serde_json",
+ "thiserror",
+ "ulid",
  "uuid 1.1.2",
 ]
 
@@ -3502,7 +3482,7 @@ dependencies = [
  "rust-ini",
  "serde",
  "serde_json",
- "sha2 0.10.2",
+ "sha2",
  "time 0.3.11",
 ]
 
@@ -3837,19 +3817,6 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.9.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
-dependencies = [
- "block-buffer 0.9.0",
- "cfg-if 1.0.0",
- "cpufeatures",
- "digest 0.9.0",
- "opaque-debug",
-]
-
-[[package]]
-name = "sha2"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55deaec60f81eefe3cce0dc50bda92d6d8e88f2a27df7c5033b42afeb1ed2676"
@@ -3892,12 +3859,6 @@ checksum = "e51e73328dc4ac0c7ccbda3a494dfa03df1de2f46018127f60c693f2648455b0"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "signature"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f054c6c1a6e95179d6f23ed974060dcefb2d9388bb7256900badad682c499de4"
 
 [[package]]
 name = "simd_helpers"
@@ -4041,7 +4002,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha-1 0.10.0",
- "sha2 0.10.2",
+ "sha2",
  "smallvec",
  "sqlformat",
  "sqlx-rt",
@@ -4066,7 +4027,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "sha2 0.10.2",
+ "sha2",
  "sqlx-core",
  "sqlx-rt",
  "syn",
@@ -4187,18 +4148,6 @@ name = "sync_wrapper"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20518fe4a4c9acf048008599e464deb21beeae3d3578418951a189c235a7a9a8"
-
-[[package]]
-name = "synstructure"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f36bdaa60a83aca3921b5259d5400cbf5e90fc51931376a9bd4a0eb79aa7210f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "unicode-xid",
-]
 
 [[package]]
 name = "system-deps"
@@ -4827,6 +4776,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
 
 [[package]]
+name = "ulid"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3be932d774bfad49722da2c4915ac7cc77b77dd223890739a0240de2b2a15957"
+dependencies = [
+ "rand 0.8.5",
+ "serde",
+ "time 0.3.11",
+ "uuid 1.1.2",
+]
+
+[[package]]
 name = "unicase"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4867,12 +4828,6 @@ name = "unicode-width"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973"
-
-[[package]]
-name = "unicode-xid"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "957e51f3646910546462e67d5f7599b9e4fb8acdd304b087a6494730f9eebf04"
 
 [[package]]
 name = "unicode_categories"
@@ -5302,18 +5257,3 @@ name = "zeroize"
 version = "1.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20b578acffd8516a6c3f2a1bdefc1ec37e547bb4e0fb8b6b01a4cafc886b4442"
-dependencies = [
- "zeroize_derive",
-]
-
-[[package]]
-name = "zeroize_derive"
-version = "1.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f8f187641dad4f680d25c4bfc4225b418165984179f26ca76ec4fb6441d3a17"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
-]
