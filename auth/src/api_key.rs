@@ -43,7 +43,7 @@ impl ApiKeyData {
         let base64_id = base64::encode_config(id.as_bytes(), base64::URL_SAFE_NO_PAD);
         let random = base64::encode_config(Uuid::new_v4().as_bytes(), base64::URL_SAFE_NO_PAD);
         let key = format!("{}.{}", base64_id, random);
-        let prefix = key[0..10].to_string();
+        let prefix = key[0..16].to_string();
         let hash = hash_key(&key);
 
         ApiKeyData {
@@ -68,7 +68,7 @@ fn hash_key(key: &str) -> Hash {
 }
 
 fn decode_key(key: &str) -> Result<(Uuid, Hash), Error> {
-    if key.len() != 49 {
+    if key.len() != 45 {
         return Err(Error::InvalidApiKeyFormat);
     }
 
