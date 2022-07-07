@@ -3,6 +3,7 @@ mod error;
 mod extract_token;
 mod password;
 mod request;
+pub mod session;
 
 pub use error::*;
 pub use request::*;

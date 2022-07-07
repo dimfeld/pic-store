@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use uuid::Uuid;
 
 use crate::{
-    object_id::{ProjectId, ProjectId, RoleId, TeamId, UserId},
+    object_id::{ProjectId, RoleId, TeamId, UserId},
     schema::*,
     Permission,
 };

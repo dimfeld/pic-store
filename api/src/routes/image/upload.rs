@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
-use blake2::Digest;
+use blake3::Digest;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
@@ -93,7 +93,7 @@ async fn handle_upload(
     mut writer: impl AsyncWrite + Unpin,
     mut stream: BodyStream,
 ) -> Result<(String, ImageInfo), Error> {
-    let mut hasher = blake2::Blake2b512::new();
+    let mut hasher = blake3::Hasher::new();
 
     let mut header = Header::new();
     let mut info: Option<ImageInfo> = None;
