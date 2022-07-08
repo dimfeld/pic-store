@@ -53,6 +53,9 @@ pub enum Error {
 
     #[error(transparent)]
     Generic(#[from] anyhow::Error),
+
+    #[error("Invalid session id")]
+    InvalidSessionId,
 }
 
 impl Error {
@@ -69,6 +72,7 @@ impl Error {
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::AuthError(_) => StatusCode::FORBIDDEN,
+            Error::InvalidSessionId => StatusCode::FORBIDDEN,
             Error::ObjectNotFound(_) => StatusCode::NOT_FOUND,
             Error::ContentLengthRequired => StatusCode::BAD_REQUEST,
             Error::RequestTooLarge => StatusCode::BAD_REQUEST,
@@ -89,11 +93,5 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let (code, json) = self.response_tuple();
         (code, Json(json)).into_response()
-    }
-}
-
-impl From<biscuit_auth::error::Token> for Error {
-    fn from(err: biscuit_auth::error::Token) -> Self {
-        Error::AuthError(pic_store_auth::Error::TokenError(err))
     }
 }

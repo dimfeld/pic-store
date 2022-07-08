@@ -4,15 +4,16 @@ use async_trait::async_trait;
 use axum::{
     body::Body,
     http::{header::HOST, Request},
+    response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
 use tower_cookies::Cookies;
 
 #[async_trait]
-pub trait SessionStore {
+pub trait SessionStore: Clone + Send + Sync + 'static {
     type UserId;
-    type SessionFetchData;
-    type Error;
+    type SessionFetchData: Send + Sync + 'static;
+    type Error: IntoResponse + Send + Sync + 'static;
 
     async fn create_session(
         &self,
@@ -23,6 +24,7 @@ pub trait SessionStore {
     async fn delete_session(&self, id: &str) -> Result<(), Self::Error>;
 }
 
+#[derive(Clone)]
 pub struct SessionCookieManager {
     pub signing_key: tower_cookies::Key,
     pub cookie_name: String,
@@ -74,6 +76,7 @@ impl SessionCookieManager {
     }
 }
 
+#[derive(Clone)]
 pub struct SessionManager<Store: SessionStore> {
     pub cookies: SessionCookieManager,
     pub store: Store,

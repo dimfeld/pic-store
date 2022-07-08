@@ -1,12 +1,15 @@
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use diesel::Queryable;
+use ulid::Ulid;
 use uuid::Uuid;
 
 use db::object_id::{TeamId, UserId};
 
 use pic_store_auth as auth;
 use pic_store_db as db;
+
+use crate::Error;
 
 #[derive(Queryable)]
 pub struct ApiKeyData {
@@ -87,5 +90,64 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
 
     fn api_key_prefix(&self) -> &'static str {
         "ps1"
+    }
+}
+
+pub struct SessionStore {
+    pub db: db::Pool,
+}
+
+#[derive(Queryable)]
+pub struct SessionData {
+    user_id: UserId,
+}
+
+#[async_trait]
+impl auth::session::SessionStore for SessionStore {
+    type UserId = UserId;
+    type SessionFetchData = ();
+    type Error = crate::Error;
+
+    async fn create_session(
+        &self,
+        user_id: UserId,
+        expires: DateTime<Utc>,
+    ) -> Result<String, Self::Error> {
+        let conn = self.db.get().await?;
+        conn.interact(move |conn| {
+            let input = db::sessions::Session {
+                session_id: Ulid::new(),
+                user_id,
+                expires,
+            };
+
+            diesel::insert_into(&input).execute(conn)?;
+            Ok(input.session_id)
+        })
+        .await?
+    }
+
+    async fn get_session(&self, id: &str) -> Result<Self::SessionFetchData, Self::Error> {
+        let session_id = id.parse::<Ulid>().map_err(|_| Error::InvalidSessionId)?;
+        let conn = self.db.get().await?;
+        conn.interact(move |conn| {
+            db::sessions::table
+                .filter(db::sessions::session_id.eq(session_id))
+                .filter(db::sessions::expires.gt(diesel::dsl::now))
+                .select((db::sessions::user_id,))
+                .first::<SessionData>(conn)
+        })
+        .await?
+    }
+
+    async fn delete_session(&self, id: &str) -> Result<(), Self::Error> {
+        let session_id = id.parse::<Ulid>().map_err(|_| Error::InvalidSessionId)?;
+        let conn = self.db.get().await?;
+        conn.interact(move |conn| {
+            diesel::delete(db::sessions::table)
+                .filter(db::sessions::session_id.eq(session_id))
+                .execute(conn)
+        })
+        .await?
     }
 }

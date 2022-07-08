@@ -71,6 +71,7 @@ where
             };
 
             if message.is_empty() {
+                // This is not an error we need to obfuscate
                 return Ok(res);
             }
 

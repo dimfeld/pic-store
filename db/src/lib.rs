@@ -10,7 +10,7 @@ pub mod conversion_profiles;
 pub mod images;
 pub mod object_id;
 pub mod projects;
-pub mod session;
+pub mod sessions;
 pub mod storage_locations;
 pub mod teams;
 pub mod upload_profiles;

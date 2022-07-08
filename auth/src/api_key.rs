@@ -4,6 +4,7 @@ use axum::{
     body::Body,
     extract::{FromRequest, RequestParts},
     http::{header::AUTHORIZATION, Request},
+    response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -101,10 +102,10 @@ struct ApiQueryString {
 }
 
 #[async_trait]
-pub trait ApiKeyStore {
-    type FetchData;
+pub trait ApiKeyStore: Clone + Send + Sync + 'static {
+    type FetchData: Send + Sync + 'static;
     type NewData;
-    type Error: From<crate::Error>;
+    type Error: From<crate::Error> + IntoResponse + Send + Sync + 'static;
 
     async fn lookup_api_key(
         &self,
@@ -118,6 +119,7 @@ pub trait ApiKeyStore {
     fn api_key_prefix(&self) -> &'static str;
 }
 
+#[derive(Clone)]
 pub struct ApiKeyManager<Store: ApiKeyStore> {
     pub store: Store,
 }
@@ -158,6 +160,7 @@ mod tests {
     use axum::{
         body::Body,
         http::{header::AUTHORIZATION, Request},
+        response::IntoResponse,
     };
     use chrono::{TimeZone, Utc};
 
@@ -165,12 +168,19 @@ mod tests {
     use crate::Error;
 
     struct TestKeyStoreError {}
+    impl IntoResponse for TestKeyStoreError {
+        fn into_response(self) -> axum::response::Response {
+            todo!()
+        }
+    }
+
     impl From<crate::Error> for TestKeyStoreError {
         fn from(_: crate::Error) -> Self {
             Self {}
         }
     }
 
+    #[derive(Clone)]
     struct TestKeyStore {}
 
     #[async_trait]
