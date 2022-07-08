@@ -170,7 +170,7 @@ diesel::table! {
     use crate::enums::*;
 
     sessions (session_id) {
-        session_id -> Text,
+        session_id -> Uuid,
         user_id -> Uuid,
         expires -> Timestamptz,
     }

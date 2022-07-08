@@ -24,14 +24,6 @@ pub struct ApiKey {
     pub created: DateTime<Utc>,
 }
 
-#[derive(Clone, Debug)]
-pub struct ApiKeyAuth {
-    pub api_key_id: Uuid,
-    pub org_id: Uuid,
-    pub user_id: Uuid,
-    pub inherits_user_permissions: bool,
-}
-
 pub type Hash = blake3::Hash;
 
 pub struct ApiKeyData {
@@ -111,43 +103,26 @@ async fn handle_api_key<STORE: ApiKeyStore>(
 ) -> Result<STORE::FetchData, STORE::Error> {
     let (api_key_id, hash) = decode_key(auth_store, key)?;
     event!(Level::DEBUG, ?hash, ?api_key_id, "checking key");
-    let auth_data = auth_store.lookup_api_key(&api_key_id, &hash).await?;
-    // let auth_key = sqlx::query_as!(
-    //     ApiKeyAuth,
-    //     r##"SELECT api_key_id,
-    //         org_id as "org_id: OrgId",
-    //         user_id as "user_id: UserId",
-    //         inherits_user_permissions
-    //     FROM api_keys
-    //     WHERE api_key_id=$1 AND hash=$2 AND active AND (expires IS NULL OR expires < now())
-    //     LIMIT 1"##,
-    //     api_key_id,
-    //     hash
-    // )
-    // .fetch_optional(&auth_data.pg)
-    // .await?
-    // .ok_or(Error::MissingCredentials)?;
-
-    Ok(auth_data)
+    auth_store.lookup_api_key(&api_key_id, &hash).await
 }
 
 async fn extract_api_key(req: &mut RequestParts<Body>) -> Option<String> {
+    // Check the query string first
     if let Ok(query) = axum::extract::Query::<ApiQueryString>::from_request(req).await {
         event!(Level::DEBUG, key=%query.api_key, "Got key from query string");
         return Some(query.0.api_key);
     }
 
-    let bearer = req.headers().get(AUTHORIZATION).and_then(|header| {
-        let (auth_type, token) = header.to_str().ok().and_then(|h| h.split_once(' '))?;
-        (auth_type == "Bearer").then_some(token)
-    });
-
-    if let Some(bearer) = bearer {
-        event!(Level::DEBUG, key=%bearer, "Got key from auth header");
-        return Some(bearer.to_string());
-    }
-
-    None
+    // And then for a Bearer token
+    req.headers()
+        .get(AUTHORIZATION)
+        .and_then(|header| header.to_str().ok())
+        .and_then(|h| h.split_once(' '))
+        .filter(|&(auth_type, _)| auth_type == "Bearer")
+        .map(|(_, token)| {
+            event!(Level::DEBUG, key=%token, "Got key from auth header");
+            token.to_string()
+        })
 }
 
 #[instrument(level = "DEBUG", skip(auth_store))]

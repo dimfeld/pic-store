@@ -1,14 +1,13 @@
 use std::sync::Arc;
-
-use pic_store_auth::RootAuthEvaulator;
-use pic_store_db as db;
 use uuid::Uuid;
+
+use pic_store_db as db;
+
+use crate::auth::ApiKeyStore;
 
 pub struct InnerState {
     pub production: bool,
     pub db: db::Pool,
-
-    pub auth: RootAuthEvaulator,
 
     // Hardcoded values until we have real user auth and such.
     pub user_id: Uuid,

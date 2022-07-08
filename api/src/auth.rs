@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::Utc;
 use diesel::Queryable;
 use uuid::Uuid;
 
@@ -36,7 +37,7 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
         &self,
         key_id: &Uuid,
         hash: &auth::api_key::Hash,
-    ) -> Result<Self::Data, Self::Error> {
+    ) -> Result<Self::FetchData, Self::Error> {
         let conn = self.db.get().await?;
         conn.interact(move |conn| {
             db::api_keys::table

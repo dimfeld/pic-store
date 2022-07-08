@@ -8,7 +8,6 @@ mod shared_state;
 mod tracing_config;
 
 pub use error::Error;
-use pic_store_auth::{keypair_from_priv_key_base64, RootAuthEvaulator};
 use uuid::Uuid;
 
 use std::{
@@ -53,11 +52,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let production = config.env != "development" && !cfg!(debug_assertions);
 
-    let root_eval = RootAuthEvaulator::new();
     let state = Arc::new(InnerState {
         production,
         db,
-        auth: root_eval.clone(),
         // Temporary hardcoded values
         project_id: std::env::var("PROJECT_ID")
             .expect("PROJECT_ID")
@@ -84,19 +81,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .layer(ObfuscateErrorLayer::new(production))
             .compression()
             .decompression()
+            .layer(CookieManagerLayer::new())
             .set_x_request_id(MakeRequestUuid)
             .propagate_x_request_id()
             .layer(Extension(state))
-            .layer(Extension(Arc::new(root_eval)))
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
                     .on_response(DefaultOnResponse::new().level(Level::INFO))
                     .on_request(DefaultOnRequest::new().level(Level::INFO)),
             )
-            .layer(pic_store_auth::BiscuitExtractorLayer::with_pubkey(
-                biscuit_keypair.public(),
-            ))
             .into_inner(),
     );
 

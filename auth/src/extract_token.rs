@@ -30,16 +30,3 @@ pub fn extract_bearer_auth_value<B>(req: &Request<B>) -> Result<Option<Cow<str>>
         }
     }
 }
-
-pub fn extract_from_cookie<'a, B>(req: &'a Request<B>, cookie_name: &str) -> Option<Cow<'a, str>> {
-    // Get the Cookies if it's already there, or parse it ourselves otherwise.
-    req.extensions()
-        .get::<Cookies>()
-        .and_then(|cookies| cookies.get(cookie_name))
-        .map(|cookie| {
-            cookie
-                .value_raw()
-                .map(Cow::Borrowed)
-                .unwrap_or_else(|| Cow::Owned(cookie.value().to_string()))
-        })
-}

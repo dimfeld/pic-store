@@ -41,7 +41,7 @@ CREATE TABLE user_roles (
 CREATE INDEX users_team_id ON users(team_id);
 
 CREATE TABLE sessions (
-  session_id text primary key,
+  session_id uuid primary key,
   user_id uuid not null references users(user_id),
   expires timestamptz not null
 );
