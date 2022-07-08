@@ -1,20 +1,6 @@
-use std::{borrow::Cow, fmt::Debug, ops::Deref, sync::Arc};
+use axum::{body::Body, http::Request};
 
-use async_trait::async_trait;
-use axum::{
-    body::{Body, Bytes, HttpBody},
-    extract::{FromRequest, RequestParts},
-    http::{header::HeaderName, HeaderValue, Request, StatusCode},
-    response::{ErrorResponse, IntoResponse, Response},
-    BoxError, Json,
-};
-use futures::{future::BoxFuture, Future, FutureExt, TryFutureExt};
-use serde::Serialize;
-use thiserror::Error;
-use tower::{Layer, Service};
-use uuid::Uuid;
-
-use crate::extract_token::invalid_message;
+use crate::{api_key::ApiKeyManager, session::SessionManager};
 
 // API Key
 // Session
@@ -27,4 +13,47 @@ use crate::extract_token::invalid_message;
 pub enum RequestUser<ApiKeyData, SessionData> {
     ApiKey(ApiKeyData),
     Session(SessionData),
+}
+
+pub struct Authenticator<
+    ApiKeyStore: crate::api_key::ApiKeyStore,
+    SessionStore: crate::session::SessionStore,
+> {
+    pub api_keys: ApiKeyManager<ApiKeyStore>,
+    pub sessions: SessionManager<SessionStore>,
+}
+
+// TODO Authenticator should be a middleware that first looks for an API key, and then a session cookie, and returns a
+// Option<RequestUser> corresponding to what it finds.
+
+impl<SessionStore: crate::session::SessionStore, ApiKeyStore: crate::api_key::ApiKeyStore>
+    Authenticator<ApiKeyStore, SessionStore>
+{
+    async fn get_auth_info(
+        &self,
+        req: &Request<Body>,
+    ) -> Result<
+        Option<RequestUser<ApiKeyStore::FetchData, SessionStore::SessionFetchData>>,
+        crate::Error,
+    > {
+        let key = self
+            .api_keys
+            .get_api_key(req)
+            .await?
+            .map(RequestUser::ApiKey);
+        if key.is_some() {
+            return Ok(key);
+        }
+
+        let session = self
+            .sessions
+            .get_session(req)
+            .await?
+            .map(RequestUser::Session);
+        if session.is_some() {
+            return Ok(session);
+        }
+
+        Ok(None)
+    }
 }

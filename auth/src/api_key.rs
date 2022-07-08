@@ -1,5 +1,5 @@
 use crate::error::Error;
-use async_session::async_trait;
+use async_trait::async_trait;
 use axum::{
     body::Body,
     extract::{FromRequest, RequestParts},
@@ -74,6 +74,27 @@ fn decode_key<STORE: ApiKeyStore>(store: &STORE, key: &str) -> Result<(Uuid, Has
     Ok((api_key_id, hash))
 }
 
+fn extract_api_key(req: &Request<Body>) -> Option<String> {
+    // Check the query string first
+    let query = serde_urlencoded::from_str::<ApiQueryString>(req.uri().query().unwrap_or_default());
+
+    if let Ok(query) = query {
+        event!(Level::DEBUG, key=%query.api_key, "Got key from query string");
+        return Some(query.api_key);
+    }
+
+    // And then for a Bearer token
+    req.headers()
+        .get(AUTHORIZATION)
+        .and_then(|header| header.to_str().ok())
+        .and_then(|h| h.split_once(' '))
+        .filter(|&(auth_type, _)| auth_type == "Bearer")
+        .map(|(_, token)| {
+            event!(Level::DEBUG, key=%token, "Got key from auth header");
+            token.to_string()
+        })
+}
+
 #[derive(Deserialize)]
 struct ApiQueryString {
     api_key: String,
@@ -97,46 +118,36 @@ pub trait ApiKeyStore {
     fn api_key_prefix(&self) -> &'static str;
 }
 
-async fn handle_api_key<STORE: ApiKeyStore>(
-    auth_store: &STORE,
-    key: &str,
-) -> Result<STORE::FetchData, STORE::Error> {
-    let (api_key_id, hash) = decode_key(auth_store, key)?;
-    event!(Level::DEBUG, ?hash, ?api_key_id, "checking key");
-    auth_store.lookup_api_key(&api_key_id, &hash).await
+pub struct ApiKeyManager<Store: ApiKeyStore> {
+    pub store: Store,
 }
 
-async fn extract_api_key(req: &mut RequestParts<Body>) -> Option<String> {
-    // Check the query string first
-    if let Ok(query) = axum::extract::Query::<ApiQueryString>::from_request(req).await {
-        event!(Level::DEBUG, key=%query.api_key, "Got key from query string");
-        return Some(query.0.api_key);
+impl<Store: ApiKeyStore> std::fmt::Debug for ApiKeyManager<Store> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ApiKeyManager").finish_non_exhaustive()
     }
-
-    // And then for a Bearer token
-    req.headers()
-        .get(AUTHORIZATION)
-        .and_then(|header| header.to_str().ok())
-        .and_then(|h| h.split_once(' '))
-        .filter(|&(auth_type, _)| auth_type == "Bearer")
-        .map(|(_, token)| {
-            event!(Level::DEBUG, key=%token, "Got key from auth header");
-            token.to_string()
-        })
 }
 
-#[instrument(level = "DEBUG", skip(auth_store))]
-pub async fn get_api_key<STORE: ApiKeyStore>(
-    auth_store: &STORE,
-    req: &mut RequestParts<Body>,
-) -> Result<Option<STORE::FetchData>, STORE::Error> {
-    event!(Level::DEBUG, "Fetching api key");
-    if let Some(key) = extract_api_key(req).await {
-        let auth = handle_api_key(auth_store, key.borrow()).await?;
-        return Ok(Some(auth));
+impl<Store: ApiKeyStore> ApiKeyManager<Store> {
+    async fn handle_api_key(&self, key: &str) -> Result<Store::FetchData, Store::Error> {
+        let (api_key_id, hash) = decode_key(&self.store, key)?;
+        event!(Level::DEBUG, ?hash, ?api_key_id, "checking key");
+        self.store.lookup_api_key(&api_key_id, &hash).await
     }
 
-    Ok(None)
+    #[instrument(level = "DEBUG")]
+    pub async fn get_api_key(
+        &self,
+        req: &Request<Body>,
+    ) -> Result<Option<Store::FetchData>, Store::Error> {
+        event!(Level::DEBUG, "Fetching api key");
+        if let Some(key) = extract_api_key(req) {
+            let auth = self.handle_api_key(key.borrow()).await?;
+            return Ok(Some(auth));
+        }
+
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
@@ -146,7 +157,6 @@ mod tests {
     use async_trait::async_trait;
     use axum::{
         body::Body,
-        extract::RequestParts,
         http::{header::AUTHORIZATION, Request},
     };
     use chrono::{TimeZone, Utc};
@@ -252,7 +262,7 @@ mod tests {
             .uri(&format!("http://localhost/api/tasks?api_key={}", key))
             .body(Body::empty())
             .expect("Creating request");
-        let found = super::extract_api_key(&mut RequestParts::new(req)).await;
+        let found = super::extract_api_key(&req);
         assert_matches!(found, Some(key));
     }
 
@@ -265,7 +275,7 @@ mod tests {
             .header(AUTHORIZATION, format!("Bearer {}", key))
             .body(Body::empty())
             .expect("Creating request");
-        let found = super::extract_api_key(&mut RequestParts::new(req)).await;
+        let found = super::extract_api_key(&req);
         assert_matches!(found, Some(key));
     }
 }
