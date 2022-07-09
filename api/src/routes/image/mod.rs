@@ -10,7 +10,6 @@ use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
 
-use pic_store_auth::RequireBiscuit;
 use pic_store_db as db;
 use pic_store_storage as storage;
 
@@ -26,12 +25,9 @@ struct NewBaseImageInput {
 async fn new_base_image(
     Extension(ref state): Extension<State>,
     Json(payload): Json<NewBaseImageInput>,
-    biscuit: RequireBiscuit,
 ) -> Result<impl IntoResponse, Error> {
     // Take either a JSON blob with metadata about the image to upload,
     // or a multipart form which may or may not contain the image data.
-    let mut auth = state.auth.with_biscuit(&biscuit)?;
-    let user_info = auth.get_user_and_team()?;
 
     // let a = db::upload_profiles::UploadProfile::find_by_id_or_short_id(
     //     user_info.team_id,

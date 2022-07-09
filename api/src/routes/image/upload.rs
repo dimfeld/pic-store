@@ -5,9 +5,9 @@ use axum::{
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
-use blake3::Digest;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
+use db::object_id::{BaseImageId, ProjectId, StorageLocationId, UploadProfileId};
 use diesel::prelude::*;
 use futures::{AsyncWrite, AsyncWriteExt, TryStreamExt};
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
@@ -132,7 +132,7 @@ pub async fn upload_image(
     let team_id = state.team_id;
     let user_id = state.user_id;
     let output_path = db::storage_locations::StorageLocation {
-        storage_location_id: Uuid::new_v4(),
+        storage_location_id: StorageLocationId::new(),
         team_id: state.team_id,
         project_id: None,
         name: "test storage location".to_string(),
@@ -166,15 +166,15 @@ pub async fn upload_image(
 
     let image_id = Uuid::new_v4();
     let base_image = db::images::NewBaseImage {
-        base_image_id: Uuid::new_v4(),
-        project_id: Uuid::new_v4(),
+        base_image_id: BaseImageId::new(),
+        project_id: ProjectId::new(),
         hash: hash_hex,
         format: Some(format),
         location: file_name.clone(),
         filename: file_name,
         width: info.size.width as i32,
         height: info.size.height as i32,
-        upload_profile_id: Uuid::new_v4(),
+        upload_profile_id: UploadProfileId::new(),
         user_id: state.user_id,
         team_id: state.team_id,
         alt_text: String::new(),

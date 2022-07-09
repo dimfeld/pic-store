@@ -1,3 +1,4 @@
+use db::object_id::{ProjectId, TeamId, UserId};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -10,16 +11,15 @@ pub struct InnerState {
     pub db: db::Pool,
 
     // Hardcoded values until we have real user auth and such.
-    pub user_id: Uuid,
-    pub team_id: Uuid,
-    pub project_id: Uuid,
+    pub user_id: UserId,
+    pub team_id: TeamId,
+    pub project_id: ProjectId,
 }
 
 impl std::fmt::Debug for InnerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("InnerState")
             .field("production", &self.production)
-            .field("auth", &self.auth)
             .field("user_id", &self.user_id)
             .field("team_id", &self.team_id)
             .field("project_id", &self.project_id)

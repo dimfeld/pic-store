@@ -14,10 +14,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
-use db::conversion_profiles::{ConversionProfile, NewConversionProfile};
-use pic_store_auth::{
-    AuthInfo, BiscuitExtractorError, BiscuitInfoExtractor, CheckBiscuitLayer, Fact, RequireBiscuit,
-    UserAndTeamIds,
+use db::{
+    conversion_profiles::{ConversionProfile, NewConversionProfile},
+    object_id::{ConversionProfileId, ProjectId},
 };
 use pic_store_db as db;
 
@@ -26,7 +25,7 @@ use crate::{shared_state::State, Error};
 #[derive(Debug, Deserialize)]
 pub struct ConversionProfileInput {
     pub name: String,
-    pub project_id: Option<Uuid>,
+    pub project_id: Option<ProjectId>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,7 +38,7 @@ pub struct ConversionProfileItemInput {
 
 #[derive(Debug, Serialize)]
 pub struct ConversionProfileOutput {
-    id: Uuid,
+    id: ConversionProfileId,
     name: String,
     updated: DateTime<Utc>,
 }
@@ -54,58 +53,9 @@ impl From<ConversionProfile> for ConversionProfileOutput {
     }
 }
 
-#[derive(Clone)]
-struct CheckProfileId {}
-
-#[async_trait]
-impl BiscuitInfoExtractor for CheckProfileId {
-    type Object = db::conversion_profiles::ConversionProfile;
-
-    async fn extract(
-        &self,
-        req: &mut RequestParts<Body>,
-        user: &UserAndTeamIds,
-    ) -> Result<(AuthInfo, ConversionProfile), BiscuitExtractorError> {
-        let Path(profile_id) = Path::<Uuid>::from_request(req)
-            .await
-            .map_err(BiscuitExtractorError::internal_error)?;
-
-        let conn = &req.extensions().get::<State>().unwrap().db.get().await?;
-
-        let team_id = user.team_id;
-        let conversion_profile = conn
-            .interact(move |conn| {
-                db::conversion_profiles::table
-                    .filter(db::conversion_profiles::conversion_profile_id.eq(profile_id))
-                    .filter(db::conversion_profiles::team_id.eq(team_id))
-                    .first::<ConversionProfile>(conn)
-            })
-            .await??;
-
-        let auth_info = AuthInfo {
-            resource_type: "conversion_profile",
-            resource_id: conversion_profile.conversion_profile_id,
-            team_id: conversion_profile.team_id,
-            project_id: conversion_profile.project_id,
-            deleted: conversion_profile.deleted.is_some(),
-            operation: None,
-        };
-
-        Ok((auth_info, conversion_profile))
-    }
-}
-
 async fn list_profiles(
     Extension(ref state): Extension<State>,
-    biscuit: RequireBiscuit,
 ) -> Result<impl IntoResponse, crate::Error> {
-    let mut auth = state.auth.with_biscuit(&biscuit)?;
-    let user = auth.get_user_and_team()?;
-
-    auth.set_resource_type("conversion_profile")?;
-    auth.set_resource_team(user.team_id)?;
-    auth.set_operation_from_method(&Method::GET)?;
-
     let conn = state.db.get().await?;
 
     let objects = conn
@@ -159,13 +109,12 @@ async fn write_profile(
 
 async fn new_profile(
     Extension(ref state): Extension<State>,
-    Extension(ref user): Extension<UserAndTeamIds>,
     Json(body): Json<ConversionProfileInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
     use db::conversion_profiles::dsl;
 
     let value = NewConversionProfile {
-        conversion_profile_id: Uuid::new_v4(),
+        conversion_profile_id: ConversionProfileId::new(),
         name: body.name,
         team_id: user.team_id,
         project_id: body.project_id,
@@ -211,8 +160,7 @@ pub fn configure() -> Router {
     let item_routes = Router::new()
         .route("/:profile_id", get(get_profile))
         .route("/:profile_id", put(write_profile))
-        .route("/:profile_id", delete(disable_profile))
-        .route_layer(CheckBiscuitLayer::new(CheckProfileId {}));
+        .route("/:profile_id", delete(disable_profile));
 
     let routes = Router::new()
         .route("/", get(list_profiles))

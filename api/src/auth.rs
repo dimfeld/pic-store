@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use diesel::Queryable;
+use diesel::prelude::*;
 use ulid::Ulid;
 use uuid::Uuid;
 
@@ -26,6 +26,7 @@ pub struct ApiKeyNewData {
     pub inherits_user_permissions: bool,
 }
 
+#[derive(Clone)]
 pub struct ApiKeyStore {
     pub db: db::Pool,
 }
@@ -38,24 +39,27 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
 
     async fn lookup_api_key(
         &self,
-        key_id: &Uuid,
-        hash: &auth::api_key::Hash,
+        key_id: Uuid,
+        hash: auth::api_key::Hash,
     ) -> Result<Self::FetchData, Self::Error> {
         let conn = self.db.get().await?;
-        conn.interact(move |conn| {
-            db::api_keys::table
-                .filter(db::api_keys::api_key_id.eq(key_id))
-                .filter(db::api_keys::hash.eq(hash.as_bytes()))
-                .filter(db::api_keys::expires.gt(diesel::dsl::now))
-                .select((
-                    db::api_keys::api_key_id,
-                    db::api_keys::user_id,
-                    db::api_keys::team_id,
-                    db::api_keys::inherits_user_permissions,
-                ))
-                .first::<ApiKeyData>(conn)
-        })
-        .await?
+        let info = conn
+            .interact(move |conn| {
+                db::api_keys::table
+                    .filter(db::api_keys::api_key_id.eq(key_id))
+                    .filter(db::api_keys::hash.eq(hash.as_bytes().as_slice()))
+                    .filter(db::api_keys::expires.gt(diesel::dsl::now))
+                    .select((
+                        db::api_keys::api_key_id,
+                        db::api_keys::user_id,
+                        db::api_keys::team_id,
+                        db::api_keys::inherits_user_permissions,
+                    ))
+                    .first::<ApiKeyData>(conn)
+            })
+            .await??;
+
+        Ok(info)
     }
 
     async fn create_api_key(
@@ -67,7 +71,7 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
             api_key_id: key.api_key_id,
             name: data.name,
             prefix: key.prefix,
-            hash: key.hash.as_bytes(),
+            hash: key.hash.as_bytes().to_vec(),
             team_id: data.team_id,
             user_id: data.user_id,
             inherits_user_permissions: data.inherits_user_permissions,
@@ -76,15 +80,25 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
         };
 
         let conn = self.db.get().await?;
-        conn.interact(move |conn| diesel::insert_into(&input).execute(conn))??;
+        conn.interact(move |conn| {
+            diesel::insert_into(db::api_keys::table)
+                .values(&input)
+                .execute(conn)
+        })
+        .await??;
         Ok(())
     }
 
-    async fn disable_api_key(&self, key_id: &Uuid) -> Result<(), Self::Error> {
+    async fn disable_api_key(&self, key_id: Uuid) -> Result<(), Self::Error> {
         let conn = self.db.get().await?;
+
         conn.interact(move |conn| {
-            diesel::delete(db::api_keys::table).filter(db::api_keys::api_key_id.eq(key_id))
-        })??;
+            diesel::delete(db::api_keys::table)
+                .filter(db::api_keys::api_key_id.eq(key_id))
+                .execute(conn)
+        })
+        .await??;
+
         Ok(())
     }
 
@@ -93,6 +107,7 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
     }
 }
 
+#[derive(Clone)]
 pub struct SessionStore {
     pub db: db::Pool,
 }
@@ -100,12 +115,13 @@ pub struct SessionStore {
 #[derive(Queryable)]
 pub struct SessionData {
     user_id: UserId,
+    team_id: TeamId,
 }
 
 #[async_trait]
 impl auth::session::SessionStore for SessionStore {
     type UserId = UserId;
-    type SessionFetchData = ();
+    type SessionFetchData = SessionData;
     type Error = crate::Error;
 
     async fn create_session(
@@ -114,40 +130,50 @@ impl auth::session::SessionStore for SessionStore {
         expires: DateTime<Utc>,
     ) -> Result<String, Self::Error> {
         let conn = self.db.get().await?;
-        conn.interact(move |conn| {
-            let input = db::sessions::Session {
-                session_id: Ulid::new(),
-                user_id,
-                expires,
-            };
+        let session = conn
+            .interact(move |conn| {
+                let input = db::sessions::Session {
+                    session_id: Ulid::new().into(),
+                    user_id,
+                    expires,
+                };
 
-            diesel::insert_into(&input).execute(conn)?;
-            Ok(input.session_id)
-        })
-        .await?
+                diesel::insert_into(db::sessions::table)
+                    .values(&input)
+                    .execute(conn)?;
+
+                Ok::<Uuid, crate::Error>(input.session_id)
+            })
+            .await??;
+
+        Ok(session.to_string())
     }
 
     async fn get_session(&self, id: &str) -> Result<Self::SessionFetchData, Self::Error> {
-        let session_id = id.parse::<Ulid>().map_err(|_| Error::InvalidSessionId)?;
+        let session_id = id.parse::<Uuid>().map_err(|_| Error::InvalidSessionId)?;
         let conn = self.db.get().await?;
         conn.interact(move |conn| {
             db::sessions::table
+                .inner_join(db::users::table)
                 .filter(db::sessions::session_id.eq(session_id))
                 .filter(db::sessions::expires.gt(diesel::dsl::now))
-                .select((db::sessions::user_id,))
+                .select((db::sessions::user_id, db::users::team_id))
                 .first::<SessionData>(conn)
         })
         .await?
+        .map_err(Error::from)
     }
 
     async fn delete_session(&self, id: &str) -> Result<(), Self::Error> {
-        let session_id = id.parse::<Ulid>().map_err(|_| Error::InvalidSessionId)?;
+        let session_id = id.parse::<Uuid>().map_err(|_| Error::InvalidSessionId)?;
         let conn = self.db.get().await?;
         conn.interact(move |conn| {
             diesel::delete(db::sessions::table)
                 .filter(db::sessions::session_id.eq(session_id))
                 .execute(conn)
         })
-        .await?
+        .await??;
+
+        Ok(())
     }
 }

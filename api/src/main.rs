@@ -7,17 +7,15 @@ mod routes;
 mod shared_state;
 mod tracing_config;
 
-pub use error::Error;
-use uuid::Uuid;
-
+use axum::{Extension, Router};
+use clap::Parser;
+use pic_store_db::object_id::{ProjectId, TeamId, UserId};
 use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
 };
-
-use axum::{Extension, Router};
-use clap::Parser;
 use tower::ServiceBuilder;
+use tower_cookies::CookieManagerLayer;
 use tower_http::{
     catch_panic::CatchPanicLayer,
     request_id::MakeRequestUuid,
@@ -27,7 +25,7 @@ use tower_http::{
 use tracing::{event, Level};
 
 use crate::{
-    obfuscate_errors::ObfuscateErrorLayer, shared_state::InnerState,
+    error::Error, obfuscate_errors::ObfuscateErrorLayer, shared_state::InnerState,
     tracing_config::HoneycombConfig,
 };
 
@@ -58,19 +56,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Temporary hardcoded values
         project_id: std::env::var("PROJECT_ID")
             .expect("PROJECT_ID")
-            .parse::<Uuid>()
+            .parse::<ProjectId>()
             .unwrap(),
         team_id: std::env::var("TEAM_ID")
             .expect("TEAM_ID")
-            .parse::<Uuid>()
+            .parse::<TeamId>()
             .unwrap(),
         user_id: std::env::var("USER_ID")
             .expect("USER_ID")
-            .parse::<Uuid>()
+            .parse::<UserId>()
             .unwrap(),
     });
-
-    let biscuit_keypair = keypair_from_priv_key_base64(config.biscuit_key.as_str())?;
 
     let app = routes::configure_routes(Router::new()).layer(
         // Global middlewares

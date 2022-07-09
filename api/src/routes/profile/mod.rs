@@ -6,6 +6,7 @@ use axum::{
     Extension, Json, Router,
 };
 use chrono::{DateTime, Utc};
+use db::object_id::{StorageLocationId, TeamId};
 use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -26,8 +27,8 @@ async fn get_upload_url(
 ) -> Result<impl IntoResponse, Error> {
     // TODO once it's built out this will fetch from the database
     let output_path = db::storage_locations::StorageLocation {
-        storage_location_id: Uuid::new_v4(),
-        team_id: Uuid::new_v4(),
+        storage_location_id: StorageLocationId::new(),
+        team_id: TeamId::new(),
         project_id: None,
         name: "test storage location".to_string(),
         provider: db::storage_locations::Provider::Local,
