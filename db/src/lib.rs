@@ -10,10 +10,13 @@ pub mod conversion_profiles;
 pub mod images;
 pub mod object_id;
 pub mod projects;
+pub mod role_permissions;
+pub mod roles;
 pub mod sessions;
 pub mod storage_locations;
 pub mod teams;
 pub mod upload_profiles;
+pub mod user_roles;
 pub mod users;
 
 pub use enums::*;

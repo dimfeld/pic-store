@@ -1,5 +1,4 @@
 use diesel::prelude::*;
-use uuid::Uuid;
 
 use crate::enums::{BaseImageStatus, ImageFormat, OutputImageStatus};
 use crate::object_id::{

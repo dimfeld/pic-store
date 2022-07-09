@@ -1,7 +1,6 @@
 use diesel::prelude::*;
 use diesel::sql_types::Jsonb;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{
     diesel_jsonb,

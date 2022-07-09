@@ -1,5 +1,4 @@
 use diesel::prelude::*;
-use uuid::Uuid;
 
 use crate::{
     object_id::{ConversionProfileId, ProjectId, StorageLocationId, TeamId, UploadProfileId},

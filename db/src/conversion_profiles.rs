@@ -1,10 +1,7 @@
 use diesel::prelude::*;
-use uuid::Uuid;
 
 use crate::enums::ImageFormat;
-use crate::object_id::{
-    ConversionProfileId, ConversionProfileItemId, ProjectId, TeamId,
-};
+use crate::object_id::{ConversionProfileId, ConversionProfileItemId, ProjectId, TeamId};
 use crate::schema::*;
 
 pub use crate::schema::conversion_profiles::*;

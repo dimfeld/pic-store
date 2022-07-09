@@ -16,7 +16,7 @@ pub enum ObjectIdError {
 
 /// A type that is internally stored as a UUID but externally as a
 /// more accessible string with a prefix indicating its type.
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, AsExpression)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, AsExpression, FromSqlRow)]
 #[diesel(sql_type = diesel::sql_types::Uuid)]
 pub struct ObjectId<const PREFIX: usize>(pub Uuid);
 
@@ -200,7 +200,7 @@ impl<const PREFIX: usize> FromSql<diesel::sql_types::Uuid, diesel::pg::Pg> for O
     fn from_sql(
         bytes: diesel::backend::RawValue<'_, diesel::pg::Pg>,
     ) -> diesel::deserialize::Result<Self> {
-        <Uuid as FromSql<diesel::sql_types::Uuid, diesel::pg::Pg>>::from_sql(bytes).map(|u| Self(u))
+        <Uuid as FromSql<diesel::sql_types::Uuid, diesel::pg::Pg>>::from_sql(bytes).map(Self)
     }
 }
 impl<const PREFIX: usize> ToSql<::diesel::sql_types::Uuid, ::diesel::pg::Pg> for ObjectId<PREFIX> {
