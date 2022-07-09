@@ -18,8 +18,15 @@ pub struct Config {
     #[clap(long, env, default_value_t = String::from("dev"))]
     pub honeycomb_dataset: String,
 
-    #[clap(long, env, help = "A biscuit private key")]
-    pub biscuit_key: String,
+    #[clap(
+        long,
+        env,
+        help = "A key for signed cookies, base64 at least 88 characters (64 bytes)"
+    )]
+    pub cookie_key: String,
+
+    #[clap(long, env, help = "The name of the session cookie", default_value_t = String::from("sid"))]
+    pub session_cookie_name: String,
 
     #[clap(
         long,

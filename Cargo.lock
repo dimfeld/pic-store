@@ -2963,6 +2963,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "base64 0.13.0",
  "blake3",
  "bytes 1.1.0",
  "chrono",

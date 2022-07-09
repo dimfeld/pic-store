@@ -25,8 +25,8 @@ use tower_http::{
 use tracing::{event, Level};
 
 use crate::{
-    error::Error, obfuscate_errors::ObfuscateErrorLayer, shared_state::InnerState,
-    tracing_config::HoneycombConfig,
+    auth::auth_layer, error::Error, obfuscate_errors::ObfuscateErrorLayer,
+    shared_state::InnerState, tracing_config::HoneycombConfig,
 };
 
 #[tokio::main]
@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let state = Arc::new(InnerState {
         production,
-        db,
+        db: db.clone(),
         // Temporary hardcoded values
         project_id: std::env::var("PROJECT_ID")
             .expect("PROJECT_ID")
@@ -81,6 +81,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .set_x_request_id(MakeRequestUuid)
             .propagate_x_request_id()
             .layer(Extension(state))
+            .layer(auth_layer(
+                db.clone(),
+                config.session_cookie_name.clone(),
+                &config.cookie_key,
+            ))
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

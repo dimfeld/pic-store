@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use auth::session::{SessionCookieManager, SessionManager};
+use auth::{AuthenticationLayer, RequestUser};
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use ulid::Ulid;
@@ -176,4 +178,49 @@ impl auth::session::SessionStore for SessionStore {
 
         Ok(())
     }
+}
+
+pub struct UserInfo {
+    user_id: UserId,
+    team_id: TeamId,
+}
+
+impl From<RequestUser<ApiKeyData, SessionData>> for UserInfo {
+    fn from(u: RequestUser<ApiKeyData, SessionData>) -> Self {
+        match u {
+            RequestUser::ApiKey(key) => UserInfo {
+                user_id: key.user_id,
+                team_id: key.team_id,
+            },
+            RequestUser::Session(s) => UserInfo {
+                user_id: s.user_id,
+                team_id: s.team_id,
+            },
+        }
+    }
+}
+
+pub fn auth_layer(
+    db: db::Pool,
+    cookie_name: String,
+    cookie_key_b64: &str,
+) -> AuthenticationLayer<UserInfo, ApiKeyStore, SessionStore> {
+    let api_store = ApiKeyStore { db: db.clone() };
+
+    let session_store = SessionStore { db };
+
+    let cookie_key = tower_cookies::Key::from(
+        &base64::decode(cookie_key_b64).expect("cookie_key must be base64"),
+    );
+
+    let session_manager = SessionManager {
+        store: session_store,
+        cookies: SessionCookieManager {
+            signing_key: cookie_key,
+            cookie_name,
+        },
+        expire_days: 36500,
+    };
+
+    AuthenticationLayer::new(api_store, session_manager)
 }

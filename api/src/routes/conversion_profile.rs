@@ -58,31 +58,19 @@ async fn list_profiles(
 ) -> Result<impl IntoResponse, crate::Error> {
     let conn = state.db.get().await?;
 
+    let team_id = state.team_id;
     let objects = conn
         .interact(move |conn| {
             // TODO PERM Extra checks for role permissions and such, once they exist, to reduce query load
             db::conversion_profiles::table
-                .filter(db::conversion_profiles::team_id.eq(user.team_id))
+                .filter(db::conversion_profiles::team_id.eq(team_id))
                 .load::<ConversionProfile>(conn)
         })
         .await??;
 
     let objects = objects
         .into_iter()
-        .filter_map(|o| {
-            let mut auth = auth.clone();
-            auth.set_resource(o.conversion_profile_id.to_string())
-                .ok()?;
-            auth.set_deleted(o.deleted.is_some()).ok()?;
-
-            if let Some(project_id) = o.project_id.as_ref() {
-                auth.set_project(project_id).ok()?;
-            }
-
-            auth.authorize()
-                .ok()
-                .map(|_| ConversionProfileOutput::from(o))
-        })
+        .map(ConversionProfileOutput::from)
         .collect::<Vec<_>>();
 
     Ok((StatusCode::OK, Json(objects)))
@@ -116,7 +104,7 @@ async fn new_profile(
     let value = NewConversionProfile {
         conversion_profile_id: ConversionProfileId::new(),
         name: body.name,
-        team_id: user.team_id,
+        team_id: state.team_id,
         project_id: body.project_id,
     };
 
