@@ -105,16 +105,16 @@ struct ApiQueryString {
 pub trait ApiKeyStore: Clone + Send + Sync + 'static {
     type FetchData: Send + Sync + 'static;
     type NewData;
-    type Error: From<crate::Error> + IntoResponse + Send + Sync + 'static;
+    type Error: From<crate::Error> + IntoResponse + Send + 'static;
 
     async fn lookup_api_key(
         &self,
-        key_id: &Uuid,
-        hash: &Hash,
+        key_id: Uuid,
+        hash: Hash,
     ) -> Result<Self::FetchData, Self::Error>;
     async fn create_api_key(&self, key: ApiKeyData, data: Self::NewData)
         -> Result<(), Self::Error>;
-    async fn disable_api_key(&self, key_id: &Uuid) -> Result<(), Self::Error>;
+    async fn disable_api_key(&self, key_id: Uuid) -> Result<(), Self::Error>;
 
     fn api_key_prefix(&self) -> &'static str;
 }
@@ -134,7 +134,7 @@ impl<Store: ApiKeyStore> ApiKeyManager<Store> {
     async fn handle_api_key(&self, key: &str) -> Result<Store::FetchData, Store::Error> {
         let (api_key_id, hash) = decode_key(&self.store, key)?;
         event!(Level::DEBUG, ?hash, ?api_key_id, "checking key");
-        self.store.lookup_api_key(&api_key_id, &hash).await
+        self.store.lookup_api_key(api_key_id, hash).await
     }
 
     #[instrument(level = "DEBUG")]
@@ -192,8 +192,8 @@ mod tests {
 
         async fn lookup_api_key(
             &self,
-            key_id: &uuid::Uuid,
-            hash: &super::Hash,
+            key_id: uuid::Uuid,
+            hash: super::Hash,
         ) -> Result<Self::FetchData, Self::Error> {
             todo!()
         }
@@ -206,7 +206,7 @@ mod tests {
             todo!()
         }
 
-        async fn disable_api_key(&self, key: &uuid::Uuid) -> Result<(), Self::Error> {
+        async fn disable_api_key(&self, key: uuid::Uuid) -> Result<(), Self::Error> {
             todo!()
         }
 

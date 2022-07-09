@@ -13,7 +13,7 @@ use tower_cookies::Cookies;
 pub trait SessionStore: Clone + Send + Sync + 'static {
     type UserId;
     type SessionFetchData: Send + Sync + 'static;
-    type Error: IntoResponse + Send + Sync + 'static;
+    type Error: IntoResponse + Send + 'static;
 
     async fn create_session(
         &self,

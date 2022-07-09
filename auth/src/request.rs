@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use axum::{
     body::{Body, BoxBody},
     http::{Request, Response},
@@ -11,26 +13,26 @@ use crate::{
     session::{SessionManager, SessionStore},
 };
 
-// API Key
-// Session
-//
-// Session auth requires
-//  Login - validate password
-//  Cookie auth - Check the session
-//
-
-pub enum RequestUser<ApiKeyData, SessionData> {
-    ApiKey(ApiKeyData),
-    Session(SessionData),
-}
-
-pub struct AuthenticationLayer<APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore> {
+pub struct AuthenticationLayer<APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore, USERDATA>
+where
+    USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>
+        + Send
+        + Sync
+        + 'static,
+{
     pub api_keys: ApiKeyManager<APIKEYSTORE>,
     pub sessions: SessionManager<SESSIONSTORE>,
+
+    user_data_phantom: PhantomData<USERDATA>,
 }
 
-impl<APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore>
-    AuthenticationLayer<APIKEYSTORE, SESSIONSTORE>
+impl<APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore, USERDATA>
+    AuthenticationLayer<APIKEYSTORE, SESSIONSTORE, USERDATA>
+where
+    USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>
+        + Send
+        + Sync
+        + 'static,
 {
     pub fn new(api_key_store: APIKEYSTORE, session_manager: SessionManager<SESSIONSTORE>) -> Self {
         Self {
@@ -38,31 +40,47 @@ impl<APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore>
                 store: api_key_store,
             },
             sessions: session_manager,
+            user_data_phantom: PhantomData,
         }
     }
 }
 
-impl<S: Service<Request<Body>>, APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore> Layer<S>
-    for AuthenticationLayer<APIKEYSTORE, SESSIONSTORE>
+impl<S: Service<Request<Body>>, APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore, USERDATA>
+    Layer<S> for AuthenticationLayer<APIKEYSTORE, SESSIONSTORE, USERDATA>
+where
+    USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>
+        + Send
+        + Sync
+        + 'static,
 {
-    type Service = Authenticator<S, APIKEYSTORE, SESSIONSTORE>;
+    type Service = Authenticator<S, APIKEYSTORE, SESSIONSTORE, USERDATA>;
 
     fn layer(&self, inner: S) -> Self::Service {
         Authenticator {
             api_keys: self.api_keys.clone(),
             sessions: self.sessions.clone(),
+            user_data_phantom: PhantomData,
             inner,
         }
     }
+}
+
+pub enum RequestUser<ApiKeyData, SessionData> {
+    ApiKey(ApiKeyData),
+    Session(SessionData),
 }
 
 pub struct Authenticator<
     S: Service<Request<Body>>,
     APIKEYSTORE: ApiKeyStore,
     SESSIONSTORE: SessionStore,
-> {
+    USERDATA,
+> where
+    USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>,
+{
     api_keys: ApiKeyManager<APIKEYSTORE>,
     sessions: SessionManager<SESSIONSTORE>,
+    user_data_phantom: PhantomData<USERDATA>,
     inner: S,
 }
 
@@ -82,8 +100,10 @@ impl<APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore> IntoResponse
     }
 }
 
-impl<S: Service<Request<Body>>, SESSIONSTORE: SessionStore, APIKEYSTORE: ApiKeyStore>
-    Authenticator<S, APIKEYSTORE, SESSIONSTORE>
+impl<S: Service<Request<Body>>, SESSIONSTORE: SessionStore, APIKEYSTORE: ApiKeyStore, USERDATA>
+    Authenticator<S, APIKEYSTORE, SESSIONSTORE, USERDATA>
+where
+    USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>,
 {
     async fn get_auth_info(
         api_keys: ApiKeyManager<APIKEYSTORE>,
@@ -115,14 +135,18 @@ impl<S: Service<Request<Body>>, SESSIONSTORE: SessionStore, APIKEYSTORE: ApiKeyS
     }
 }
 
-impl<S, APIKEYSTORE, SESSIONSTORE> Service<Request<Body>>
-    for Authenticator<S, APIKEYSTORE, SESSIONSTORE>
+impl<S, APIKEYSTORE, SESSIONSTORE, USERDATA> Service<Request<Body>>
+    for Authenticator<S, APIKEYSTORE, SESSIONSTORE, USERDATA>
 where
     S: Service<Request<Body>> + Send + Sync + Clone + 'static,
     S::Future: Send + 'static,
     S::Response: IntoResponse + Send + 'static,
     APIKEYSTORE: ApiKeyStore,
     SESSIONSTORE: SessionStore,
+    USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>
+        + Send
+        + Sync
+        + 'static,
 {
     type Response = Response<BoxBody>;
     type Error = S::Error;
@@ -145,7 +169,7 @@ where
             let auth_result = Self::get_auth_info(api_keys, sessions, &req).await;
             match auth_result {
                 Ok(Some(user)) => {
-                    req.extensions_mut().insert(user);
+                    req.extensions_mut().insert(USERDATA::from(user));
                 }
                 Ok(None) => {}
                 Err(e) => return Ok(e.into_response()),
