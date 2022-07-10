@@ -181,8 +181,8 @@ impl auth::session::SessionStore for SessionStore {
 }
 
 pub struct UserInfo {
-    user_id: UserId,
-    team_id: TeamId,
+    pub user_id: UserId,
+    pub team_id: TeamId,
 }
 
 impl From<RequestUser<ApiKeyData, SessionData>> for UserInfo {

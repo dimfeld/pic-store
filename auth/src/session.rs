@@ -99,7 +99,7 @@ impl<Store: SessionStore> SessionManager<Store> {
             .map(|h| h.to_string());
 
         self.cookies
-            .set_session_cookie(req, session_id.to_string(), self.expire_days, domain);
+            .set_session_cookie(req, session_id, self.expire_days, domain);
 
         Ok(())
     }

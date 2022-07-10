@@ -13,6 +13,11 @@ use crate::{
     session::{SessionManager, SessionStore},
 };
 
+struct AuthStores<APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore> {
+    api_keys: ApiKeyManager<APIKEYSTORE>,
+    sessions: SessionManager<SESSIONSTORE>,
+}
+
 pub struct AuthenticationLayer<USERDATA, APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore>
 where
     USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>
@@ -20,9 +25,7 @@ where
         + Sync
         + 'static,
 {
-    pub api_keys: Arc<ApiKeyManager<APIKEYSTORE>>,
-    pub sessions: Arc<SessionManager<SESSIONSTORE>>,
-
+    stores: Arc<AuthStores<APIKEYSTORE, SESSIONSTORE>>,
     user_data_phantom: PhantomData<USERDATA>,
 }
 
@@ -36,10 +39,12 @@ where
 {
     pub fn new(api_key_store: APIKEYSTORE, session_manager: SessionManager<SESSIONSTORE>) -> Self {
         Self {
-            api_keys: Arc::new(ApiKeyManager {
-                store: api_key_store,
+            stores: Arc::new(AuthStores {
+                api_keys: ApiKeyManager {
+                    store: api_key_store,
+                },
+                sessions: session_manager,
             }),
-            sessions: Arc::new(session_manager),
             user_data_phantom: PhantomData,
         }
     }
@@ -58,8 +63,7 @@ where
 
     fn layer(&self, inner: S) -> Self::Service {
         Authenticator {
-            api_keys: self.api_keys.clone(),
-            sessions: self.sessions.clone(),
+            stores: self.stores.clone(),
             user_data_phantom: PhantomData,
             inner,
         }
@@ -79,8 +83,7 @@ pub struct Authenticator<
 > where
     USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>,
 {
-    api_keys: Arc<ApiKeyManager<APIKEYSTORE>>,
-    sessions: Arc<SessionManager<SESSIONSTORE>>,
+    stores: Arc<AuthStores<APIKEYSTORE, SESSIONSTORE>>,
     user_data_phantom: PhantomData<USERDATA>,
     inner: S,
 }
@@ -95,8 +98,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            api_keys: self.api_keys.clone(),
-            sessions: self.sessions.clone(),
+            stores: self.stores.clone(),
             user_data_phantom: PhantomData,
             inner: self.inner.clone(),
         }
@@ -126,14 +128,14 @@ where
     USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>,
 {
     async fn get_auth_info(
-        api_keys: &ApiKeyManager<APIKEYSTORE>,
-        sessions: &SessionManager<SESSIONSTORE>,
+        stores: &AuthStores<APIKEYSTORE, SESSIONSTORE>,
         req: &Request<Body>,
     ) -> Result<
         Option<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>,
         AuthenticatorError<APIKEYSTORE, SESSIONSTORE>,
     > {
-        let key = api_keys
+        let key = stores
+            .api_keys
             .get_api_key(req)
             .await
             .map_err(AuthenticatorError::ApiKeyStore)?
@@ -142,7 +144,8 @@ where
             return Ok(key);
         }
 
-        let session = sessions
+        let session = stores
+            .sessions
             .get_session(req)
             .await
             .map_err(AuthenticatorError::SessionStore)?
@@ -183,10 +186,9 @@ where
         let inner = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, inner);
 
-        let api_keys = self.api_keys.clone();
-        let sessions = self.sessions.clone();
+        let stores = self.stores.clone();
         Box::pin(async move {
-            let auth_result = Self::get_auth_info(&api_keys, &sessions, &req).await;
+            let auth_result = Self::get_auth_info(&stores, &req).await;
             match auth_result {
                 Ok(Some(user)) => {
                     req.extensions_mut().insert(USERDATA::from(user));
