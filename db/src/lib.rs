@@ -34,3 +34,8 @@ pub fn connect(conn_str: &str) -> Result<Pool, impl std::error::Error> {
 pub fn new_uuid() -> uuid::Uuid {
     ulid::Ulid::new().into()
 }
+
+sql_function! {
+    #[aggregate]
+    fn array_agg<X: diesel::sql_types::SingleValue>(x: X) -> diesel::sql_types::Array<X>
+}

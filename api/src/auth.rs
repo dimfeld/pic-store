@@ -6,7 +6,7 @@ use diesel::prelude::*;
 use ulid::Ulid;
 use uuid::Uuid;
 
-use db::object_id::{TeamId, UserId};
+use db::object_id::{RoleId, TeamId, UserId};
 
 use pic_store_auth as auth;
 use pic_store_db as db;
@@ -18,6 +18,7 @@ pub struct ApiKeyData {
     pub api_key_id: Uuid,
     pub user_id: UserId,
     pub team_id: TeamId,
+    pub roles: Vec<RoleId>,
     pub inherits_user_permissions: bool,
 }
 
@@ -48,6 +49,10 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
         let info = conn
             .interact(move |conn| {
                 db::api_keys::table
+                    .inner_join(
+                        db::user_roles::table.on(db::user_roles::user_id.eq(db::api_keys::user_id)),
+                    )
+                    .group_by(db::api_keys::api_key_id)
                     .filter(db::api_keys::api_key_id.eq(key_id))
                     .filter(db::api_keys::hash.eq(hash.as_bytes().as_slice()))
                     .filter(db::api_keys::expires.gt(diesel::dsl::now))
@@ -55,6 +60,7 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
                         db::api_keys::api_key_id,
                         db::api_keys::user_id,
                         db::api_keys::team_id,
+                        db::array_agg(db::user_roles::role_id),
                         db::api_keys::inherits_user_permissions,
                     ))
                     .first::<ApiKeyData>(conn)
@@ -118,6 +124,7 @@ pub struct SessionStore {
 pub struct SessionData {
     user_id: UserId,
     team_id: TeamId,
+    roles: Vec<RoleId>,
 }
 
 #[async_trait]
@@ -156,10 +163,15 @@ impl auth::session::SessionStore for SessionStore {
         let conn = self.db.get().await?;
         conn.interact(move |conn| {
             db::sessions::table
-                .inner_join(db::users::table)
+                .inner_join(db::users::table.inner_join(db::user_roles::table))
+                .group_by(db::users::user_id)
                 .filter(db::sessions::session_id.eq(session_id))
                 .filter(db::sessions::expires.gt(diesel::dsl::now))
-                .select((db::sessions::user_id, db::users::team_id))
+                .select((
+                    db::users::user_id,
+                    db::users::team_id,
+                    db::array_agg(db::user_roles::role_id),
+                ))
                 .first::<SessionData>(conn)
         })
         .await?
@@ -183,6 +195,7 @@ impl auth::session::SessionStore for SessionStore {
 pub struct UserInfo {
     pub user_id: UserId,
     pub team_id: TeamId,
+    pub roles: Vec<RoleId>,
 }
 
 impl From<RequestUser<ApiKeyData, SessionData>> for UserInfo {
@@ -191,10 +204,12 @@ impl From<RequestUser<ApiKeyData, SessionData>> for UserInfo {
             RequestUser::ApiKey(key) => UserInfo {
                 user_id: key.user_id,
                 team_id: key.team_id,
+                roles: key.roles,
             },
             RequestUser::Session(s) => UserInfo {
                 user_id: s.user_id,
                 team_id: s.team_id,
+                roles: s.roles,
             },
         }
     }
