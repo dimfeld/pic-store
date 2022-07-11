@@ -1,7 +1,5 @@
-use async_trait::async_trait;
 use axum::{
-    body::Body,
-    extract::{FromRequest, Path, RequestParts},
+    extract::Path,
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
@@ -9,18 +7,17 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use http::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use uuid::Uuid;
 
+use db::conversion_profiles;
 use db::{
     conversion_profiles::{ConversionProfile, NewConversionProfile},
     object_id::{ConversionProfileId, ProjectId},
 };
 use pic_store_db as db;
 
-use crate::{shared_state::State, Error};
+use crate::{auth::UserInfo, shared_state::State, Error};
 
 #[derive(Debug, Deserialize)]
 pub struct ConversionProfileInput {
@@ -36,9 +33,11 @@ pub struct ConversionProfileItemInput {
     pub height: Option<u32>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Queryable, Selectable)]
+#[diesel(table_name = conversion_profiles)]
 pub struct ConversionProfileOutput {
-    id: ConversionProfileId,
+    #[serde(rename = "id")]
+    conversion_profile_id: ConversionProfileId,
     name: String,
     updated: DateTime<Utc>,
 }
@@ -46,7 +45,7 @@ pub struct ConversionProfileOutput {
 impl From<ConversionProfile> for ConversionProfileOutput {
     fn from(value: ConversionProfile) -> Self {
         ConversionProfileOutput {
-            id: value.conversion_profile_id,
+            conversion_profile_id: value.conversion_profile_id,
             name: value.name,
             updated: value.updated,
         }
@@ -55,16 +54,18 @@ impl From<ConversionProfile> for ConversionProfileOutput {
 
 async fn list_profiles(
     Extension(ref state): Extension<State>,
+    Extension(ref user): Extension<UserInfo>,
 ) -> Result<impl IntoResponse, crate::Error> {
     let conn = state.db.get().await?;
 
-    let team_id = state.team_id;
+    let team_id = user.team_id;
     let objects = conn
         .interact(move |conn| {
             // TODO PERM Extra checks for role permissions and such, once they exist, to reduce query load
             db::conversion_profiles::table
+                .select(ConversionProfileOutput::as_select())
                 .filter(db::conversion_profiles::team_id.eq(team_id))
-                .load::<ConversionProfile>(conn)
+                .load::<ConversionProfileOutput>(conn)
         })
         .await??;
 
@@ -78,7 +79,8 @@ async fn list_profiles(
 
 async fn write_profile(
     Extension(ref state): Extension<State>,
-    Extension(profile): Extension<ConversionProfile>,
+    Extension(ref user): Extension<UserInfo>,
+    Path(profile_id): Path<ConversionProfileId>,
     Json(body): Json<ConversionProfileInput>,
 ) -> Result<impl IntoResponse, Error> {
     use db::conversion_profiles::dsl;
@@ -86,13 +88,16 @@ async fn write_profile(
     let conn = state.db.get().await?;
     let result = conn
         .interact(move |conn| {
-            diesel::update(&profile)
+            // TODO PERM Permission checks
+            diesel::update(db::conversion_profiles::table)
+                .filter(db::conversion_profiles::conversion_profile_id.eq(profile_id))
                 .set((dsl::name.eq(body.name), dsl::updated.eq(Utc::now())))
-                .get_result::<ConversionProfile>(conn)
+                .returning(ConversionProfileOutput::as_select())
+                .get_result::<ConversionProfileOutput>(conn)
         })
         .await??;
 
-    Ok((StatusCode::OK, Json(ConversionProfileOutput::from(result))))
+    Ok((StatusCode::OK, Json(result)))
 }
 
 async fn new_profile(
@@ -111,16 +116,15 @@ async fn new_profile(
     let conn = state.db.get().await?;
     let result = conn
         .interact(move |conn| {
+            // TODO PERM
             diesel::insert_into(dsl::conversion_profiles)
                 .values(&value)
-                .get_result::<ConversionProfile>(conn)
+                .returning(ConversionProfileOutput::as_select())
+                .get_result::<ConversionProfileOutput>(conn)
         })
         .await??;
 
-    Ok((
-        StatusCode::ACCEPTED,
-        Json(ConversionProfileOutput::from(result)),
-    ))
+    Ok((StatusCode::ACCEPTED, Json(result)))
 }
 
 async fn get_profile(Extension(profile): Extension<ConversionProfile>) -> impl IntoResponse {
