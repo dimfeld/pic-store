@@ -13,10 +13,10 @@ pub enum Error {
     DbErr(#[from] diesel::result::Error),
 
     #[error("Database Pool Error: {0}")]
-    PoolError(#[from] deadpool_diesel::PoolError),
+    DbPool(#[from] deadpool_diesel::PoolError),
 
     #[error("Database Error: {0}")]
-    DeadpoolInteractError(#[from] deadpool_diesel::InteractError),
+    DeadpoolInteract(#[from] deadpool_diesel::InteractError),
 
     #[error("Unauthorized")]
     Unauthorized,

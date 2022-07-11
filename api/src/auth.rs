@@ -192,6 +192,7 @@ impl auth::session::SessionStore for SessionStore {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct UserInfo {
     pub user_id: UserId,
     pub team_id: TeamId,

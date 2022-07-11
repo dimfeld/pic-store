@@ -1,24 +1,22 @@
 use axum::{
-    extract::{BodyStream, ContentLengthLimit, Multipart, Path},
-    http::{Request, StatusCode},
+    extract::{BodyStream, ContentLengthLimit},
+    http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
-    Extension, Json, Router,
+    Extension, Json,
 };
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use db::object_id::{BaseImageId, ProjectId, StorageLocationId, UploadProfileId};
 use diesel::prelude::*;
 use futures::{AsyncWrite, AsyncWriteExt, TryStreamExt};
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
-use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
 use pic_store_db as db;
 use pic_store_storage as storage;
 
-use crate::{shared_state::State, Error};
+use crate::{auth::UserInfo, shared_state::State, Error};
 
 struct Header {
     buf: HeaderBuf,
@@ -56,7 +54,7 @@ impl Header {
             HeaderBuf::Empty => 0,
         };
 
-        return len >= HEADER_CAP;
+        len >= HEADER_CAP
     }
 
     fn add_chunk(&mut self, bytes: &Bytes) {
@@ -125,15 +123,13 @@ async fn handle_upload(
 
 pub async fn upload_image(
     Extension(ref state): Extension<State>,
-    Path(image_id): Path<Uuid>,
-    ContentLengthLimit(mut stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
+    Extension(ref user): Extension<UserInfo>,
+    ContentLengthLimit(stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
 ) -> Result<impl IntoResponse, Error> {
     // TODO once it's built out this will fetch from the database
-    let team_id = state.team_id;
-    let user_id = state.user_id;
     let output_path = db::storage_locations::StorageLocation {
         storage_location_id: StorageLocationId::new(),
-        team_id: state.team_id,
+        team_id: user.team_id,
         project_id: None,
         name: "test storage location".to_string(),
         provider: db::storage_locations::Provider::Local,
@@ -152,7 +148,7 @@ pub async fn upload_image(
 
     let file_name = "FAKE_FILENAME".to_string(); // TODO
     let object = operator.object(file_name.as_str());
-    let mut writer = object.writer(512 * 1024).await?;
+    let writer = object.writer(512 * 1024).await?;
 
     let (hash_hex, info) = handle_upload(writer, stream).await?;
 
@@ -164,7 +160,6 @@ pub async fn upload_image(
         _ => return Err(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat)),
     };
 
-    let image_id = Uuid::new_v4();
     let base_image = db::images::NewBaseImage {
         base_image_id: BaseImageId::new(),
         project_id: ProjectId::new(),
@@ -191,7 +186,7 @@ pub async fn upload_image(
                 .returning(db::base_images::all_columns)
                 .get_result::<db::images::BaseImage>(conn)
         })
-        .await?;
+        .await??;
 
     // TODO Schedule conversions
 
