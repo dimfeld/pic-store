@@ -6,7 +6,7 @@ use axum::{
     Extension, Json, Router,
 };
 use chrono::{DateTime, Utc};
-use diesel::{dsl::exists, prelude::*};
+use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -134,25 +134,15 @@ async fn get_profile(
     let roles = user.roles.clone();
     let (profile, allowed) = conn
         .interact(move |conn| {
-            // TODO PERM Extra checks for role permissions and such, once they exist, to reduce query load
             db::conversion_profiles::table
                 .select((
                     ConversionProfileOutput::as_select(),
-                    // TODO Make this EXISTS query into a reusable thing
-                    db::conversion_profiles::project_id.is_null().or(exists(
-                        db::role_permissions::table.filter(
-                            db::role_permissions::team_id
-                                .eq(team_id)
-                                .and(db::role_permissions::role_id.eq_any(&roles))
-                                .and(db::conversion_profiles::project_id.is_not_distinct_from(
-                                    db::role_permissions::project_id.nullable(),
-                                ))
-                                .and(
-                                    db::role_permissions::permission
-                                        .eq(db::role_permissions::Permission::ProjectRead),
-                                ),
-                        ),
-                    )),
+                    db::allowed_or_projectless!(
+                        team_id,
+                        &roles,
+                        db::conversion_profiles::project_id.assume_not_null(),
+                        db::role_permissions::Permission::ProjectRead
+                    ),
                 ))
                 .filter(db::conversion_profiles::conversion_profile_id.eq(profile_id))
                 .filter(db::conversion_profiles::team_id.eq(team_id))

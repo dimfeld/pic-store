@@ -9,6 +9,7 @@ pub mod api_keys;
 pub mod conversion_profiles;
 pub mod images;
 pub mod object_id;
+pub mod permissions;
 pub mod projects;
 pub mod role_permissions;
 pub mod roles;
