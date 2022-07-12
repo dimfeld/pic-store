@@ -10,10 +10,11 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use db::conversion_profiles;
 use db::{
+    conversion_profiles,
     conversion_profiles::{ConversionProfile, NewConversionProfile},
     object_id::{ConversionProfileId, ProjectId},
+    permissions::ProjectPermission,
 };
 use pic_store_db as db;
 
@@ -81,14 +82,28 @@ async fn write_profile(
     use db::conversion_profiles::dsl;
 
     let conn = state.db.get().await?;
+    let team_id = user.team_id;
+    let roles = user.roles.clone();
+
     let result = conn
         .interact(move |conn| {
-            // TODO PERM Permission checks
-            diesel::update(db::conversion_profiles::table)
-                .filter(db::conversion_profiles::conversion_profile_id.eq(profile_id))
+            if !db::permissions::has_permission_on_project(
+                conn,
+                team_id,
+                &roles,
+                body.project_id,
+                ProjectPermission::ConversionProfileWrite,
+            )? {
+                return Err(Error::Unauthorized);
+            }
+
+            let result = diesel::update(dsl::conversion_profiles)
+                .filter(dsl::conversion_profile_id.eq(profile_id))
                 .set((dsl::name.eq(body.name), dsl::updated.eq(Utc::now())))
                 .returning(ConversionProfileOutput::as_select())
-                .get_result::<ConversionProfileOutput>(conn)
+                .get_result::<ConversionProfileOutput>(conn)?;
+
+            Ok(result)
         })
         .await??;
 
@@ -100,7 +115,7 @@ async fn new_profile(
     Extension(ref user): Extension<UserInfo>,
     Json(body): Json<ConversionProfileInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
-    use db::conversion_profiles::dsl;
+    use db::conversion_profiles::{dsl, table};
 
     let value = NewConversionProfile {
         conversion_profile_id: ConversionProfileId::new(),
@@ -109,14 +124,28 @@ async fn new_profile(
         project_id: body.project_id,
     };
 
+    let team_id = user.team_id;
+    let roles = user.roles.clone();
+
     let conn = state.db.get().await?;
     let result = conn
         .interact(move |conn| {
-            // TODO PERM
-            diesel::insert_into(dsl::conversion_profiles)
+            if !db::permissions::has_permission_on_project(
+                conn,
+                team_id,
+                &roles,
+                body.project_id,
+                ProjectPermission::ConversionProfileWrite,
+            )? {
+                return Err(Error::Unauthorized);
+            }
+
+            let output = diesel::insert_into(dsl::conversion_profiles)
                 .values(&value)
                 .returning(ConversionProfileOutput::as_select())
-                .get_result::<ConversionProfileOutput>(conn)
+                .get_result::<ConversionProfileOutput>(conn)?;
+
+            Ok::<_, crate::Error>(output)
         })
         .await??;
 
@@ -137,7 +166,7 @@ async fn get_profile(
             db::conversion_profiles::table
                 .select((
                     ConversionProfileOutput::as_select(),
-                    db::allowed_or_projectless!(
+                    db::obj_allowed_or_projectless!(
                         team_id,
                         &roles,
                         db::conversion_profiles::project_id.assume_not_null(),

@@ -60,3 +60,20 @@ pub enum Permission {
     #[db_rename = "storage_location:write"]
     StorageLocationWrite,
 }
+
+impl Permission {
+    /** Return true if this permission is linked to a project */
+    pub fn requires_project(&self) -> bool {
+        match self {
+            Self::TeamWrite => false,
+            Self::TeamAdmin => false,
+            Self::ProjectCreate => false,
+            Self::ProjectRead => true,
+            Self::ProjectWrite => true,
+            Self::ImageEdit => true,
+            Self::ImageCreate => true,
+            Self::ConversionProfileWrite => true,
+            Self::StorageLocationWrite => true,
+        }
+    }
+}
