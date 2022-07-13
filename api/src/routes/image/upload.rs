@@ -123,7 +123,7 @@ async fn handle_upload(
 
 pub async fn upload_image(
     Extension(ref state): Extension<State>,
-    Extension(ref user): Extension<UserInfo>,
+    Extension(user): Extension<UserInfo>,
     ContentLengthLimit(stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
 ) -> Result<impl IntoResponse, Error> {
     // TODO once it's built out this will fetch from the database

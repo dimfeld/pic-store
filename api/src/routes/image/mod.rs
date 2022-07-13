@@ -1,10 +1,12 @@
 mod upload;
 
 use axum::{
+    extract::Query,
     response::IntoResponse,
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
+use db::object_id::UploadProfileId;
 use http::StatusCode;
 use serde::Deserialize;
 use serde_json::json;
@@ -22,8 +24,14 @@ struct NewBaseImageInput {
     alt_text: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct UploadProfileIdQuery {
+    upload_profile_id: Option<UploadProfileId>,
+}
+
 async fn new_base_image(
     Extension(ref state): Extension<State>,
+    Query(q): Query<UploadProfileIdQuery>,
     Json(payload): Json<NewBaseImageInput>,
 ) -> Result<impl IntoResponse, Error> {
     // Take either a JSON blob with metadata about the image to upload,
@@ -78,20 +86,22 @@ async fn get_upload_url() -> impl IntoResponse {
 }
 
 async fn finished_upload() -> impl IntoResponse {
-    // 1. If this was uploaded through a signed url, fetch the first bit of the image and
-    // figure out its format and dimensions
+    // 1. If this was uploaded through a signed url, fetch the image and
+    // figure out its format and dimensions. Also calculate the hash.
     // 2. Mark it finished
     // 3. Enqueue conversions
     todo!();
 }
 
 pub fn configure() -> Router {
-    Router::new()
+    let routes = Router::new()
         .route("/", post(new_base_image))
-        .route("/:image", get(get_base_image))
-        .route("/:image", put(update_base_image_info))
-        .route("/:image", delete(remove_base_image))
-        .route("/:image_id/upload_url", post(get_upload_url))
+        .route("/:image_id", get(get_base_image))
+        .route("/:image_id", put(update_base_image_info))
+        .route("/:image_id", delete(remove_base_image))
+        .route("/:image_id/create_upload_url", post(get_upload_url))
         .route("/:image_id/upload", post(upload::upload_image))
-        .route("/:image_id/finished_upload", post(finished_upload))
+        .route("/:image_id/complete", post(finished_upload));
+
+    Router::new().nest("/images", routes)
 }
