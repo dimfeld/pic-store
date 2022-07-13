@@ -66,40 +66,9 @@ macro_rules! obj_allowed_or_projectless {
         $obj_project_field.is_null().or($crate::obj_allowed!(
             $team_id,
             $roles,
-            $obj_project_field,
+            $obj_project_field.assume_not_null(),
             $permission
         ))
-    };
-}
-
-#[macro_export]
-macro_rules! has_projectless_permission {
-    ($team_id: expr, $roles: expr, $permission: expr) => {
-        $crate::role_permissions::table.filter(
-            $crate::role_permissions::team_id
-                .eq($team_id)
-                .and($crate::role_permissions::role_id.eq_any($roles))
-                .and(
-                    $crate::role_permissions::permission
-                        .eq(($permission as $crate::permissions::GlobalPermission).into()),
-                ),
-        )
-    };
-}
-
-#[macro_export]
-macro_rules! has_permission_on_project {
-    ($team_id: expr, $roles: expr, $project_id: expr, $permission: expr) => {
-        $crate::role_permissions::table.filter(
-            $crate::role_permissions::team_id
-                .eq($team_id)
-                .and($crate::role_permissions::role_id.eq_any($roles))
-                .and($crate::role_permissions::project_id.eq($project_id))
-                .and(
-                    $crate::role_permissions::permission
-                        .eq(($permission as $crate::permissions::ProjectPermission).into()),
-                ),
-        )
     };
 }
 

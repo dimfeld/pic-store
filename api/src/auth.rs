@@ -3,10 +3,11 @@ use auth::session::{SessionCookieManager, SessionManager};
 use auth::{AuthenticationLayer, RequestUser};
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
+use serde::Deserialize;
 use ulid::Ulid;
 use uuid::Uuid;
 
-use db::object_id::{RoleId, TeamId, UserId};
+use db::object_id::{ProjectId, RoleId, TeamId, UserId};
 
 use pic_store_auth as auth;
 use pic_store_db as db;
@@ -192,7 +193,7 @@ impl auth::session::SessionStore for SessionStore {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct UserInfo {
     pub user_id: UserId,
     pub team_id: TeamId,
@@ -239,4 +240,23 @@ pub fn auth_layer(
     };
 
     AuthenticationLayer::new(api_store, session_manager)
+}
+
+pub fn must_have_permission_on_project(
+    conn: &mut PgConnection,
+    user: &UserInfo,
+    project_id: ProjectId,
+    permission: db::permissions::ProjectPermission,
+) -> Result<(), crate::Error> {
+    if db::permissions::has_permission_on_project(
+        conn,
+        user.team_id,
+        &user.roles,
+        Some(project_id),
+        permission,
+    )? {
+        Ok(())
+    } else {
+        Err(Error::Unauthorized)
+    }
 }

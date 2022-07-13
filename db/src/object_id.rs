@@ -66,6 +66,10 @@ impl<const PREFIX: usize> ObjectId<PREFIX> {
     pub fn as_uuid(&self) -> &Uuid {
         &self.0
     }
+
+    pub fn nil() -> Self {
+        Self(Uuid::nil())
+    }
 }
 
 impl<const PREFIX: usize> Default for ObjectId<PREFIX> {
