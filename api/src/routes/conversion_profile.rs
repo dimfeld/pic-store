@@ -347,9 +347,9 @@ pub fn configure() -> Router {
     let project_routes = Router::new()
         .route("/", get(list_project_profiles))
         .route("/", post(new_project_profile))
-        .route("/:profile_id", get(get_project_profile))
-        .route("/:profile_id", put(write_project_profile))
-        .route("/:profile_id", delete(disable_project_profile));
+        .route("/:conversion_profile_id", get(get_project_profile))
+        .route("/:conversion_profile_id", put(write_project_profile))
+        .route("/:conversion_profile_id", delete(disable_project_profile));
 
     let project_router =
         Router::new().nest("/projects/:project_id/conversion_profiles", project_routes);
@@ -357,9 +357,9 @@ pub fn configure() -> Router {
     let global_routes = Router::new()
         .route("/", get(list_global_profiles))
         .route("/", post(new_global_profile))
-        .route("/:profile_id", get(get_global_profile))
-        .route("/:profile_id", put(write_global_profile))
-        .route("/:profile_id", delete(disable_global_profile));
+        .route("/:conversion_profile_id", get(get_global_profile))
+        .route("/:conversion_profile_id", put(write_global_profile))
+        .route("/:conversion_profile_id", delete(disable_global_profile));
 
     let global_router = Router::new().nest("/projects/global/conversion_profiles", global_routes);
 

@@ -321,9 +321,9 @@ pub fn configure() -> Router {
     let project_routes = Router::new()
         .route("/", get(list_project_locations))
         .route("/", post(new_project_location))
-        .route("/:location_id", get(get_project_location))
-        .route("/:location_id", put(write_project_location))
-        .route("/:location_id", delete(disable_project_location));
+        .route("/:storage_location_id", get(get_project_location))
+        .route("/:storage_location_id", put(write_project_location))
+        .route("/:storage_location_id", delete(disable_project_location));
 
     let project_router =
         Router::new().nest("/projects/:project_id/storage_locations", project_routes);
@@ -331,9 +331,9 @@ pub fn configure() -> Router {
     let global_routes = Router::new()
         .route("/", get(list_global_locations))
         .route("/", post(new_global_location))
-        .route("/:location_id", get(get_global_location))
-        .route("/:location_id", put(write_global_location))
-        .route("/:location_id", delete(disable_global_location));
+        .route("/:storage_location_id", get(get_global_location))
+        .route("/:storage_location_id", put(write_global_location))
+        .route("/:storage_location_id", delete(disable_global_location));
 
     let global_router = Router::new().nest("/projects/global/storage_locations", global_routes);
 
