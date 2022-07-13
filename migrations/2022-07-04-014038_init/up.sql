@@ -13,81 +13,6 @@ CREATE TABLE teams (
   deleted timestamptz
 );
 
-CREATE TABLE users (
-  user_id uuid primary key,
-  team_id uuid not null references teams(team_id),
-  email text not null,
-  password_hash bytea,
-  name text not null,
-  updated timestamptz not null default now(),
-  deleted timestamptz
-);
-
-CREATE TABLE roles (
-  role_id uuid primary key,
-  team_id uuid not null references teams(team_id),
-  name text not null,
-  created timestamptz not null default now(),
-  deleted timestamptz
-);
-
-CREATE TABLE user_roles (
-  user_id uuid not null references users(user_id) on delete cascade,
-  role_id uuid not null references roles(role_id) on delete cascade,
-  added timestamptz not null default now(),
-  primary key(user_id, role_id)
-);
-
-CREATE INDEX users_team_id ON users(team_id);
-
-CREATE TABLE sessions (
-  session_id uuid primary key,
-  user_id uuid not null references users(user_id),
-  expires timestamptz not null
-);
-
-CREATE TABLE api_keys (
-  api_key_id uuid primary key,
-  name text not null default '',
-  prefix text not null,
-  hash bytea not null,
-  team_id uuid not null references teams(team_id),
-  user_id uuid not null references users(user_id),
-  inherits_user_permissions boolean not null,
-  created timestamptz not null default now(),
-  expires timestamptz
-);
-
-CREATE INDEX api_keys_team_id_user_id ON api_keys(team_id, user_id);
-
-CREATE TYPE permission AS ENUM (
-  'team:admin',
-  'team:write',
-  'project:create',
-  'project:write',
-  'project:read',
-  'image:edit',
-  'image:create',
-  'conversion_profile:write',
-  'storage_location:write'
-);
-
-CREATE TABLE api_key_permissions (
-  team_id uuid not null,
-  api_key_id uuid not null references api_keys(api_key_id) on delete cascade,
-  project_id uuid not null,
-  permission permission not null,
-  primary key(team_id, api_key_id, project_id, permission)
-);
-
-CREATE TABLE role_permissions (
-  team_id uuid not null,
-  role_id uuid not null,
-  project_id uuid not null,
-  permission permission not null,
-  primary key(team_id, role_id, project_id, permission)
-);
-
 CREATE TABLE projects (
   project_id uuid primary key,
   team_id uuid not null references teams(team_id),
@@ -151,6 +76,85 @@ CREATE TABLE upload_profiles (
 CREATE INDEX upload_profiles_team_id_project_id ON upload_profiles(team_id, project_id);
 CREATE INDEX upload_profiles_short_id ON upload_profiles(team_id, short_id);
 
+CREATE TABLE users (
+  user_id uuid primary key,
+  team_id uuid not null references teams(team_id),
+  email text not null,
+  password_hash bytea,
+  name text not null,
+
+  default_upload_profile_id uuid references upload_profiles(upload_profile_id),
+  updated timestamptz not null default now(),
+  deleted timestamptz
+);
+
+CREATE TABLE roles (
+  role_id uuid primary key,
+  team_id uuid not null references teams(team_id),
+  name text not null,
+  created timestamptz not null default now(),
+  deleted timestamptz
+);
+
+CREATE TABLE user_roles (
+  user_id uuid not null references users(user_id) on delete cascade,
+  role_id uuid not null references roles(role_id) on delete cascade,
+  added timestamptz not null default now(),
+  primary key(user_id, role_id)
+);
+
+CREATE INDEX users_team_id ON users(team_id);
+
+CREATE TABLE sessions (
+  session_id uuid primary key,
+  user_id uuid not null references users(user_id),
+  expires timestamptz not null
+);
+
+CREATE TABLE api_keys (
+  api_key_id uuid primary key,
+  name text not null default '',
+  prefix text not null,
+  hash bytea not null,
+  team_id uuid not null references teams(team_id),
+  user_id uuid not null references users(user_id),
+  default_upload_profile_id uuid references upload_profiles(upload_profile_id),
+  inherits_user_permissions boolean not null,
+  created timestamptz not null default now(),
+  expires timestamptz
+);
+
+CREATE INDEX api_keys_team_id_user_id ON api_keys(team_id, user_id);
+
+CREATE TYPE permission AS ENUM (
+  'team:admin',
+  'team:write',
+  'project:create',
+  'project:write',
+  'project:read',
+  'image:edit',
+  'image:create',
+  'conversion_profile:write',
+  'storage_location:write'
+);
+
+CREATE TABLE api_key_permissions (
+  team_id uuid not null references teams(team_id),
+  api_key_id uuid not null references api_keys(api_key_id) on delete cascade,
+  project_id uuid not null,
+  permission permission not null,
+  primary key(team_id, api_key_id, project_id, permission)
+);
+
+CREATE TABLE role_permissions (
+  team_id uuid not null references teams(team_id),
+  role_id uuid not null references roles(role_id),
+  project_id uuid not null,
+  permission permission not null,
+  primary key(team_id, role_id, project_id, permission)
+);
+
+
 CREATE TYPE base_image_status AS ENUM (
   'awaiting_upload',
   'converting',
@@ -206,3 +210,4 @@ CREATE TABLE output_images (
 
 CREATE INDEX output_images_team_id ON output_images(team_id);
 CREATE INDEX output_images_base_image_id ON output_images(base_image_id);
+

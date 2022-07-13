@@ -42,6 +42,7 @@ diesel::table! {
         hash -> Bytea,
         team_id -> Uuid,
         user_id -> Uuid,
+        default_upload_profile_id -> Nullable<Uuid>,
         inherits_user_permissions -> Bool,
         created -> Timestamptz,
         expires -> Nullable<Timestamptz>,
@@ -243,13 +244,16 @@ diesel::table! {
         email -> Text,
         password_hash -> Nullable<Bytea>,
         name -> Text,
+        default_upload_profile_id -> Nullable<Uuid>,
         updated -> Timestamptz,
         deleted -> Nullable<Timestamptz>,
     }
 }
 
 diesel::joinable!(api_key_permissions -> api_keys (api_key_id));
+diesel::joinable!(api_key_permissions -> teams (team_id));
 diesel::joinable!(api_keys -> teams (team_id));
+diesel::joinable!(api_keys -> upload_profiles (default_upload_profile_id));
 diesel::joinable!(api_keys -> users (user_id));
 diesel::joinable!(base_images -> projects (project_id));
 diesel::joinable!(base_images -> teams (team_id));
@@ -263,6 +267,8 @@ diesel::joinable!(output_images -> base_images (base_image_id));
 diesel::joinable!(output_images -> conversion_profile_items (conversion_profile_item_id));
 diesel::joinable!(output_images -> teams (team_id));
 diesel::joinable!(projects -> teams (team_id));
+diesel::joinable!(role_permissions -> roles (role_id));
+diesel::joinable!(role_permissions -> teams (team_id));
 diesel::joinable!(roles -> teams (team_id));
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(storage_locations -> projects (project_id));
@@ -273,6 +279,7 @@ diesel::joinable!(upload_profiles -> teams (team_id));
 diesel::joinable!(user_roles -> roles (role_id));
 diesel::joinable!(user_roles -> users (user_id));
 diesel::joinable!(users -> teams (team_id));
+diesel::joinable!(users -> upload_profiles (default_upload_profile_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     api_key_permissions,

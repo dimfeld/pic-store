@@ -7,7 +7,7 @@ use serde::Deserialize;
 use ulid::Ulid;
 use uuid::Uuid;
 
-use db::object_id::{ProjectId, RoleId, TeamId, UserId};
+use db::object_id::{ProjectId, RoleId, TeamId, UploadProfileId, UserId};
 
 use pic_store_auth as auth;
 use pic_store_db as db;
@@ -21,6 +21,7 @@ pub struct ApiKeyData {
     pub team_id: TeamId,
     pub roles: Vec<RoleId>,
     pub inherits_user_permissions: bool,
+    pub default_upload_profile_id: Option<UploadProfileId>,
 }
 
 pub struct ApiKeyNewData {
@@ -28,6 +29,7 @@ pub struct ApiKeyNewData {
     pub user_id: UserId,
     pub name: String,
     pub inherits_user_permissions: bool,
+    pub default_upload_profile_id: Option<UploadProfileId>,
 }
 
 #[derive(Clone)]
@@ -63,6 +65,7 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
                         db::api_keys::team_id,
                         db::array_agg(db::user_roles::role_id),
                         db::api_keys::inherits_user_permissions,
+                        db::api_keys::default_upload_profile_id,
                     ))
                     .first::<ApiKeyData>(conn)
             })
@@ -126,6 +129,7 @@ pub struct SessionData {
     user_id: UserId,
     team_id: TeamId,
     roles: Vec<RoleId>,
+    default_upload_profile_id: Option<UploadProfileId>,
 }
 
 #[async_trait]
@@ -172,6 +176,7 @@ impl auth::session::SessionStore for SessionStore {
                     db::users::user_id,
                     db::users::team_id,
                     db::array_agg(db::user_roles::role_id),
+                    db::users::default_upload_profile_id,
                 ))
                 .first::<SessionData>(conn)
         })
@@ -198,6 +203,7 @@ pub struct UserInfo {
     pub user_id: UserId,
     pub team_id: TeamId,
     pub roles: Vec<RoleId>,
+    pub default_upload_profile_id: Option<UploadProfileId>,
 }
 
 impl From<RequestUser<ApiKeyData, SessionData>> for UserInfo {
@@ -207,11 +213,13 @@ impl From<RequestUser<ApiKeyData, SessionData>> for UserInfo {
                 user_id: key.user_id,
                 team_id: key.team_id,
                 roles: key.roles,
+                default_upload_profile_id: key.default_upload_profile_id,
             },
             RequestUser::Session(s) => UserInfo {
                 user_id: s.user_id,
                 team_id: s.team_id,
                 roles: s.roles,
+                default_upload_profile_id: s.default_upload_profile_id,
             },
         }
     }
