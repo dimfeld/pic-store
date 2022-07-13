@@ -8,6 +8,8 @@ use crate::{
     schema::*,
 };
 
+pub use crate::schema::storage_locations::*;
+
 #[derive(Debug, Clone, Serialize, Deserialize, AsExpression)]
 #[serde(tag = "type")]
 #[diesel(sql_type = Jsonb)]
