@@ -1,5 +1,5 @@
 use axum::{
-    extract::{BodyStream, ContentLengthLimit},
+    extract::{BodyStream, ContentLengthLimit, Path},
     http::StatusCode,
     response::IntoResponse,
     Extension, Json,
@@ -125,7 +125,10 @@ pub async fn upload_image(
     Extension(ref state): Extension<State>,
     Extension(user): Extension<UserInfo>,
     ContentLengthLimit(stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
+    Path(image_id): Path<BaseImageId>,
 ) -> Result<impl IntoResponse, Error> {
+    use db::base_images::dsl;
+
     // TODO once it's built out this will fetch from the database
     let output_path = db::storage_locations::StorageLocation {
         storage_location_id: StorageLocationId::new(),
@@ -160,35 +163,25 @@ pub async fn upload_image(
         _ => return Err(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat)),
     };
 
-    let base_image = db::images::NewBaseImage {
-        base_image_id: BaseImageId::new(),
-        project_id: ProjectId::new(),
-        hash: hash_hex,
-        format: Some(format),
-        location: file_name.clone(),
-        filename: file_name,
-        width: info.size.width as i32,
-        height: info.size.height as i32,
-        upload_profile_id: UploadProfileId::new(),
-        user_id: state.user_id,
-        team_id: state.team_id,
-        alt_text: String::new(),
-        placeholder: String::new(),
-        // We already started the upload
-        status: db::BaseImageStatus::Converting,
-    };
-
     let conn = state.db.get().await?;
-    let result = conn
-        .interact(move |conn| {
-            diesel::insert_into(db::base_images::table)
-                .values(&base_image)
-                .returning(db::base_images::all_columns)
-                .get_result::<db::images::BaseImage>(conn)
+    conn.interact(move |conn| {
+        conn.transaction(|conn| {
+            diesel::update(dsl::base_images)
+                .filter(dsl::base_image_id.eq(image_id))
+                .filter(dsl::team_id.eq(user.team_id))
+                .set((
+                    dsl::hash.eq(hash_hex),
+                    dsl::format.eq(Some(format)),
+                    dsl::width.eq(info.size.width as i32),
+                    dsl::height.eq(info.size.height as i32),
+                    dsl::status.eq(db::BaseImageStatus::Converting),
+                ))
+                .execute(conn)
         })
-        .await??;
 
-    // TODO Schedule conversions
+        // TODO Schedule conversions
+    })
+    .await??;
 
     Ok((StatusCode::OK, Json(json!({}))))
 }

@@ -48,19 +48,14 @@ async fn new_base_image(
         .ok_or(Error::NoUploadProfile)?;
 
     let conn = state.db.get().await?;
-    let image_id = BaseImageId::new();
 
-    let (profile, location, allowed) = conn
+    let filename = payload.filename.clone();
+    let image_id = conn
         .interact(move |conn| {
-            db::upload_profiles::table
-                .inner_join(
-                    db::storage_locations::table.on(db::storage_locations::storage_location_id
-                        .eq(db::upload_profiles::base_storage_location_id)),
-                )
+            let (profile, allowed) = db::upload_profiles::table
                 .filter(db::upload_profiles::upload_profile_id.eq(upload_profile))
                 .select((
                     db::upload_profiles::all_columns,
-                    db::storage_locations::all_columns,
                     db::obj_allowed!(
                         user.team_id,
                         &user.roles,
@@ -68,37 +63,45 @@ async fn new_base_image(
                         Permission::ImageCreate
                     ),
                 ))
-                .first::<(
-                    db::upload_profiles::UploadProfile,
-                    db::storage_locations::StorageLocation,
-                    bool,
-                )>(conn)
+                .first::<(db::upload_profiles::UploadProfile, bool)>(conn)?;
+
+            if !allowed {
+                return Err(Error::MissingPermission(Permission::ImageCreate));
+            }
+
+            let new_image_id = BaseImageId::new();
+
+            let new_image = db::images::NewBaseImage {
+                filename: filename.clone(),
+                user_id: user.user_id,
+                team_id: user.team_id,
+                project_id: profile.project_id,
+                upload_profile_id: upload_profile,
+                location: filename,
+                format: None,
+                base_image_id: new_image_id,
+                hash: String::new(),
+                width: 0,
+                height: 0,
+                status: db::BaseImageStatus::AwaitingUpload,
+                alt_text: String::new(),
+                placeholder: String::new(),
+            };
+
+            diesel::insert_into(db::base_images::table)
+                .values(&new_image)
+                .execute(conn)?;
+
+            Ok(new_image_id)
         })
         .await??;
 
-    if !allowed {
-        return Err(Error::MissingPermission(Permission::ImageCreate));
-    }
-
-    // let image_id = Uuid::new_v4();
-
-    // let obj = db::base_image::ActiveModel {
-    //     filename: Set(payload.filename.clone()),
-    //     user_id: Set(user_info.user_id),
-    //     team_id: Set(user_info.team_id),
-    //     // TODO Use the project id linked to the upload profile
-    //     // TODO verify that user has access to upload images to this project
-    //     project_id: Set(state.project_id),
-    //     // TODO verify that this profile exists and that we have access to it
-    //     upload_profile_id: Set(profile.id),
-    //     // TODO add a small random string to the end?
-    //     location: Set(payload.filename),
-    //     ..Default::default()
-    // };
-
-    // obj.insert(&state.db).await?;
-
-    Ok((StatusCode::OK, Json(json!({}))))
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "image_id": image_id,
+        })),
+    ))
 }
 
 async fn get_base_image() -> impl IntoResponse {
@@ -115,28 +118,13 @@ async fn update_base_image_info() -> impl IntoResponse {
     todo!();
 }
 
-async fn get_upload_url() -> impl IntoResponse {
-    // Generate a new upload url, if applicable.
-    todo!();
-}
-
-async fn finished_upload() -> impl IntoResponse {
-    // 1. If this was uploaded through a signed url, fetch the image and
-    // figure out its format and dimensions. Also calculate the hash.
-    // 2. Mark it finished
-    // 3. Enqueue conversions
-    todo!();
-}
-
 pub fn configure() -> Router {
     let routes = Router::new()
         .route("/", post(new_base_image))
         .route("/:image_id", get(get_base_image))
         .route("/:image_id", put(update_base_image_info))
         .route("/:image_id", delete(remove_base_image))
-        .route("/:image_id/create_upload_url", post(get_upload_url))
-        .route("/:image_id/upload", post(upload::upload_image))
-        .route("/:image_id/complete", post(finished_upload));
+        .route("/:image_id/upload", post(upload::upload_image));
 
     Router::new().nest("/images", routes)
 }
