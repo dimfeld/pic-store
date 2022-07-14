@@ -218,7 +218,9 @@ async fn new_profile(
                 project_id,
                 ProjectPermission::ConversionProfileWrite,
             )? {
-                return Err(Error::Unauthorized);
+                return Err(Error::MissingPermission(
+                    db::role_permissions::Permission::ConversionProfileWrite,
+                ));
             }
 
             let output = diesel::insert_into(dsl::conversion_profiles)
@@ -284,7 +286,9 @@ async fn get_profile(
         .await??;
 
     if !allowed {
-        return Err(Error::Unauthorized);
+        return Err(Error::MissingPermission(
+            db::role_permissions::Permission::ProjectRead,
+        ));
     }
 
     Ok((StatusCode::OK, Json(profile)))

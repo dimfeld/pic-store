@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use db::{
     object_id::{ProjectId, StorageLocationId},
     permissions::ProjectPermission,
-    storage_locations::{self, NewStorageLocation, Provider},
+    storage_locations::{NewStorageLocation, Provider},
     Permission,
 };
 use pic_store_db as db;
@@ -39,12 +39,15 @@ pub struct StorageLocationInput {
 }
 
 #[derive(Debug, Serialize, Queryable, Selectable)]
-#[diesel(table_name = storage_locations)]
+#[diesel(table_name = db::storage_locations)]
 pub struct StorageLocationOutput {
     #[serde(rename = "id")]
-    storage_location_id: StorageLocationId,
-    name: String,
-    updated: DateTime<Utc>,
+    pub storage_location_id: StorageLocationId,
+    pub name: String,
+    pub provider: Provider,
+    pub base_location: String,
+    pub public_url_base: String,
+    pub updated: DateTime<Utc>,
 }
 
 async fn list_global_locations(
@@ -148,7 +151,13 @@ async fn write_location(
                 .filter(dsl::storage_location_id.eq(location_id))
                 .filter(dsl::project_id.is_not_distinct_from(project_id))
                 .filter(dsl::team_id.eq(user.team_id))
-                .set((dsl::name.eq(body.name), dsl::updated.eq(Utc::now())))
+                .set((
+                    dsl::name.eq(body.name),
+                    dsl::provider.eq(body.provider),
+                    dsl::base_location.eq(body.base_location),
+                    dsl::public_url_base.eq(body.public_url_base),
+                    dsl::updated.eq(Utc::now()),
+                ))
                 .returning(StorageLocationOutput::as_select())
                 .get_result::<StorageLocationOutput>(conn)?;
 
@@ -204,7 +213,7 @@ async fn new_location(
                 project_id,
                 ProjectPermission::StorageLocationWrite,
             )? {
-                return Err(Error::Unauthorized);
+                return Err(Error::MissingPermission(Permission::StorageLocationWrite));
             }
 
             let output = diesel::insert_into(dsl::storage_locations)
@@ -264,7 +273,9 @@ async fn get_location(
         .await??;
 
     if !allowed {
-        return Err(Error::Unauthorized);
+        return Err(Error::MissingPermission(
+            db::role_permissions::Permission::ProjectRead,
+        ));
     }
 
     Ok((StatusCode::OK, Json(location)))

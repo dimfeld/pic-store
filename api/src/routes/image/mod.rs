@@ -6,7 +6,11 @@ use axum::{
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
-use db::object_id::UploadProfileId;
+use db::{
+    object_id::{BaseImageId, UploadProfileId},
+    Permission,
+};
+use diesel::prelude::*;
 use http::StatusCode;
 use serde::Deserialize;
 use serde_json::json;
@@ -15,7 +19,7 @@ use uuid::Uuid;
 use pic_store_db as db;
 use pic_store_storage as storage;
 
-use crate::{shared_state::State, Error};
+use crate::{auth::UserInfo, shared_state::State, Error};
 
 #[derive(Deserialize, Debug)]
 struct NewBaseImageInput {
@@ -31,19 +35,50 @@ struct UploadProfileIdQuery {
 
 async fn new_base_image(
     Extension(ref state): Extension<State>,
+    Extension(user): Extension<UserInfo>,
     Query(q): Query<UploadProfileIdQuery>,
     Json(payload): Json<NewBaseImageInput>,
 ) -> Result<impl IntoResponse, Error> {
     // Take either a JSON blob with metadata about the image to upload,
     // or a multipart form which may or may not contain the image data.
 
-    // let a = db::upload_profiles::UploadProfile::find_by_id_or_short_id(
-    //     user_info.team_id,
-    //     payload.upload_profile_id.as_str(),
-    // )
-    // .one(&state.db)
-    // .await?
-    // .ok_or(Error::ObjectNotFound("upload_profile_id"))?;
+    let upload_profile = q
+        .upload_profile_id
+        .or(user.default_upload_profile_id)
+        .ok_or(Error::NoUploadProfile)?;
+
+    let conn = state.db.get().await?;
+    let image_id = BaseImageId::new();
+
+    let (profile, location, allowed) = conn
+        .interact(move |conn| {
+            db::upload_profiles::table
+                .inner_join(
+                    db::storage_locations::table.on(db::storage_locations::storage_location_id
+                        .eq(db::upload_profiles::base_storage_location_id)),
+                )
+                .filter(db::upload_profiles::upload_profile_id.eq(upload_profile))
+                .select((
+                    db::upload_profiles::all_columns,
+                    db::storage_locations::all_columns,
+                    db::obj_allowed!(
+                        user.team_id,
+                        &user.roles,
+                        db::upload_profiles::project_id,
+                        Permission::ImageCreate
+                    ),
+                ))
+                .first::<(
+                    db::upload_profiles::UploadProfile,
+                    db::storage_locations::StorageLocation,
+                    bool,
+                )>(conn)
+        })
+        .await??;
+
+    if !allowed {
+        return Err(Error::MissingPermission(Permission::ImageCreate));
+    }
 
     // let image_id = Uuid::new_v4();
 

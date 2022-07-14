@@ -265,6 +265,6 @@ pub fn must_have_permission_on_project(
     )? {
         Ok(())
     } else {
-        Err(Error::Unauthorized)
+        Err(Error::MissingPermission(permission.into()))
     }
 }

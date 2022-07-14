@@ -5,6 +5,8 @@ use crate::{
     schema::*,
 };
 
+pub use crate::schema::upload_profiles::*;
+
 #[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
 #[diesel(primary_key(upload_profile_id))]
 pub struct UploadProfile {
@@ -13,7 +15,7 @@ pub struct UploadProfile {
     pub project_id: ProjectId,
     pub name: String,
 
-    pub short_id: String,
+    pub short_id: Option<String>,
 
     /// Where to store the input images, since they may not want to be in the same place as the
     /// output.

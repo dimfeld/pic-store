@@ -1,10 +1,12 @@
 #[macro_export]
 macro_rules! diesel_jsonb {
     ($type: ty) => {
-        impl ::diesel::deserialize::FromSql<::diesel::sql_types::Jsonb, diesel::pg::Pg> for $type {
+        impl ::diesel::deserialize::FromSql<::diesel::sql_types::Jsonb, ::diesel::pg::Pg>
+            for $type
+        {
             fn from_sql(
                 value: diesel::backend::RawValue<'_, diesel::pg::Pg>,
-            ) -> diesel::deserialize::Result<Self> {
+            ) -> ::diesel::deserialize::Result<Self> {
                 let bytes = value.as_bytes();
                 if bytes[0] != 1 {
                     return Err("Unsupported JSONB encoding version".into());
@@ -24,7 +26,7 @@ macro_rules! diesel_jsonb {
             fn to_sql(
                 &self,
                 out: &mut ::diesel::serialize::Output<diesel::pg::Pg>,
-            ) -> diesel::serialize::Result {
+            ) -> ::diesel::serialize::Result {
                 use std::io::Write;
 
                 out.write_all(&[1])?;

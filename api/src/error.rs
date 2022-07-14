@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use pic_store_db::Permission;
 use thiserror::Error;
 
 use pic_store_http_errors::ErrorResponseData;
@@ -18,8 +19,8 @@ pub enum Error {
     #[error("Database Error: {0}")]
     DeadpoolInteract(#[from] deadpool_diesel::InteractError),
 
-    #[error("Unauthorized")]
-    Unauthorized,
+    #[error("Missing Permission {0}")]
+    MissingPermission(Permission),
 
     #[error("Auth error: {0}")]
     AuthError(#[from] pic_store_auth::Error),
@@ -56,6 +57,9 @@ pub enum Error {
 
     #[error("Invalid session id")]
     InvalidSessionId,
+
+    #[error("Upload profile not specified and there is no default setting")]
+    NoUploadProfile,
 }
 
 impl Error {
@@ -69,10 +73,11 @@ impl Error {
     pub fn response_tuple(&self) -> (StatusCode, ErrorResponseData) {
         let status = match self {
             Error::NoUploadUrlError => StatusCode::BAD_REQUEST,
-            Error::Unauthorized => StatusCode::UNAUTHORIZED,
+            Error::NoUploadProfile => StatusCode::BAD_REQUEST,
+            Error::MissingPermission(_) => StatusCode::FORBIDDEN,
             Error::NotFound => StatusCode::NOT_FOUND,
-            Error::AuthError(_) => StatusCode::FORBIDDEN,
-            Error::InvalidSessionId => StatusCode::FORBIDDEN,
+            Error::AuthError(_) => StatusCode::UNAUTHORIZED,
+            Error::InvalidSessionId => StatusCode::UNAUTHORIZED,
             Error::ObjectNotFound(_) => StatusCode::NOT_FOUND,
             Error::ContentLengthRequired => StatusCode::BAD_REQUEST,
             Error::RequestTooLarge => StatusCode::BAD_REQUEST,

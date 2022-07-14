@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .layer(CatchPanicLayer::custom(move |err| {
                 panic_handler::handle_panic(production, err)
             }))
-            .layer(ObfuscateErrorLayer::new(production))
+            .layer(ObfuscateErrorLayer::new(production, false))
             .compression()
             .decompression()
             .layer(CookieManagerLayer::new())

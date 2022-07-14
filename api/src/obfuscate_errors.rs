@@ -10,11 +10,15 @@ use tower::{Layer, Service};
 
 pub struct ObfuscateErrorLayer {
     enabled: bool,
+    obfuscate_forbidden: bool,
 }
 
 impl ObfuscateErrorLayer {
-    pub fn new(enabled: bool) -> ObfuscateErrorLayer {
-        ObfuscateErrorLayer { enabled }
+    pub fn new(enabled: bool, obfuscate_forbidden: bool) -> ObfuscateErrorLayer {
+        ObfuscateErrorLayer {
+            enabled,
+            obfuscate_forbidden,
+        }
     }
 }
 
@@ -25,6 +29,7 @@ impl<S: Service<Request<Body>>> Layer<S> for ObfuscateErrorLayer {
         ObfuscateError {
             inner,
             enabled: self.enabled,
+            obfuscate_forbidden: self.obfuscate_forbidden,
         }
     }
 }
@@ -33,6 +38,7 @@ impl<S: Service<Request<Body>>> Layer<S> for ObfuscateErrorLayer {
 pub struct ObfuscateError<S> {
     inner: S,
     enabled: bool,
+    obfuscate_forbidden: bool,
 }
 
 impl<S, B> Service<Request<B>> for ObfuscateError<S>
@@ -55,6 +61,7 @@ where
 
     fn call(&mut self, req: Request<B>) -> Self::Future {
         let enabled = self.enabled;
+        let obfuscate_forbidden = self.obfuscate_forbidden;
         let fut = self.inner.call(req);
         Box::pin(async move {
             let res = fut.await?.into_response();
@@ -65,7 +72,13 @@ where
             let status = res.status();
             let message = match status {
                 StatusCode::INTERNAL_SERVER_ERROR => "Internal error",
-                StatusCode::UNAUTHORIZED => "Unauthorized",
+                StatusCode::UNAUTHORIZED => {
+                    if obfuscate_forbidden {
+                        "Unauthorized"
+                    } else {
+                        ""
+                    }
+                }
                 StatusCode::FORBIDDEN => "Forbidden",
                 _ => "",
             };
@@ -115,7 +128,7 @@ mod test {
                 "/403",
                 get(|| async { (StatusCode::FORBIDDEN, "error 403") }),
             )
-            .layer(ObfuscateErrorLayer::new(enabled))
+            .layer(ObfuscateErrorLayer::new(enabled, true))
     }
 
     async fn send_req(app: &Router, url: &str) -> (StatusCode, String) {
