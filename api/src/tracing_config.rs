@@ -10,7 +10,13 @@ pub struct HoneycombConfig {
     pub dataset: String,
 }
 
-pub fn configure(honeycomb_config: Option<HoneycombConfig>) -> Result<(), anyhow::Error> {
+pub enum TracingExportConfig {
+    None,
+    Honeycomb(HoneycombConfig),
+    Jaeger(String),
+}
+
+pub fn configure(export_config: TracingExportConfig) -> Result<(), anyhow::Error> {
     LogTracer::builder()
         .ignore_crate("rustls")
         .with_max_level(log::LevelFilter::Debug)
@@ -27,32 +33,46 @@ pub fn configure(honeycomb_config: Option<HoneycombConfig>) -> Result<(), anyhow
         .with(tree)
         .with(ErrorLayer::default());
 
-    if let Some(honeycomb_config) = honeycomb_config {
-        let mut oltp_meta = tonic::metadata::MetadataMap::new();
-        oltp_meta.insert("x-honeycomb-team", honeycomb_config.team.parse()?);
+    match export_config {
+        TracingExportConfig::Honeycomb(honeycomb_config) => {
+            let mut oltp_meta = tonic::metadata::MetadataMap::new();
+            oltp_meta.insert("x-honeycomb-team", honeycomb_config.team.parse()?);
 
-        let exporter = opentelemetry_otlp::new_exporter()
-            .tonic()
-            .with_endpoint("api.honeycomb.io:443")
-            .with_metadata(oltp_meta);
+            let exporter = opentelemetry_otlp::new_exporter()
+                .tonic()
+                .with_endpoint("api.honeycomb.io:443")
+                .with_metadata(oltp_meta);
 
-        let oltp = opentelemetry_otlp::new_pipeline()
-            .tracing()
-            .with_trace_config(opentelemetry::sdk::trace::config().with_resource(
-                opentelemetry::sdk::Resource::new(vec![opentelemetry::KeyValue::new(
-                    "service.name",
-                    honeycomb_config.dataset,
-                )]),
-            ))
-            .with_exporter(exporter)
-            .install_batch(opentelemetry::runtime::TokioCurrentThread)?;
-        let telemetry = tracing_opentelemetry::layer().with_tracer(oltp);
+            let oltp = opentelemetry_otlp::new_pipeline()
+                .tracing()
+                .with_trace_config(opentelemetry::sdk::trace::config().with_resource(
+                    opentelemetry::sdk::Resource::new(vec![opentelemetry::KeyValue::new(
+                        "service.name",
+                        honeycomb_config.dataset,
+                    )]),
+                ))
+                .with_exporter(exporter)
+                .install_batch(opentelemetry::runtime::TokioCurrentThread)?;
+            let telemetry = tracing_opentelemetry::layer().with_tracer(oltp);
 
-        let subscriber = subscriber.with(telemetry);
-        set_global_default(subscriber).expect("Setting subscriber");
-    } else {
-        set_global_default(subscriber).expect("Setting subscriber");
-    }
+            let subscriber = subscriber.with(telemetry);
+            set_global_default(subscriber).expect("Setting subscriber");
+        }
+        TracingExportConfig::Jaeger(endpoint) => {
+            let tracer = opentelemetry_jaeger::new_pipeline()
+                .with_service_name("pic-store-api")
+                .with_agent_endpoint(endpoint.as_str())
+                .install_batch(opentelemetry::runtime::TokioCurrentThread)
+                .unwrap();
+            let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+
+            let subscriber = subscriber.with(telemetry);
+            set_global_default(subscriber).expect("Setting subscriber");
+        }
+        TracingExportConfig::None => {
+            set_global_default(subscriber).expect("Setting subscriber");
+        }
+    };
 
     Ok(())
 }

@@ -18,6 +18,9 @@ pub struct Config {
     #[clap(long, env, default_value_t = String::from("dev"))]
     pub honeycomb_dataset: String,
 
+    #[clap(long, env)]
+    pub jaeger_endpoint: Option<String>,
+
     #[clap(
         long,
         env,

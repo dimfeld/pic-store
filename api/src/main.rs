@@ -25,8 +25,11 @@ use tower_http::{
 use tracing::{event, Level};
 
 use crate::{
-    auth::auth_layer, error::Error, obfuscate_errors::ObfuscateErrorLayer,
-    shared_state::InnerState, tracing_config::HoneycombConfig,
+    auth::auth_layer,
+    error::Error,
+    obfuscate_errors::ObfuscateErrorLayer,
+    shared_state::InnerState,
+    tracing_config::{HoneycombConfig, TracingExportConfig},
 };
 
 #[tokio::main]
@@ -35,16 +38,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
     let mut config = config::Config::parse();
 
-    let honeycomb_config = if let Some(team) = config.honeycomb_team.take() {
-        Some(HoneycombConfig {
+    let tracing_export_config = if let Some(team) = config.honeycomb_team.take() {
+        TracingExportConfig::Honeycomb(HoneycombConfig {
             team,
             dataset: std::mem::take(&mut config.honeycomb_dataset),
         })
+    } else if let Some(jaeger_endpoint) = config.jaeger_endpoint.take() {
+        TracingExportConfig::Jaeger(jaeger_endpoint)
     } else {
-        None
+        TracingExportConfig::None
     };
 
-    tracing_config::configure(honeycomb_config)?;
+    tracing_config::configure(tracing_export_config)?;
 
     let db = pic_store_db::connect(config.database_url.as_str())?;
 
