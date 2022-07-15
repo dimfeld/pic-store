@@ -6,9 +6,10 @@ mod json;
 mod schema;
 
 pub mod api_keys;
+pub mod base_images;
 pub mod conversion_profiles;
-pub mod images;
 pub mod object_id;
+pub mod output_images;
 pub mod permissions;
 pub mod projects;
 pub mod role_permissions;
@@ -22,7 +23,6 @@ pub mod users;
 
 pub use enums::*;
 pub use json::*;
-pub use schema::*;
 
 pub type Pool = deadpool_diesel::postgres::Pool;
 

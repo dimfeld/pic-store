@@ -6,15 +6,18 @@ use axum::{
 };
 use bytes::Bytes;
 use chrono::Utc;
-use db::object_id::{BaseImageId, ProjectId, StorageLocationId, UploadProfileId};
 use diesel::prelude::*;
 use futures::{AsyncWrite, AsyncWriteExt, TryStreamExt};
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
 use serde_json::json;
-use uuid::Uuid;
 
 use pic_store_db as db;
 use pic_store_storage as storage;
+
+use db::{
+    object_id::{BaseImageId, StorageLocationId},
+    Permission,
+};
 
 use crate::{auth::UserInfo, shared_state::State, Error};
 
@@ -127,20 +130,40 @@ pub async fn upload_image(
     ContentLengthLimit(stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
     Path(image_id): Path<BaseImageId>,
 ) -> Result<impl IntoResponse, Error> {
-    use db::base_images::dsl;
+    use db::{base_images, storage_locations, upload_profiles};
 
-    // TODO once it's built out this will fetch from the database
-    let output_path = db::storage_locations::StorageLocation {
-        storage_location_id: StorageLocationId::new(),
-        team_id: user.team_id,
-        project_id: None,
-        name: "test storage location".to_string(),
-        provider: db::storage_locations::Provider::Local,
-        base_location: "./test_uploads".to_string(),
-        public_url_base: "https://images.example.com".to_string(),
-        updated: Utc::now(),
-        deleted: None,
-    };
+    let conn = state.db.get().await?;
+
+    let (base_image, output_path, allowed) = conn
+        .interact(move |conn| {
+            base_images::table
+                .inner_join(upload_profiles::table.inner_join(
+                    storage_locations::table.on(storage_locations::storage_location_id
+                        .eq(upload_profiles::base_storage_location_id)),
+                ))
+                .filter(base_images::base_image_id.eq(image_id))
+                .filter(base_images::team_id.eq(user.team_id))
+                .select((
+                    base_images::all_columns,
+                    storage_locations::all_columns,
+                    db::obj_allowed!(
+                        user.team_id,
+                        &user.roles,
+                        upload_profiles::project_id,
+                        Permission::ImageCreate
+                    ),
+                ))
+                .first::<(
+                    base_images::BaseImage,
+                    storage_locations::StorageLocation,
+                    bool,
+                )>(conn)
+        })
+        .await??;
+
+    if !allowed {
+        return Err(Error::MissingPermission(Permission::ImageCreate));
+    }
 
     let provider = storage::Provider::from_db(output_path.provider)?;
 
@@ -149,8 +172,7 @@ pub async fn upload_image(
         .await
         .map_err(storage::Error::OperatorError)?;
 
-    let file_name = "FAKE_FILENAME".to_string(); // TODO
-    let object = operator.object(file_name.as_str());
+    let object = operator.object(base_image.location.as_str());
     let writer = object.writer(512 * 1024).await?;
 
     let (hash_hex, info) = handle_upload(writer, stream).await?;
@@ -166,15 +188,15 @@ pub async fn upload_image(
     let conn = state.db.get().await?;
     conn.interact(move |conn| {
         conn.transaction(|conn| {
-            diesel::update(dsl::base_images)
-                .filter(dsl::base_image_id.eq(image_id))
-                .filter(dsl::team_id.eq(user.team_id))
+            diesel::update(base_images::table)
+                .filter(base_images::base_image_id.eq(image_id))
+                .filter(base_images::team_id.eq(user.team_id))
                 .set((
-                    dsl::hash.eq(hash_hex),
-                    dsl::format.eq(Some(format)),
-                    dsl::width.eq(info.size.width as i32),
-                    dsl::height.eq(info.size.height as i32),
-                    dsl::status.eq(db::BaseImageStatus::Converting),
+                    base_images::hash.eq(hash_hex),
+                    base_images::format.eq(Some(format)),
+                    base_images::width.eq(info.size.width as i32),
+                    base_images::height.eq(info.size.height as i32),
+                    base_images::status.eq(db::BaseImageStatus::Converting),
                 ))
                 .execute(conn)
         })

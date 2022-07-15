@@ -24,7 +24,7 @@ use crate::{auth::UserInfo, shared_state::State, Error};
 #[derive(Deserialize, Debug)]
 struct NewBaseImageInput {
     filename: String,
-    upload_profile_id: String,
+    location: Option<String>,
     alt_text: Option<String>,
 }
 
@@ -39,9 +39,6 @@ async fn new_base_image(
     Query(q): Query<UploadProfileIdQuery>,
     Json(payload): Json<NewBaseImageInput>,
 ) -> Result<impl IntoResponse, Error> {
-    // Take either a JSON blob with metadata about the image to upload,
-    // or a multipart form which may or may not contain the image data.
-
     let upload_profile = q
         .upload_profile_id
         .or(user.default_upload_profile_id)
@@ -49,7 +46,6 @@ async fn new_base_image(
 
     let conn = state.db.get().await?;
 
-    let filename = payload.filename.clone();
     let image_id = conn
         .interact(move |conn| {
             let (profile, allowed) = db::upload_profiles::table
@@ -71,20 +67,20 @@ async fn new_base_image(
 
             let new_image_id = BaseImageId::new();
 
-            let new_image = db::images::NewBaseImage {
-                filename: filename.clone(),
+            let new_image = db::base_images::NewBaseImage {
+                base_image_id: new_image_id,
                 user_id: user.user_id,
                 team_id: user.team_id,
                 project_id: profile.project_id,
                 upload_profile_id: upload_profile,
-                location: filename,
+                filename: payload.filename.clone(),
+                location: payload.location.unwrap_or(payload.filename),
                 format: None,
-                base_image_id: new_image_id,
                 hash: String::new(),
                 width: 0,
                 height: 0,
                 status: db::BaseImageStatus::AwaitingUpload,
-                alt_text: String::new(),
+                alt_text: payload.alt_text.unwrap_or_default(),
                 placeholder: String::new(),
             };
 

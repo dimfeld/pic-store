@@ -6,7 +6,9 @@ use crate::object_id::{
 };
 use crate::schema::*;
 
-#[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
+pub use crate::schema::base_images::*;
+
+#[derive(Clone, Debug, Queryable, Identifiable)]
 #[diesel(primary_key(base_image_id))]
 pub struct BaseImage {
     pub base_image_id: BaseImageId,
@@ -59,37 +61,4 @@ pub struct NewBaseImage {
     pub status: BaseImageStatus,
     pub alt_text: String,
     pub placeholder: String,
-}
-
-#[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
-#[diesel(primary_key(output_image_id))]
-pub struct OutputImage {
-    pub output_image_id: OutputImageId,
-    pub team_id: TeamId,
-    pub base_image_id: BaseImageId,
-    pub location: String,
-    pub width: i32,
-    pub height: i32,
-    pub format: ImageFormat,
-    pub conversion_profile_item_id: ConversionProfileItemId,
-
-    pub status: OutputImageStatus,
-
-    pub updated: chrono::DateTime<chrono::Utc>,
-    pub deleted: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = output_images)]
-pub struct NewOutputImage {
-    pub output_image_id: OutputImageId,
-    pub team_id: TeamId,
-    pub base_image_id: BaseImageId,
-    pub location: String,
-    pub width: i32,
-    pub height: i32,
-    pub format: ImageFormat,
-    pub conversion_profile_item_id: ConversionProfileItemId,
-
-    pub status: OutputImageStatus,
 }
