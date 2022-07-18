@@ -1,6 +1,9 @@
-CREATE ROLE pic_store WITH
-  -- You should change this default password for real usage.
-  LOGIN PASSWORD '6383368ef20d2fa4fac2c0e0d3f53517f024ec9e';
+DO $$BEGIN
+  CREATE ROLE pic_store WITH
+    -- You should change this default password for real usage.
+    LOGIN PASSWORD '6383368ef20d2fa4fac2c0e0d3f53517f024ec9e';
+  EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
 ALTER DEFAULT PRIVILEGES REVOKE ALL ON TABLES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES REVOKE ALL ON FUNCTIONS FROM PUBLIC;
