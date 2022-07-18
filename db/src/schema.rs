@@ -78,28 +78,13 @@ diesel::table! {
 diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
-    use super::sql_types::ImageFormat;
-
-    conversion_profile_items (conversion_profile_item_id) {
-        conversion_profile_item_id -> Uuid,
-        conversion_profile_id -> Uuid,
-        team_id -> Uuid,
-        name -> Text,
-        format -> ImageFormat,
-        width -> Int4,
-        height -> Int4,
-    }
-}
-
-diesel::table! {
-    use diesel::sql_types::*;
-    use crate::enums::*;
 
     conversion_profiles (conversion_profile_id) {
         conversion_profile_id -> Uuid,
         team_id -> Uuid,
         project_id -> Nullable<Uuid>,
         name -> Text,
+        output -> Jsonb,
         updated -> Timestamptz,
         deleted -> Nullable<Timestamptz>,
     }
@@ -108,7 +93,6 @@ diesel::table! {
 diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
-    use super::sql_types::ImageFormat;
     use super::sql_types::OutputImageStatus;
 
     output_images (output_image_id) {
@@ -118,8 +102,7 @@ diesel::table! {
         location -> Text,
         width -> Int4,
         height -> Int4,
-        format -> ImageFormat,
-        conversion_profile_item_id -> Uuid,
+        format -> Jsonb,
         status -> OutputImageStatus,
         updated -> Timestamptz,
         deleted -> Nullable<Timestamptz>,
@@ -259,12 +242,9 @@ diesel::joinable!(base_images -> projects (project_id));
 diesel::joinable!(base_images -> teams (team_id));
 diesel::joinable!(base_images -> upload_profiles (upload_profile_id));
 diesel::joinable!(base_images -> users (user_id));
-diesel::joinable!(conversion_profile_items -> conversion_profiles (conversion_profile_id));
-diesel::joinable!(conversion_profile_items -> teams (team_id));
 diesel::joinable!(conversion_profiles -> projects (project_id));
 diesel::joinable!(conversion_profiles -> teams (team_id));
 diesel::joinable!(output_images -> base_images (base_image_id));
-diesel::joinable!(output_images -> conversion_profile_items (conversion_profile_item_id));
 diesel::joinable!(output_images -> teams (team_id));
 diesel::joinable!(projects -> teams (team_id));
 diesel::joinable!(role_permissions -> roles (role_id));
@@ -285,7 +265,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     api_key_permissions,
     api_keys,
     base_images,
-    conversion_profile_items,
     conversion_profiles,
     output_images,
     projects,

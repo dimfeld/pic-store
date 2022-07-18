@@ -27,24 +27,14 @@ CREATE TABLE conversion_profiles (
   team_id uuid not null references teams(team_id),
   project_id uuid references projects(project_id),
   name text not null,
+
+  output jsonb not null,
+
   updated timestamptz not null default now(),
   deleted timestamptz
 );
 
 CREATE INDEX conversion_profiles_team_id ON conversion_profiles(team_id);
-
-CREATE TABLE conversion_profile_items (
-  conversion_profile_item_id uuid primary key,
-  conversion_profile_id uuid not null references conversion_profiles(conversion_profile_id),
-  team_id uuid not null references teams(team_id),
-  name text not null,
-  format image_format not null,
-  width int not null,
-  height int not null
-);
-
-CREATE INDEX conversion_profile_items_team_id ON conversion_profile_items(team_id);
-CREATE INDEX conversion_profile_items_conversion_profile_id ON conversion_profile_items(conversion_profile_id);
 
 CREATE TABLE storage_locations (
   storage_location_id uuid primary key,
@@ -201,8 +191,7 @@ CREATE TABLE output_images (
   location text not null,
   width int not null,
   height int not null,
-  format image_format not null,
-  conversion_profile_item_id uuid not null references conversion_profile_items(conversion_profile_item_id),
+  format jsonb not null,
   status output_image_status not null,
   updated timestamptz not null default now(),
   deleted timestamptz

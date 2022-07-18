@@ -33,7 +33,7 @@ pub struct BaseImage {
     pub alt_text: String,
     pub placeholder: Option<String>,
 
-    pub updated: chrono::DateTime<chrono::Utc>,
+    pub uodated: chrono::DateTime<chrono::Utc>,
     pub deleted: Option<chrono::DateTime<chrono::Utc>>,
 }
 
