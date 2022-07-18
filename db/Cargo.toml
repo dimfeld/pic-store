@@ -16,6 +16,7 @@ uuid = { version = "1.1.2", features = ["v4", "serde"] }
 base64 = "0.13.0"
 thiserror = "1.0.31"
 ulid = { version = "0.6.0", features = ["serde", "uuid"] }
+async-trait = "0.1.56"
 
 [dependencies.deadpool-diesel]
 git = "https://github.com/bikeshedder/deadpool"

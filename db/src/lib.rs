@@ -24,16 +24,45 @@ pub mod users;
 pub use enums::*;
 pub use json::*;
 
+use async_trait::async_trait;
+use diesel::PgConnection;
+
 pub type Pool = deadpool_diesel::postgres::Pool;
 
-pub fn connect(conn_str: &str) -> Result<Pool, impl std::error::Error> {
+pub fn connect(conn_str: &str, max_connections: usize) -> Result<Pool, impl std::error::Error> {
     let manager =
         deadpool_diesel::postgres::Manager::new(conn_str, deadpool_diesel::Runtime::Tokio1);
-    deadpool_diesel::Pool::builder(manager).build()
+    deadpool_diesel::Pool::builder(manager)
+        .max_size(max_connections)
+        .build()
 }
 
 pub fn new_uuid() -> uuid::Uuid {
     ulid::Ulid::new().into()
+}
+
+#[async_trait]
+pub trait PoolExt<F, RETVAL, ERR>
+where
+    F: (FnOnce(&mut PgConnection) -> Result<RETVAL, ERR>) + Send + 'static,
+    RETVAL: Send + 'static,
+    ERR: Send + 'static,
+{
+    async fn interact(&self, f: F) -> Result<RETVAL, ERR>;
+}
+
+#[async_trait]
+impl<F, RETVAL, ERR> PoolExt<F, RETVAL, ERR> for Pool
+where
+    F: (FnOnce(&mut PgConnection) -> Result<RETVAL, ERR>) + Send + 'static,
+    RETVAL: Send + 'static,
+    ERR: From<diesel::result::Error> + From<deadpool_diesel::PoolError> + Send + 'static,
+{
+    async fn interact(&self, f: F) -> Result<RETVAL, ERR> {
+        let conn = self.get().await?;
+        let result = conn.interact(move |conn| f(conn)).await.unwrap()?;
+        Ok(result)
+    }
 }
 
 sql_function! {
