@@ -28,14 +28,7 @@ use crate::{
 #[derive(Debug, Deserialize)]
 pub struct ConversionProfileInput {
     pub name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ConversionProfileItemInput {
-    pub name: String,
-    pub format: String,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
+    pub output: db::conversion_profiles::ConversionOutput,
 }
 
 #[derive(Debug, Serialize, Queryable, Selectable)]
@@ -44,6 +37,7 @@ pub struct ConversionProfileOutput {
     #[serde(rename = "id")]
     conversion_profile_id: ConversionProfileId,
     name: String,
+    output: db::conversion_profiles::ConversionOutput,
     updated: DateTime<Utc>,
 }
 
@@ -52,6 +46,7 @@ impl From<ConversionProfile> for ConversionProfileOutput {
         ConversionProfileOutput {
             conversion_profile_id: value.conversion_profile_id,
             name: value.name,
+            output: value.output,
             updated: value.updated,
         }
     }
@@ -206,6 +201,7 @@ async fn new_profile(
         name: body.name,
         team_id: state.team_id,
         project_id,
+        output: body.output,
     };
 
     let conn = state.db.get().await?;

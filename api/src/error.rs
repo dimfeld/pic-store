@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -17,7 +18,10 @@ pub enum Error {
     DbPool(#[from] deadpool_diesel::PoolError),
 
     #[error("Database Error: {0}")]
-    DeadpoolInteract(#[from] deadpool_diesel::InteractError),
+    DeadpoolInteract(anyhow::Error),
+
+    #[error("Queue Listener Error: {0}")]
+    QueueListener(anyhow::Error),
 
     #[error("Missing Permission {0}")]
     MissingPermission(Permission),
@@ -91,6 +95,23 @@ impl Error {
             status,
             pic_store_http_errors::ErrorResponseData::new(self.to_string()),
         )
+    }
+}
+
+impl From<sqlxmq::Error> for Error {
+    fn from(s: sqlxmq::Error) -> Self {
+        match s {
+            sqlxmq::Error::Pool(e) => Self::from(e),
+            sqlxmq::Error::Diesel(e) => Self::from(e),
+            sqlxmq::Error::Interact(e) => panic!("{}", e),
+            sqlxmq::Error::ListenerError(e) => Self::QueueListener(anyhow::Error::new(e)),
+        }
+    }
+}
+
+impl From<deadpool_diesel::InteractError> for Error {
+    fn from(e: deadpool_diesel::InteractError) -> Self {
+        std::panic::panic_any(e)
     }
 }
 

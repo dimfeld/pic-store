@@ -1,6 +1,7 @@
 mod auth;
 mod config;
 mod error;
+pub mod jobs;
 mod obfuscate_errors;
 mod panic_handler;
 mod routes;
@@ -51,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing_config::configure(tracing_export_config)?;
 
-    let db = pic_store_db::connect(config.database_url.as_str())?;
+    let db = pic_store_db::connect(config.database_url.as_str(), 32)?;
 
     let production = config.env != "development" && !cfg!(debug_assertions);
 
