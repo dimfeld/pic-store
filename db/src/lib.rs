@@ -25,7 +25,7 @@ pub use enums::*;
 pub use json::*;
 
 use async_trait::async_trait;
-use diesel::PgConnection;
+use diesel::{Connection, PgConnection};
 
 pub type Pool = deadpool_diesel::postgres::Pool;
 
@@ -49,6 +49,7 @@ where
     ERR: Send + 'static,
 {
     async fn interact(&self, f: F) -> Result<RETVAL, ERR>;
+    async fn transaction(&self, f: F) -> Result<RETVAL, ERR>;
 }
 
 #[async_trait]
@@ -61,6 +62,15 @@ where
     async fn interact(&self, f: F) -> Result<RETVAL, ERR> {
         let conn = self.get().await?;
         let result = conn.interact(move |conn| f(conn)).await.unwrap()?;
+        Ok(result)
+    }
+
+    async fn transaction(&self, f: F) -> Result<RETVAL, ERR> {
+        let conn = self.get().await?;
+        let result = conn
+            .interact(move |conn| conn.transaction(move |conn| f(conn)))
+            .await
+            .unwrap()?;
         Ok(result)
     }
 }

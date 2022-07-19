@@ -25,7 +25,6 @@ pub type RoleId = ObjectId<1>;
 pub type UserId = ObjectId<2>;
 pub type ProjectId = ObjectId<3>;
 pub type ConversionProfileId = ObjectId<4>;
-pub type ConversionProfileItemId = ObjectId<5>;
 pub type StorageLocationId = ObjectId<6>;
 pub type UploadProfileId = ObjectId<7>;
 pub type BaseImageId = ObjectId<8>;

@@ -1,5 +1,7 @@
 pub mod create_output_images;
 
+pub use create_output_images::*;
+
 use sqlxmq::{JobRegistry, JobRunnerHandle};
 
 use pic_store_db as db;

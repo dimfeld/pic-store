@@ -7,11 +7,12 @@ use crate::{diesel_jsonb, schema::*};
 
 pub use crate::schema::conversion_profiles::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, AsExpression, FromSqlRow)]
+#[diesel(sql_type = sql_types::Jsonb)]
 pub struct ConversionSize {
-    width: Option<usize>,
-    height: Option<usize>,
-    preserve_aspect_ratio: Option<bool>,
+    pub width: Option<usize>,
+    pub height: Option<usize>,
+    pub preserve_aspect_ratio: Option<bool>,
 }
 
 diesel_jsonb!(ConversionSize);
@@ -29,11 +30,25 @@ pub enum ConversionFormat {
 
 diesel_jsonb!(ConversionFormat);
 
+impl ConversionFormat {
+    pub fn extension(&self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Jpg => "jpg",
+            Self::Avif => "avif",
+            Self::Webp => "webp",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, AsExpression, FromSqlRow)]
 #[diesel(sql_type = sql_types::Jsonb)]
-pub struct ConversionOutput {
-    formats: Vec<ConversionFormat>,
-    sizes: Vec<ConversionSize>,
+#[serde(tag = "version")]
+pub enum ConversionOutput {
+    Cross {
+        formats: Vec<ConversionFormat>,
+        sizes: Vec<ConversionSize>,
+    },
 }
 
 diesel_jsonb!(ConversionOutput);

@@ -1,9 +1,7 @@
 use diesel::prelude::*;
 
-use crate::enums::{BaseImageStatus, ImageFormat, OutputImageStatus};
-use crate::object_id::{
-    BaseImageId, ConversionProfileItemId, OutputImageId, ProjectId, TeamId, UploadProfileId, UserId,
-};
+use crate::enums::{BaseImageStatus, ImageFormat};
+use crate::object_id::{BaseImageId, ProjectId, TeamId, UploadProfileId, UserId};
 use crate::schema::*;
 
 pub use crate::schema::base_images::*;

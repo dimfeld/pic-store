@@ -191,6 +191,7 @@ CREATE TABLE output_images (
   location text not null,
   width int not null,
   height int not null,
+  size jsonb not null,
   format jsonb not null,
   status output_image_status not null,
   updated timestamptz not null default now(),

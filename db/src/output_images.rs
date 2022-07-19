@@ -1,6 +1,6 @@
-use crate::conversion_profiles::ConversionFormat;
-use crate::enums::{ImageFormat, OutputImageStatus};
-use crate::object_id::{BaseImageId, ConversionProfileItemId, OutputImageId, TeamId};
+use crate::conversion_profiles::{ConversionFormat, ConversionSize};
+use crate::enums::OutputImageStatus;
+use crate::object_id::{BaseImageId, OutputImageId, TeamId};
 use diesel::prelude::*;
 
 pub use crate::schema::output_images::*;
@@ -14,8 +14,7 @@ pub struct OutputImage {
     pub team_id: TeamId,
     pub base_image_id: BaseImageId,
     pub location: String,
-    pub width: i32,
-    pub height: i32,
+    pub size: ConversionSize,
     pub format: ConversionFormat,
 
     pub status: OutputImageStatus,
@@ -31,8 +30,7 @@ pub struct NewOutputImage {
     pub team_id: TeamId,
     pub base_image_id: BaseImageId,
     pub location: String,
-    pub width: i32,
-    pub height: i32,
+    pub size: ConversionSize,
     pub format: ConversionFormat,
 
     pub status: OutputImageStatus,

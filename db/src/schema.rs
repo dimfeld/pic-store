@@ -102,6 +102,7 @@ diesel::table! {
         location -> Text,
         width -> Int4,
         height -> Int4,
+        size -> Jsonb,
         format -> Jsonb,
         status -> OutputImageStatus,
         updated -> Timestamptz,

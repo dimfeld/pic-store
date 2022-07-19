@@ -17,8 +17,8 @@ use tracing::{event, instrument, Level};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateOutputImagesJobPayload {
-    base_image: BaseImageId,
-    conversions: Vec<OutputImageId>,
+    pub base_image: BaseImageId,
+    pub conversions: Vec<OutputImageId>,
 }
 
 #[job(channel_name = "images")]

@@ -15,9 +15,12 @@ use pic_store_db as db;
 use pic_store_storage as storage;
 
 use db::{
-    object_id::{BaseImageId, StorageLocationId},
-    Permission,
+    conversion_profiles::{self, ConversionOutput},
+    object_id::{BaseImageId, OutputImageId, StorageLocationId},
+    output_images::NewOutputImage,
+    Permission, PoolExt,
 };
+use tracing::{event, Level};
 
 use crate::{auth::UserInfo, shared_state::State, Error};
 
@@ -134,18 +137,23 @@ pub async fn upload_image(
 
     let conn = state.db.get().await?;
 
-    let (base_image, output_path, allowed) = conn
+    let (base_image, output_path, conversion_profile, allowed) = conn
         .interact(move |conn| {
             base_images::table
-                .inner_join(upload_profiles::table.inner_join(
-                    storage_locations::table.on(storage_locations::storage_location_id
-                        .eq(upload_profiles::base_storage_location_id)),
-                ))
+                .inner_join(
+                    upload_profiles::table
+                        .inner_join(
+                            storage_locations::table.on(storage_locations::storage_location_id
+                                .eq(upload_profiles::base_storage_location_id)),
+                        )
+                        .inner_join(conversion_profiles::table),
+                )
                 .filter(base_images::base_image_id.eq(image_id))
                 .filter(base_images::team_id.eq(user.team_id))
                 .select((
                     base_images::all_columns,
                     storage_locations::all_columns,
+                    conversion_profiles::all_columns,
                     db::obj_allowed!(
                         user.team_id,
                         &user.roles,
@@ -156,6 +164,7 @@ pub async fn upload_image(
                 .first::<(
                     base_images::BaseImage,
                     storage_locations::StorageLocation,
+                    conversion_profiles::ConversionProfile,
                     bool,
                 )>(conn)
         })
@@ -185,9 +194,54 @@ pub async fn upload_image(
         _ => return Err(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat)),
     };
 
-    let conn = state.db.get().await?;
-    conn.interact(move |conn| {
-        conn.transaction(|conn| {
+    let basename = match base_image.location.rsplit_once('.') {
+        Some((base, ext)) => base,
+        None => base_image.location.as_str(),
+    };
+
+    let output_images = match &conversion_profile.output {
+        ConversionOutput::Cross { formats, sizes } => formats
+            .iter()
+            .flat_map(|format| {
+                sizes.iter().map(|size| {
+                    let size_str = match (size.width, size.height) {
+                        (Some(w), Some(h)) => format!("{w}x{h}"),
+                        (Some(w), None) => format!("w{w}"),
+                        (None, Some(h)) => format!("h{h}"),
+                        (None, None) => {
+                            event!(
+                                Level::ERROR,
+                                ?conversion_profile,
+                                "Conversion profile has size-less item",
+                            );
+                            "szun".to_string()
+                        }
+                    };
+
+                    let location = format!("{basename}-{size_str}.{}", format.extension());
+
+                    NewOutputImage {
+                        base_image_id: image_id,
+                        output_image_id: OutputImageId::new(),
+                        size: size.clone(),
+                        format: format.clone(),
+                        team_id: user.team_id,
+                        status: db::OutputImageStatus::Queued,
+                        location,
+                    }
+                })
+            })
+            .collect::<Vec<_>>(),
+    };
+
+    let output_image_ids = output_images
+        .iter()
+        .map(|oi| oi.output_image_id)
+        .collect::<Vec<_>>();
+
+    state
+        .db
+        .transaction(move |conn| {
             diesel::update(base_images::table)
                 .filter(base_images::base_image_id.eq(image_id))
                 .filter(base_images::team_id.eq(user.team_id))
@@ -198,12 +252,23 @@ pub async fn upload_image(
                     base_images::height.eq(info.size.height as i32),
                     base_images::status.eq(db::BaseImageStatus::Converting),
                 ))
-                .execute(conn)
-        })
+                .execute(conn)?;
 
-        // TODO Schedule conversions
-    })
-    .await??;
+            diesel::insert_into(db::output_images::table)
+                .values(&output_images)
+                .execute(conn)?;
+
+            crate::jobs::create_output_images_job
+                .builder()
+                .set_json(&crate::jobs::CreateOutputImagesJobPayload {
+                    base_image: image_id,
+                    conversions: output_image_ids,
+                })?
+                .spawn(conn)?;
+
+            Ok::<(), anyhow::Error>(())
+        })
+        .await?;
 
     Ok((StatusCode::OK, Json(json!({}))))
 }
