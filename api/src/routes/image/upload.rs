@@ -258,13 +258,14 @@ pub async fn upload_image(
                 .values(&output_images)
                 .execute(conn)?;
 
-            crate::jobs::create_output_images_job
+            let job_id = crate::jobs::create_output_images_job
                 .builder()
                 .set_json(&crate::jobs::CreateOutputImagesJobPayload {
                     base_image: image_id,
                     conversions: output_image_ids,
                 })?
                 .spawn(conn)?;
+            event!(Level::INFO, %job_id, "enqueued image conversion job");
 
             Ok::<(), anyhow::Error>(())
         })

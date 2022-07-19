@@ -4,9 +4,9 @@ use image::{imageops, DynamicImage};
 
 pub struct ImageSizeTransform {
     /// Desired width of the scaled object
-    pub width: Option<NonZeroU32>,
+    pub width: Option<u32>,
     /// Desired height of the scaled object
-    pub height: Option<NonZeroU32>,
+    pub height: Option<u32>,
 
     /// Preserve aspect ratio, only checked if both width and height are provided.
     pub preserve_aspect_ratio: bool,
@@ -17,8 +17,8 @@ pub struct ImageSpec {
 }
 
 pub fn resize_image(input: &DynamicImage, transform: &ImageSizeTransform) -> DynamicImage {
-    let tw = transform.width.map(|w| w.get());
-    let th = transform.height.map(|h| h.get());
+    let tw = transform.width;
+    let th = transform.height;
 
     let output = match (tw, th, transform.preserve_aspect_ratio) {
         (Some(tw), Some(th), false) => input.resize_exact(tw, th, imageops::FilterType::CatmullRom),

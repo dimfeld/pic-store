@@ -1,13 +1,7 @@
-use image::{DynamicImage, GenericImageView, ImageEncoder};
+use image::{DynamicImage, GenericImageView, ImageEncoder, ImageFormat};
 use rgb::FromSlice;
 use std::{borrow::Cow, io::Write};
 use thiserror::Error;
-
-pub enum ImageFormat {
-    Png,
-    WebP,
-    Avif,
-}
 
 fn to_8bit(image: &'_ DynamicImage) -> Cow<'_, DynamicImage> {
     let input_color = image.color();
@@ -103,6 +97,7 @@ pub fn write_image(
         ImageFormat::Png => write_png(image, writer)?,
         ImageFormat::WebP => write_webp(image, writer)?,
         ImageFormat::Avif => write_avif(image, writer)?,
+        _ => Err(EncodeError::UnsupportedFormat(output_format))?,
     };
 
     Ok(())
@@ -114,6 +109,8 @@ pub enum EncodeError {
     ImageError(image::ImageError),
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    #[error("Unsupported output format {0:?}")]
+    UnsupportedFormat(image::ImageFormat),
     #[error("{0}")]
     StringError(String),
 }

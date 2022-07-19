@@ -86,6 +86,7 @@ async fn list_profiles(
         .interact(move |conn| {
             let q = dsl::conversion_profiles
                 .select(ConversionProfileOutput::as_select())
+                .filter(dsl::deleted.is_null())
                 .into_boxed()
                 .filter(db::obj_allowed_or_projectless!(
                     user.team_id,

@@ -10,8 +10,8 @@ pub use crate::schema::conversion_profiles::*;
 #[derive(Debug, Clone, Serialize, Deserialize, AsExpression, FromSqlRow)]
 #[diesel(sql_type = sql_types::Jsonb)]
 pub struct ConversionSize {
-    pub width: Option<usize>,
-    pub height: Option<usize>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
     pub preserve_aspect_ratio: Option<bool>,
 }
 

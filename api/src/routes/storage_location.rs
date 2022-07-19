@@ -78,6 +78,7 @@ async fn list_locations(
             let q = dsl::storage_locations
                 .select(StorageLocationOutput::as_select())
                 .into_boxed()
+                .filter(dsl::deleted.is_null())
                 .filter(db::obj_allowed_or_projectless!(
                     user.team_id,
                     &user.roles,

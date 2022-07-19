@@ -8,6 +8,17 @@ pub enum ImageFormat {
     Webp,
 }
 
+impl From<ImageFormat> for image::ImageFormat {
+    fn from(f: ImageFormat) -> Self {
+        match f {
+            ImageFormat::Png => image::ImageFormat::Png,
+            ImageFormat::Jpg => image::ImageFormat::Jpeg,
+            ImageFormat::Avif => image::ImageFormat::Avif,
+            ImageFormat::Webp => image::ImageFormat::WebP,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, DbEnum)]
 pub enum BaseImageStatus {
     AwaitingUpload,
