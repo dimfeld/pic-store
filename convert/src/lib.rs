@@ -18,6 +18,6 @@ pub fn convert(
     let resized = resize_image(image, size);
     let mut output = Vec::new();
 
-    write_format::write_image(&resized, format, &mut output)?;
+    write_format::write_image(resized.as_ref().unwrap_or(image), format, &mut output)?;
     Ok(output)
 }
