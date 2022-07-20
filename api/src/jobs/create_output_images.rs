@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -74,7 +76,7 @@ pub async fn create_output_images_job(mut current_job: CurrentJob) -> Result<(),
         .create_operator(base_image_base_location.as_str())
         .await?;
     let base_image_data = op.object(base_image_location.as_str()).read().await?;
-    let base_image = convert::image_from_bytes(base_image_data.as_slice())?;
+    let base_image = Arc::new(convert::image_from_bytes(base_image_data.as_slice())?);
 
     let output_image_storage = storage::Provider::from_db(output_image_storage_provider)?;
     let output_operator = output_image_storage
@@ -113,7 +115,11 @@ pub async fn create_output_images_job(mut current_job: CurrentJob) -> Result<(),
             ConversionFormat::Avif => image::ImageFormat::Avif,
         };
 
-        let output = convert::convert(&base_image, output_format, &size)?;
+        let b = base_image.clone();
+        let output =
+            tokio::task::spawn_blocking(move || convert::convert(&b, output_format, &size))
+                .await??;
+
         output_operator
             .object(output_location.as_str())
             .write(&output)
