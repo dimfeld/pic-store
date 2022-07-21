@@ -17,6 +17,7 @@ pub mod roles;
 pub mod sessions;
 pub mod storage_locations;
 pub mod teams;
+pub mod test;
 pub mod upload_profiles;
 pub mod user_roles;
 pub mod users;

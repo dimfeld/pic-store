@@ -5,6 +5,7 @@ members = [
   "convert",
   "db",
   "http-errors",
-  "storage"
+  "storage",
+  "test"
 ]
 resolver = "2"

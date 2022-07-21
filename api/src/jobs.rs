@@ -13,7 +13,7 @@ pub struct JobContext {
 }
 
 pub fn create_registry(pool: db::Pool) -> JobRegistry {
-    let mut registry = JobRegistry::new(&[&create_output_images::create_output_images_job]);
+    let mut registry = JobRegistry::new(&[create_output_images::create_output_images_job]);
     registry.set_context(JobContext { pool });
     registry
 }
