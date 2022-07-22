@@ -11,8 +11,8 @@ path = "src/main.rs"
 name = "pic-store"
 
 [[test]]
-name = "test"
-path = "test/main.rs"
+name = "tests"
+path = "tests/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
