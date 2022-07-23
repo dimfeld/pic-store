@@ -1,0 +1,5 @@
+{
+  "role_id": "{{DEFAULT_ROLE_ID}}",
+  "team_id": "{{DEFAULT_TEAM_ID}}",
+  "name": "Admin"
+}

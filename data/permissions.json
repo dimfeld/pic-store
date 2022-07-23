@@ -1,0 +1,3 @@
+[
+  { "team_id": "{{DEFAULT_TEAM_ID}}", "role_id": "{{DEFAULT_ROLE_ID}}", "permission": "team:admin" }
+]

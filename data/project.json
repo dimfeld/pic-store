@@ -1,0 +1,6 @@
+{
+  "project_id": "{{DEFAULT_PROJECT_ID}}",
+  "team_id": "{{DEFAULT_TEAM_ID}}",
+  "name": "{{DEFAULT_PROJECT_NAME}}",
+  "base_location": "{{DEFAULT_PROJECT_BASE_LOCATION}}"
+}

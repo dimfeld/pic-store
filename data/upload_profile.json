@@ -1,0 +1,9 @@
+{
+  "upload_profile_id": "{{DEFAULT_UPLOAD_PROFILE_ID}}",
+  "team_id": "{{DEFAULT_TEAM_ID}}",
+  "project_id": "{{DEFAULT_PROJECT_ID}}",
+  "name": "Default",
+  "base_storage_location_id": "{{DEFAULT_STORAGE_LOCATION_ID}}",
+  "outputstorage_location_id": "{{DEFAULT_STORAGE_LOCATION_ID}}",
+  "conversion_profile_id": "{{DEFAULT_CONVERSION_PROFILE_ID}}"
+}

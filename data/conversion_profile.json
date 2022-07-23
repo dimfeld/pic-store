@@ -1,0 +1,25 @@
+{
+  "conversion_profile_id": "{{DEFAULT_CONVERSION_PROFILE_ID}}",
+  "team_id": "{{DEFAULT_TEAM_ID}}",
+  "project_id": "{{DEFAULT_PROJECT_ID}}",
+  "name": "Default",
+  "output": {
+    "type": "cross",
+    "formats": [
+      {
+        "format": "avif"
+      },
+      {
+        "format": "webp"
+      }
+    ],
+    "sizes": [
+      {
+        "width": 200
+      },
+      {
+        "width": 400
+      }
+    ]
+  }
+}

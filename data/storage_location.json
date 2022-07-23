@@ -1,0 +1,11 @@
+{
+  "storage_location_id": "{{DEFAULT_STORAGE_LOCATION_ID}}",
+  "team_id": "{{DEFAULT_TEAM_ID}}",
+  "project_id": null,
+  "name": "{{DEFAULT_STORAGE_LOCATION_NAME}}",
+  "provider": {
+    "type": "local"
+  },
+  "base_location": "./store",
+  "public_url_base": "http://localhost"
+}
