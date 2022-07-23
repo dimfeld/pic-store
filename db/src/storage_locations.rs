@@ -12,7 +12,7 @@ pub use crate::schema::storage_locations::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, AsExpression, FromSqlRow)]
 #[diesel(sql_type = Jsonb)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum Provider {
     /// Local filesystem
     Local,

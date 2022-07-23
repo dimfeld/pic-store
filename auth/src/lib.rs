@@ -1,7 +1,7 @@
 pub mod api_key;
 mod error;
 mod extract_token;
-mod password;
+pub mod password;
 mod request;
 pub mod session;
 

@@ -15,6 +15,8 @@ pub enum Commands {
     /// This is useful for generating a package of initial data, such as the first team and user,
     /// or for other testing.
     MakeId(MakeId),
+    /// Hash a password
+    HashPassword(HashPassword),
 }
 
 #[derive(Debug, Args)]
@@ -36,10 +38,19 @@ enum IdType {
     OutputImage,
 }
 
-pub fn admin_commands(cmd: AdminArgs) {
+#[derive(Debug, Args)]
+pub struct HashPassword {
+    /// The password to hash
+    password: String,
+}
+
+pub fn admin_commands(cmd: AdminArgs) -> Result<(), anyhow::Error> {
     match cmd.commands {
         Commands::MakeId(MakeId { command }) => make_id(command),
+        Commands::HashPassword(HashPassword { password }) => hash_password(password)?,
     }
+
+    Ok(())
 }
 
 fn make_id(id: IdType) {
@@ -56,4 +67,10 @@ fn make_id(id: IdType) {
     };
 
     println!("{id}");
+}
+
+fn hash_password(password: String) -> Result<(), anyhow::Error> {
+    let hash = pic_store_auth::password::new_hash(password.as_str())?;
+    println!("{hash}");
+    Ok(())
 }

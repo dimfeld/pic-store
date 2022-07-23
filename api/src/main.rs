@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cmd = Args::parse();
     match cmd.command {
         Commands::Server(config) => cmd::server::run(config).await?,
-        Commands::Admin(cmd) => cmd::admin::admin_commands(cmd),
+        Commands::Admin(cmd) => cmd::admin::admin_commands(cmd)?,
     };
 
     Ok(())

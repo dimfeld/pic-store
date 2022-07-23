@@ -226,7 +226,7 @@ diesel::table! {
         user_id -> Uuid,
         team_id -> Uuid,
         email -> Text,
-        password_hash -> Nullable<Bytea>,
+        password_hash -> Nullable<Text>,
         name -> Text,
         default_upload_profile_id -> Nullable<Uuid>,
         updated -> Timestamptz,

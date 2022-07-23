@@ -70,7 +70,7 @@ CREATE TABLE users (
   user_id uuid primary key,
   team_id uuid not null references teams(team_id),
   email text not null,
-  password_hash bytea,
+  password_hash text,
   name text not null,
 
   default_upload_profile_id uuid references upload_profiles(upload_profile_id),

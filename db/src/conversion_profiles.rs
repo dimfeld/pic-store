@@ -20,7 +20,7 @@ diesel_jsonb!(ConversionSize);
 // This will eventually contain more details such as format-specific quality settings.
 #[derive(Debug, Clone, Serialize, Deserialize, AsExpression, FromSqlRow)]
 #[diesel(sql_type = sql_types::Jsonb)]
-#[serde(tag = "format")]
+#[serde(tag = "format", rename_all = "lowercase")]
 pub enum ConversionFormat {
     Png,
     Jpg,
@@ -43,7 +43,7 @@ impl ConversionFormat {
 
 #[derive(Debug, Clone, Serialize, Deserialize, AsExpression, FromSqlRow)]
 #[diesel(sql_type = sql_types::Jsonb)]
-#[serde(tag = "version")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum ConversionOutput {
     Cross {
         formats: Vec<ConversionFormat>,
