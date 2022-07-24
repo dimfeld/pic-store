@@ -1,4 +1,5 @@
 use diesel::prelude::*;
+use serde::Deserialize;
 
 use crate::{
     object_id::{ConversionProfileId, ProjectId, StorageLocationId, TeamId, UploadProfileId},
@@ -28,7 +29,7 @@ pub struct UploadProfile {
     pub deleted: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = upload_profiles)]
 pub struct NewUploadProfile {
     pub upload_profile_id: UploadProfileId,

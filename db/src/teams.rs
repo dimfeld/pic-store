@@ -1,5 +1,7 @@
 use diesel::prelude::*;
+use serde::Deserialize;
 
+pub use crate::schema::teams::*;
 use crate::{object_id::TeamId, schema::*};
 
 #[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
@@ -10,7 +12,7 @@ pub struct Team {
     pub deleted: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = teams)]
 pub struct NewTeam {
     pub team_id: TeamId,

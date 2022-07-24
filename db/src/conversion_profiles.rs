@@ -67,7 +67,7 @@ pub struct ConversionProfile {
     pub deleted: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = conversion_profiles)]
 pub struct NewConversionProfile {
     pub conversion_profile_id: ConversionProfileId,

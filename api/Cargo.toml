@@ -64,6 +64,8 @@ uuid = { version = "1.1.2", features = ["v4", "serde"] }
 tower-cookies = { version = "0.7.0", features = ["signed"] }
 base64 = "0.13.0"
 opentelemetry-jaeger = { version = "0.16.0", features = ["rt-tokio-current-thread"] }
+liquid = { version = "0.26.0", optional = true }
+glob = { version = "0.3.0", optional = true }
 
 [dependencies.tower-http]
 version = "0.3.4"
@@ -73,3 +75,7 @@ features = [ "catch-panic", "decompression-gzip", "decompression-br", "compressi
 git = "https://github.com/bikeshedder/deadpool"
 branch = "feature/diesel-2"
 features = ["postgres"]
+
+[features]
+default = ["bootstrap"]
+bootstrap = ["dep:glob", "dep:liquid"]

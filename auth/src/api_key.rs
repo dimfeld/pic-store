@@ -38,8 +38,16 @@ pub struct ApiKeyData {
 impl ApiKeyData {
     pub fn new(expires: DateTime<Utc>) -> ApiKeyData {
         let id = Uuid::new_v4();
+        let random = Uuid::new_v4();
+
+        Self::from_params(id, random, expires)
+    }
+
+    /// Create an API key with pre-filled ID and random data. This should usually only be used
+    /// for bootstrapping purposes when you want to create a key deterministically.
+    pub fn from_params(id: Uuid, random: Uuid, expires: DateTime<Utc>) -> ApiKeyData {
         let base64_id = base64::encode_config(id.as_bytes(), base64::URL_SAFE_NO_PAD);
-        let random = base64::encode_config(Uuid::new_v4().as_bytes(), base64::URL_SAFE_NO_PAD);
+        let random = base64::encode_config(random.as_bytes(), base64::URL_SAFE_NO_PAD);
         let key = format!("{}.{}", base64_id, random);
         let prefix = key[0..16].to_string();
         let hash = hash_key(&key);

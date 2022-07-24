@@ -55,7 +55,7 @@ pub struct StorageLocation {
     pub deleted: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = storage_locations)]
 pub struct NewStorageLocation {
     pub storage_location_id: StorageLocationId,

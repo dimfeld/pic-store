@@ -10,6 +10,11 @@ pub struct AdminArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    /// Bootstrap the application from a set of files.
+    ///
+    /// Until there is a real admin interface this is the easiest way to create the initial team, user, project, etc.
+    #[cfg(feature = "bootstrap")]
+    Bootstrap(super::bootstrap::BootstrapArgs),
     /// Create an object ID
     ///
     /// This is useful for generating a package of initial data, such as the first team and user,
@@ -46,6 +51,8 @@ pub struct HashPassword {
 
 pub fn admin_commands(cmd: AdminArgs) -> Result<(), anyhow::Error> {
     match cmd.commands {
+        #[cfg(feature = "bootstrap")]
+        Commands::Bootstrap(args) => super::bootstrap::bootstrap(args)?,
         Commands::MakeId(MakeId { command }) => make_id(command),
         Commands::HashPassword(HashPassword { password }) => hash_password(password)?,
     }

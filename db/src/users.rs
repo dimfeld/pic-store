@@ -1,4 +1,5 @@
 use diesel::prelude::*;
+use serde::Deserialize;
 
 use crate::{
     object_id::{TeamId, UserId},
@@ -19,7 +20,7 @@ pub struct User {
     pub deleted: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = users)]
 pub struct NewUser {
     pub user_id: UserId,

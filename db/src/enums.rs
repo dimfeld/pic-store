@@ -1,4 +1,5 @@
 use diesel_derive_enum::DbEnum;
+use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, DbEnum)]
 pub enum ImageFormat {
@@ -50,25 +51,34 @@ impl Default for OutputImageStatus {
     }
 }
 
-#[derive(Copy, Clone, Debug, DbEnum)]
+#[derive(Copy, Clone, Debug, DbEnum, Deserialize)]
 pub enum Permission {
     #[db_rename = "team:admin"]
+    #[serde(rename = "team:admin")]
     TeamAdmin,
     #[db_rename = "team:write"]
+    #[serde(rename = "team:write")]
     TeamWrite,
     #[db_rename = "project:create"]
+    #[serde(rename = "project:create")]
     ProjectCreate,
     #[db_rename = "project:write"]
+    #[serde(rename = "project:write")]
     ProjectWrite,
     #[db_rename = "project:read"]
+    #[serde(rename = "project:read")]
     ProjectRead,
     #[db_rename = "image:edit"]
+    #[serde(rename = "image:edit")]
     ImageEdit,
     #[db_rename = "image:create"]
+    #[serde(rename = "image:create")]
     ImageCreate,
     #[db_rename = "conversion_profile:write"]
+    #[serde(rename = "conversion_profile:write")]
     ConversionProfileWrite,
     #[db_rename = "storage_location:write"]
+    #[serde(rename = "storage_location:write")]
     StorageLocationWrite,
 }
 
