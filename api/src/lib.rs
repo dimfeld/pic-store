@@ -8,8 +8,9 @@ pub mod routes;
 pub mod shared_state;
 pub mod tracing_config;
 
-use axum::{Extension, Router};
+use axum::{routing::IntoMakeService, Extension, Router};
 use clap::Parser;
+use hyper::server::conn::AddrIncoming;
 use pic_store_db::object_id::{ProjectId, TeamId, UserId};
 use std::{
     net::{IpAddr, SocketAddr},
@@ -32,6 +33,12 @@ use crate::{
     shared_state::InnerState,
     tracing_config::{HoneycombConfig, TracingExportConfig},
 };
+
+pub struct Server {
+    pub host: String,
+    pub port: u16,
+    pub server: axum::Server<AddrIncoming, IntoMakeService<Router>>,
+}
 
 pub async fn run_server(config: config::Config) -> Result<(), anyhow::Error> {
     let db = pic_store_db::connect(config.database_url.as_str(), 32)?;
@@ -92,6 +99,11 @@ pub async fn run_server(config: config::Config) -> Result<(), anyhow::Error> {
     let builder = axum::Server::bind(&addr);
     event!(Level::INFO, "Listening on {}:{}", config.host, config.port);
 
-    builder.serve(app.into_make_service()).await?;
-    Ok(())
+    let server = builder.serve(app.into_make_service());
+
+    Ok(Server {
+        host: config.host,
+        port: addr.port(),
+        server,
+    })
 }

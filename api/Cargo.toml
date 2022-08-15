@@ -31,7 +31,7 @@ bytes = "1.1.0"
 chrono = "0.4.19"
 clap = { version = "3.2.4", features = ["derive", "env", "wrap_help"] }
 color-eyre = "0.6.1"
-diesel = { version = "2.0.0-rc.0", features = ["chrono", "postgres", "uuid", "serde_json"] }
+diesel = { version = "2.0.0-rc.1", features = ["chrono", "postgres", "uuid", "serde_json"] }
 dotenv = "0.15.0"
 futures = "0.3.21"
 http = "0.2.8"
@@ -79,3 +79,9 @@ features = ["postgres"]
 [features]
 default = ["bootstrap"]
 bootstrap = ["dep:glob", "dep:liquid"]
+
+[dev-dependencies]
+pic-store-test = { path="../test" }
+once_cell = "1.13.0"
+reqwest = "0.11.11"
+wiremock = "0.5.13"

@@ -14,6 +14,7 @@ use std::str::FromStr;
 pub struct TestDatabase {
     pub name: String,
     pub pool: Pool,
+    pub url: String,
     global_connect_str: String,
 }
 
@@ -26,6 +27,7 @@ impl TestDatabase {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct DatabaseUser {
     pub team_id: TeamId,
     pub user_id: UserId,
@@ -99,6 +101,7 @@ END; $$;
     Ok((
         TestDatabase {
             pool,
+            url: db_conn_str,
             name: database,
             global_connect_str: global_connect,
         },
