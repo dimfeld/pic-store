@@ -87,7 +87,7 @@ END; $$;
     drop(global_conn);
 
     let db_conn_str = format!("{global_connect}/{database}");
-    let manager = Manager::new(db_conn_str, deadpool_diesel::Runtime::Tokio1);
+    let manager = Manager::new(db_conn_str.clone(), deadpool_diesel::Runtime::Tokio1);
     let pool = Pool::builder(manager).max_size(4).build()?;
 
     let admin_user = pool

@@ -1,18 +1,23 @@
 use anyhow::{anyhow, Result};
+use diesel::RunQueryDsl;
 use futures::Future;
 use once_cell::sync::Lazy;
 
 pub use client::*;
 
 use pic_store_api::Server;
-use pic_store_db::object_id::TeamId;
+use pic_store_db::object_id::{TeamId, UserId};
 use pic_store_db::test::{create_database, DatabaseUser, TestDatabase};
+use pic_store_db::users::NewUser;
+use pic_store_db::PoolExt;
 // use proc_macro::TokenStream;
 // use quote::quote;
 use uuid::Uuid;
 
+use crate::client::TestClient;
+
 pub struct TestUser {
-    pub org_id: OrgId,
+    pub team_id: TeamId,
     pub user_id: UserId,
     pub password: Option<String>,
     pub api_key: String,
@@ -21,16 +26,13 @@ pub struct TestUser {
 
 pub struct TestApp {
     pub database: TestDatabase,
-    pub redis_key_prefix: String,
-    pub redis_url: Option<String>,
     /// The ID of the precreated organization.
-    pub org_id: OrgId,
+    pub team_id: TeamId,
     pub admin_user: TestUser,
     /// A client set to the base url of the server.
     pub client: TestClient,
     pub address: String,
     pub base_url: String,
-    pub base_action_category: ActionCategoryId,
 }
 
 async fn start_app(
@@ -41,7 +43,7 @@ async fn start_app(
     let config = pic_store_api::config::Config {
         database_url: database.url.clone(),
         port: 0, // Bind to random port
-        host: Some("127.0.0.1".to_string()),
+        host: "127.0.0.1".to_string(),
         honeycomb_team: None,
         honeycomb_dataset: String::new(),
         env: "test".to_string(),
@@ -54,17 +56,17 @@ async fn start_app(
     let Server { server, host, port } = pic_store_api::run_server(config).await?;
 
     tokio::task::spawn(async move {
-        let _tasks = tasks;
         let server_err = server.await;
-        let shutdown_err = shutdown.shutdown().await;
-        match (server_err, shutdown_err) {
-            (Err(e), _) => Err(anyhow!(e)),
-            (Ok(_), Err(e)) => Err(anyhow!(e)),
-            (Ok(_), Ok(_)) => Ok(()),
-        }
+        server_err
+        // let shutdown_err = shutdown.shutdown().await;
+        // match (server_err, shutdown_err) {
+        //     (Err(e), _) => Err(anyhow!(e)),
+        //     (Ok(_), Err(e)) => Err(anyhow!(e)),
+        //     (Ok(_), Ok(_)) => Ok(()),
+        // }
     });
 
-    let base_url = format!("http://{}:{}/api", bind_address, bind_port);
+    let base_url = format!("http://{}:{}/api", host, port);
     let client = TestClient {
         base: base_url.clone(),
         client: reqwest::ClientBuilder::new()
@@ -75,27 +77,24 @@ async fn start_app(
 
     let mut conn = database
         .pool
-        .acquire()
+        .get()
         .await
         .expect("Getting postgres connection");
     let api_key =
-        make_api_key::make_key(&mut conn, &org_id, Some(&admin_user.user_id), false, None).await?;
+        make_api_key::make_key(&mut conn, &team_id, Some(&admin_user.user_id), false, None).await?;
 
     Ok(TestApp {
         database,
-        redis_url,
-        redis_key_prefix,
-        org_id,
+        team_id,
         admin_user: TestUser {
-            org_id: admin_user.org_id,
+            team_id: admin_user.team_id,
             user_id: admin_user.user_id,
             password: admin_user.password,
             client: client.clone_with_api_key(api_key.clone()),
             api_key,
         },
         client,
-        address: format!("{}:{}", bind_address, bind_port),
-        base_action_category: admin_user.action_category_id,
+        address: format!("{}:{}", host, port),
         base_url,
     })
 }
@@ -105,33 +104,40 @@ where
     F: FnOnce(TestApp) -> R,
     R: Future<Output = Result<(), anyhow::Error>>,
 {
-    let (database, org_id, admin_user) = create_database().await.expect("Creating database");
-    let app = start_app(database.clone(), org_id, admin_user)
+    let (database, team__id, admin_user) = create_database().await.expect("Creating database");
+    let app = start_app(database.clone(), team__id, admin_user)
         .await
         .expect("Starting app");
     f(app).await.unwrap();
-    database.drop_db().await.expect("Cleaning up");
+    database.drop_db().expect("Cleaning up");
 }
 
 impl TestApp {
-    pub async fn add_org(&self, name: &str) -> Result<OrgId> {
-        let mut conn = self.database.pool.acquire().await?;
-        let org_id = OrgId::new();
+    pub async fn add_team(&self, name: &str) -> Result<TeamId> {
+        let team_id = TeamId::new();
 
-        sqlx::query!(
-            r##"INSERT INTO orgs (org_id, name) VALUES ($1, $2)"##,
-            &org_id.0,
-            name
-        )
-        .execute(&mut conn)
-        .await?;
-        println!("Created org {}", org_id);
-        Ok(org_id)
+        let team = pic_store_db::teams::NewTeam {
+            team_id,
+            name: name.to_string(),
+        };
+
+        self.database
+            .pool
+            .interact(move |conn| {
+                diesel::insert_into(pic_store_db::teams::table)
+                    .values(&team)
+                    .execute(conn)?;
+                Ok::<_, anyhow::Error>(())
+            })
+            .await?;
+
+        println!("Created team {}", team_id);
+        Ok(team_id)
     }
 
     pub async fn add_user_with_password(
         &self,
-        org_id: &OrgId,
+        team_id: TeamId,
         name: &str,
         password: Option<&str>,
     ) -> Result<TestUser> {
@@ -140,48 +146,54 @@ impl TestApp {
         }
 
         let user_id = UserId::new();
-        let mut conn = self.database.pool.acquire().await?;
+        let user = NewUser {
+            user_id,
+            name: name.to_string(),
+            email: format!("test_user_{}@example.com", user_id),
+            team_id,
+        };
 
-        sqlx::query!(
-            r##"INSERT INTO users (user_id, active_org_id, name, email, password_hash) VALUES
-                ($1, $2, $3, $4, $5)"##,
-            &user_id.0,
-            &org_id.0,
-            name,
-            format!("test_user_{}@example.com", user_id),
-            ""
-        )
-        .execute(&mut conn)
-        .await?;
+        let key = self
+            .database
+            .pool
+            .interact(move |conn| {
+                diesel::insert_into(pic_store_db::users::table)
+                    .values(&user)
+                    .execute(conn)?;
 
-        let key = make_api_key::make_key(&mut conn, org_id, Some(&user_id), false, None).await?;
+                let key = make_api_key::make_key(&mut conn, team_id, Some(&user_id), false, None)?;
 
-        println!("Org {} added user {}: {}", org_id, name, user_id);
+                Ok::<_, anyhow::Error>(key)
+            })
+            .await?;
+
+        println!("Org {} added user {}: {}", team_id, name, user_id);
         Ok(TestUser {
             user_id,
-            org_id: org_id.clone(),
+            team_id,
             password: None,
             client: self.client.clone_with_api_key(key.clone()),
             api_key: key,
         })
     }
 
-    pub async fn add_user(&self, org_id: &OrgId, name: &str) -> Result<TestUser> {
-        self.add_user_with_password(org_id, name, None).await
+    pub async fn add_user(&self, team_id: TeamId, name: &str) -> Result<TestUser> {
+        self.add_user_with_password(team_id, name, None).await
     }
 }
 
+/*
 /** Compare hashmaps that have different value types, if those types implement PartialEq
  * on each other. */
 #[macro_export]
 macro_rules! compare_hashmaps {
     ($a: expr, $b: expr, $str: expr) => {
-        if let Err(mismatch) = crate::common::do_compare_hashmap(&$a, &$b) {
+        if let Err(mismatch) = $crate::common::do_compare_hashmap(&$a, &$b) {
             panic!("{}\n{}", $str, mismatch);
         }
     };
     ($a: expr, $b: expr, $str: expr, $($fmt_args: expr),*) => {
-        if let Err(mismatch) = crate::common::do_compare_hashmap(&$a, &$b) {
+        if let Err(mismatch) = $crate::common::do_compare_hashmap(&$a, &$b) {
             let msg = format!($str, $($fmt_args)*);
             panic!("{}\n{}", msg, mismatch);
         }
@@ -213,6 +225,7 @@ where
 
     Ok(())
 }
+*/
 
 // #[proc_macro_attribute]
 // pub fn app_test(_: TokenStream, item: TokenStream) -> TokenStream {
@@ -275,8 +288,8 @@ where
 //             actix_rt::System::new()
 //                 .block_on(async {
 //                     let #appname = {
-//                         let (database, org_id, admin_user) = ergo_database::create_database().await.expect("Creating database");
-//                         crate::common::start_app(database, org_id, admin_user)
+//                         let (database, team__id, admin_user) = ergo_database::create_database().await.expect("Creating database");
+//                         crate::common::start_app(database, team__id, admin_user)
 //                             .await
 //                             .expect("Starting app");
 //                     };
