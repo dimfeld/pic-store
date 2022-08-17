@@ -40,7 +40,7 @@ pub struct Server {
     pub server: axum::Server<AddrIncoming, IntoMakeService<Router>>,
 }
 
-pub async fn run_server(config: config::Config) -> Result<(), anyhow::Error> {
+pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error> {
     let db = pic_store_db::connect(config.database_url.as_str(), 32)?;
 
     let production = config.env != "development" && !cfg!(debug_assertions);

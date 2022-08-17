@@ -2,6 +2,12 @@ use clap::{Args, Subcommand};
 
 use pic_store_db::object_id;
 
+use self::make_api_key::MakeApiKeyArgs;
+
+#[cfg(feature = "bootstrap")]
+mod bootstrap;
+mod make_api_key;
+
 #[derive(Debug, Args)]
 pub struct AdminArgs {
     #[clap(subcommand)]
@@ -14,7 +20,7 @@ pub enum Commands {
     ///
     /// Until there is a real admin interface this is the easiest way to create the initial team, user, project, etc.
     #[cfg(feature = "bootstrap")]
-    Bootstrap(super::bootstrap::BootstrapArgs),
+    Bootstrap(bootstrap::BootstrapArgs),
     /// Create an object ID
     ///
     /// This is useful for generating a package of initial data, such as the first team and user,
@@ -22,6 +28,8 @@ pub enum Commands {
     MakeId(MakeId),
     /// Hash a password
     HashPassword(HashPassword),
+    /// Create an API key
+    MakeApiKey(MakeApiKeyArgs),
 }
 
 #[derive(Debug, Args)]
@@ -52,8 +60,9 @@ pub struct HashPassword {
 pub fn admin_commands(cmd: AdminArgs) -> Result<(), anyhow::Error> {
     match cmd.commands {
         #[cfg(feature = "bootstrap")]
-        Commands::Bootstrap(args) => super::bootstrap::bootstrap(args)?,
+        Commands::Bootstrap(args) => bootstrap::bootstrap(args)?,
         Commands::MakeId(MakeId { command }) => make_id(command),
+        Commands::MakeApiKey(args) => make_api_key::main(args)?,
         Commands::HashPassword(HashPassword { password }) => hash_password(password)?,
     }
 
