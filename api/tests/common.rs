@@ -148,12 +148,17 @@ impl TestApp {
             todo!("Password support will be implemented once the API supports creating users");
         }
 
+        let hash = password
+            .map(pic_store_auth::password::new_hash)
+            .transpose()?;
+
         let user_id = UserId::new();
         let user = NewUser {
             user_id,
             name: name.to_string(),
             email: format!("test_user_{}@example.com", user_id),
             team_id,
+            password_hash: hash,
         };
 
         let key = self

@@ -54,16 +54,16 @@ pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error>
         production,
         db: db.clone(),
         // Temporary hardcoded values
-        project_id: std::env::var("PROJECT_ID")
-            .expect("PROJECT_ID")
+        project_id: std::env::var("DEFAULT_PROJECT_ID")
+            .expect("DEFAULT_PROJECT_ID")
             .parse::<ProjectId>()
             .unwrap(),
-        team_id: std::env::var("TEAM_ID")
-            .expect("TEAM_ID")
+        team_id: std::env::var("DEFAULT_TEAM_ID")
+            .expect("DEFAULT_TEAM_ID")
             .parse::<TeamId>()
             .unwrap(),
-        user_id: std::env::var("USER_ID")
-            .expect("USER_ID")
+        user_id: std::env::var("DEFAULT_USER_ID")
+            .expect("DEFAULT_USER_ID")
             .parse::<UserId>()
             .unwrap(),
     });
@@ -96,15 +96,17 @@ pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error>
     );
 
     let bind_ip: IpAddr = config.host.parse()?;
-    let addr = SocketAddr::from((bind_ip, config.port));
-    let builder = axum::Server::bind(&addr);
-    event!(Level::INFO, "Listening on {}:{}", config.host, config.port);
+    let bind_addr = SocketAddr::from((bind_ip, config.port));
+    let builder = axum::Server::bind(&bind_addr);
 
     let server = builder.serve(app.into_make_service());
+    let actual_addr = server.local_addr();
+    let port = actual_addr.port();
+    event!(Level::INFO, "Listening on {}:{port}", config.host);
 
     Ok(Server {
         host: config.host,
-        port: addr.port(),
+        port,
         server,
     })
 }

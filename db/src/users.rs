@@ -28,4 +28,5 @@ pub struct NewUser {
     pub team_id: TeamId,
     pub email: String,
     pub name: String,
+    pub password_hash: Option<String>,
 }

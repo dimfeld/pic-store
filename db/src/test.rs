@@ -1,7 +1,9 @@
 use crate::object_id::{TeamId, UserId};
+use crate::users::NewUser;
 use crate::{Pool, PoolExt};
 use anyhow::{anyhow, Result};
 use deadpool_diesel::Manager;
+use diesel::connection::SimpleConnection;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::Connection;
@@ -114,28 +116,31 @@ pub const PASSWORD: &str = "test password";
 const PASSWORD_HASH: &str = "$argon2id$v=19$m=15360,t=2,p=1$PUpyHXvHTSOKvr9Sc6vK8g$GSyd7TMMKrS7bkObHL3+aOtRmULRJTNP1xLP4C/3zzY";
 
 lazy_static! {
-    static ref ADMIN_USER_ID: UserId =
-        UserId::from_str(std::env::var("ADMIN_USER_ID").unwrap().as_str()).unwrap();
+    static ref ADMIN_USER_ID: UserId = std::env::var("ADMIN_USER_ID")
+        .map(|u| UserId::from_str(u.as_str()).unwrap())
+        .unwrap_or_else(|_| UserId::new());
 }
 
 fn populate_database(conn: &mut PgConnection) -> Result<DatabaseUser, anyhow::Error> {
     let user_id = *ADMIN_USER_ID;
     let team_id = TeamId::new();
 
-    let query = format!(
-        r##"
-        INSERT INTO teams (team_id, name) VALUES
-          ('{team_id}', 'Test Team');
+    diesel::insert_into(crate::teams::table)
+        .values(crate::teams::NewTeam {
+            team_id,
+            name: "Test Team".to_string(),
+        })
+        .execute(conn)?;
 
-        INSERT INTO users (user_id, team_id, name, email, password) VALUES
-          ('{user_id}', '{team_id}', 'Test Admin User', 'user@example.com', '{password_hash}');
-        "##,
-        user_id = &user_id.0,
-        team_id = &team_id.0,
-        password_hash = escape(PASSWORD_HASH)
-    );
-
-    diesel::sql_query(query).execute(conn)?;
+    diesel::insert_into(crate::users::table)
+        .values(NewUser {
+            user_id,
+            team_id,
+            name: "Test Admin User".to_string(),
+            email: "user@example.com".to_string(),
+            password_hash: Some(PASSWORD_HASH.to_string()),
+        })
+        .execute(conn)?;
 
     Ok(DatabaseUser {
         user_id,
