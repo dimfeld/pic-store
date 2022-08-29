@@ -2,6 +2,7 @@
 name = "pic-store-api"
 version = "0.1.0"
 edition = "2021"
+autotests = false
 
 [lib]
 path = "src/lib.rs"

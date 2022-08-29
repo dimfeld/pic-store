@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use diesel::RunQueryDsl;
 use futures::Future;
 use once_cell::sync::Lazy;
 
-pub use client::*;
+pub use crate::client::*;
 
 use pic_store_api::Server;
 use pic_store_db::object_id::{TeamId, UserId};
@@ -12,9 +12,6 @@ use pic_store_db::users::NewUser;
 use pic_store_db::PoolExt;
 // use proc_macro::TokenStream;
 // use quote::quote;
-use uuid::Uuid;
-
-use crate::client::TestClient;
 
 pub struct TestUser {
     pub team_id: TeamId,
@@ -75,13 +72,19 @@ async fn start_app(
             .expect("Building client"),
     };
 
-    let mut conn = database
+    let conn = database
         .pool
         .get()
         .await
         .expect("Getting postgres connection");
-    let api_key =
-        make_api_key::make_key(&mut conn, &team_id, Some(&admin_user.user_id), false, None).await?;
+
+    let api_key = conn
+        .interact(move |conn| {
+            pic_store_api::api_key::make_key(conn, admin_user.user_id, false, None, None)
+        })
+        .await
+        .unwrap()?
+        .key;
 
     Ok(TestApp {
         database,
@@ -99,13 +102,13 @@ async fn start_app(
     })
 }
 
-pub async fn run_app_test<F, R>(f: F) -> ()
+pub async fn run_app_test<F, R>(f: F)
 where
     F: FnOnce(TestApp) -> R,
     R: Future<Output = Result<(), anyhow::Error>>,
 {
-    let (database, team__id, admin_user) = create_database().await.expect("Creating database");
-    let app = start_app(database.clone(), team__id, admin_user)
+    let (database, team_id, admin_user) = create_database().await.expect("Creating database");
+    let app = start_app(database.clone(), team_id, admin_user)
         .await
         .expect("Starting app");
     f(app).await.unwrap();
@@ -161,11 +164,12 @@ impl TestApp {
                     .values(&user)
                     .execute(conn)?;
 
-                let key = make_api_key::make_key(&mut conn, team_id, Some(&user_id), false, None)?;
+                let key = pic_store_api::api_key::make_key(conn, user_id, false, None, None)?;
 
                 Ok::<_, anyhow::Error>(key)
             })
-            .await?;
+            .await?
+            .key;
 
         println!("Org {} added user {}: {}", team_id, name, user_id);
         Ok(TestUser {
