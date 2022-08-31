@@ -14,6 +14,8 @@ use pic_store_db as db;
 
 use crate::Error;
 
+pub const API_KEY_PREFIX: &str = "ps1";
+
 #[derive(Queryable)]
 pub struct ApiKeyData {
     pub api_key_id: Uuid,
@@ -115,7 +117,7 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
     }
 
     fn api_key_prefix(&self) -> &'static str {
-        "ps1"
+        API_KEY_PREFIX
     }
 }
 

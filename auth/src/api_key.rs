@@ -36,19 +36,19 @@ pub struct ApiKeyData {
 }
 
 impl ApiKeyData {
-    pub fn new(expires: DateTime<Utc>) -> ApiKeyData {
+    pub fn new<STORE: ApiKeyStore>(store: &STORE, expires: DateTime<Utc>) -> ApiKeyData {
         let id = Uuid::new_v4();
         let random = Uuid::new_v4();
 
-        Self::from_params(id, random, expires)
+        Self::from_params(store.api_key_prefix(), id, random, expires)
     }
 
     /// Create an API key with pre-filled ID and random data. This should usually only be used
     /// for bootstrapping purposes when you want to create a key deterministically.
-    pub fn from_params(id: Uuid, random: Uuid, expires: DateTime<Utc>) -> ApiKeyData {
+    pub fn from_params(prefix: &str, id: Uuid, random: Uuid, expires: DateTime<Utc>) -> ApiKeyData {
         let base64_id = base64::encode_config(id.as_bytes(), base64::URL_SAFE_NO_PAD);
         let random = base64::encode_config(random.as_bytes(), base64::URL_SAFE_NO_PAD);
-        let key = format!("{}.{}", base64_id, random);
+        let key = format!("{prefix}.{base64_id}.{random}");
         let prefix = key[0..16].to_string();
         let hash = hash_key(&key);
 
@@ -225,10 +225,12 @@ mod tests {
 
     #[test]
     fn valid_key() -> Result<(), Error> {
-        let data = ApiKeyData::new(Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
         let test_store = TestKeyStore {};
+        let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
 
-        let (api_key_id, hash) = decode_key(&test_store, &data.key)?;
+        println!("key data {:?}", data.key);
+
+        let (api_key_id, hash) = decode_key(&test_store, &data.key).unwrap();
         assert_eq!(api_key_id, data.api_key_id, "api_key_id");
         assert_eq!(hash, data.hash, "hash");
         Ok(())
@@ -236,15 +238,15 @@ mod tests {
 
     #[test]
     fn bad_key() -> Result<(), Error> {
-        let data = ApiKeyData::new(Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
         let test_store = TestKeyStore {};
+        let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
 
         // Alter the key.
         let mut key = data.key;
         key.pop();
         key.push('a');
 
-        let (api_key_id, hash) = decode_key(&test_store, &key)?;
+        let (api_key_id, hash) = decode_key(&test_store, &key).unwrap();
         assert_eq!(api_key_id, data.api_key_id, "api_key_id");
         assert_ne!(hash, data.hash, "hash");
         Ok(())
@@ -252,16 +254,17 @@ mod tests {
 
     #[test]
     fn bad_prefix() {
-        let data = ApiKeyData::new(Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
         let test_store = TestKeyStore {};
-        let bad_key = format!("aa1.{}", data.key.chars().skip(4).collect::<String>());
+        let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
+        let bad_key = format!("a{}", &data.key[1..]);
+
         decode_key(&test_store, &bad_key).expect_err("bad prefix");
     }
 
     #[test]
     fn bad_length() {
-        let data = ApiKeyData::new(Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
         let test_store = TestKeyStore {};
+        let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
 
         let mut key = String::from(&data.key);
         key.push('a');

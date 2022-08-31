@@ -2,6 +2,7 @@ use anyhow::{anyhow, Error};
 use chrono::{DateTime, Utc};
 use clap::Args;
 use diesel::prelude::*;
+use pic_store_api::auth::API_KEY_PREFIX;
 use serde::{de::DeserializeOwned, Deserialize};
 use std::{collections::HashMap, env, path::Path};
 use uuid::Uuid;
@@ -134,6 +135,7 @@ fn apply_object(
         "api_key" | "api_keys" => {
             let input: ApiKeyInput = serde_json::from_value(obj)?;
             let data = pic_store_auth::api_key::ApiKeyData::from_params(
+                API_KEY_PREFIX,
                 input.api_key_id,
                 input.random,
                 input.expires,
