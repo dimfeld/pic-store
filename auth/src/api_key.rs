@@ -27,6 +27,7 @@ pub struct ApiKey {
 
 pub type Hash = blake3::Hash;
 
+#[derive(Debug, Clone)]
 pub struct ApiKeyData {
     pub api_key_id: Uuid,
     pub key: String,
@@ -163,6 +164,8 @@ impl<Store: ApiKeyStore> ApiKeyManager<Store> {
 #[cfg(test)]
 mod tests {
     #![allow(unused_variables)]
+    use std::collections::HashMap;
+
     use assert_matches::assert_matches;
     use async_trait::async_trait;
     use axum::{
@@ -175,7 +178,12 @@ mod tests {
     use super::{decode_key, ApiKeyData, ApiKeyStore};
     use crate::Error;
 
-    struct TestKeyStoreError {}
+    #[derive(Copy, Clone, Debug)]
+    enum TestKeyStoreError {
+        Error,
+        KeyNotFound,
+        HashMismatch,
+    }
     impl IntoResponse for TestKeyStoreError {
         fn into_response(self) -> axum::response::Response {
             todo!()
@@ -184,12 +192,14 @@ mod tests {
 
     impl From<crate::Error> for TestKeyStoreError {
         fn from(_: crate::Error) -> Self {
-            Self {}
+            Self::Error
         }
     }
 
-    #[derive(Clone)]
-    struct TestKeyStore {}
+    #[derive(Clone, Default)]
+    struct TestKeyStore {
+        keys: HashMap<uuid::Uuid, ApiKeyData>,
+    }
 
     #[async_trait]
     impl ApiKeyStore for TestKeyStore {
@@ -203,7 +213,15 @@ mod tests {
             key_id: uuid::Uuid,
             hash: super::Hash,
         ) -> Result<Self::FetchData, Self::Error> {
-            todo!()
+            let data = self
+                .keys
+                .get(&key_id)
+                .ok_or(TestKeyStoreError::KeyNotFound)?;
+            if data.hash == hash {
+                Ok(())
+            } else {
+                Err(TestKeyStoreError::HashMismatch)
+            }
         }
 
         async fn create_api_key(
@@ -225,7 +243,7 @@ mod tests {
 
     #[test]
     fn valid_key() -> Result<(), Error> {
-        let test_store = TestKeyStore {};
+        let test_store = TestKeyStore::default();
         let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
 
         println!("key data {:?}", data.key);
@@ -238,7 +256,7 @@ mod tests {
 
     #[test]
     fn bad_key() -> Result<(), Error> {
-        let test_store = TestKeyStore {};
+        let test_store = TestKeyStore::default();
         let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
 
         // Alter the key.
@@ -254,7 +272,7 @@ mod tests {
 
     #[test]
     fn bad_prefix() {
-        let test_store = TestKeyStore {};
+        let test_store = TestKeyStore::default();
         let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
         let bad_key = format!("a{}", &data.key[1..]);
 
@@ -263,7 +281,7 @@ mod tests {
 
     #[test]
     fn bad_length() {
-        let test_store = TestKeyStore {};
+        let test_store = TestKeyStore::default();
         let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
 
         let mut key = String::from(&data.key);
@@ -277,7 +295,7 @@ mod tests {
 
     #[tokio::test]
     async fn key_from_query_string() {
-        let test_store = TestKeyStore {};
+        let test_store = TestKeyStore::default();
         let key = "tskey.njklsefnjksed";
         let req = Request::builder()
             .uri(&format!("http://localhost/api/tasks?api_key={}", key))
@@ -289,7 +307,7 @@ mod tests {
 
     #[tokio::test]
     async fn key_from_bearer() {
-        let test_store = TestKeyStore {};
+        let test_store = TestKeyStore::default();
         let key = "tskey.njklsefnjksed";
         let req = Request::builder()
             .uri("http://localhost/api/tasks")
@@ -298,5 +316,15 @@ mod tests {
             .expect("Creating request");
         let found = super::extract_api_key(&req);
         assert_matches!(found, Some(key));
+    }
+
+    #[tokio::test]
+    async fn lookup_api_key() {
+        let mut test_store = TestKeyStore::default();
+        let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
+        test_store.keys.insert(data.api_key_id, data.clone());
+
+        let (id, hash) = decode_key(&test_store, &data.key).unwrap();
+        test_store.lookup_api_key(id, hash).await.unwrap();
     }
 }

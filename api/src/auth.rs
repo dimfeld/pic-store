@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use auth::session::{SessionCookieManager, SessionManager};
 use auth::{AuthenticationLayer, RequestUser};
 use chrono::{DateTime, Utc};
+use diesel::dsl::sql;
 use diesel::prelude::*;
 use serde::Deserialize;
 use ulid::Ulid;
@@ -51,10 +52,11 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
         hash: auth::api_key::Hash,
     ) -> Result<Self::FetchData, Self::Error> {
         let conn = self.db.get().await?;
+
         let info = conn
             .interact(move |conn| {
                 db::api_keys::table
-                    .inner_join(
+                    .left_join(
                         db::user_roles::table.on(db::user_roles::user_id.eq(db::api_keys::user_id)),
                     )
                     .group_by(db::api_keys::api_key_id)
@@ -65,13 +67,18 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
                         db::api_keys::api_key_id,
                         db::api_keys::user_id,
                         db::api_keys::team_id,
-                        db::array_agg(db::user_roles::role_id),
+                        sql::<diesel::sql_types::Array<diesel::sql_types::Uuid>>(
+                            "COALESCE(ARRAY_AGG(role_id) FILTER (WHERE role_id IS NOT NULL), '{}') AS roles",
+                        ),
                         db::api_keys::inherits_user_permissions,
                         db::api_keys::default_upload_profile_id,
                     ))
                     .first::<ApiKeyData>(conn)
+                    .optional()
             })
             .await??;
+
+        let info = info.ok_or(crate::Error::ApiKeyNotFound)?;
 
         Ok(info)
     }

@@ -10,11 +10,17 @@ async fn smoke_test() {
             "unauthenticated response status code should be 200"
         );
 
+        eprintln!("{:?}", app.admin_user);
+
         let response = app.admin_user.client.get("health").send().await?;
+        eprintln!("Response {response:?}");
+        let status = response.status().as_u16();
+        let body = response.text().await.unwrap();
+
+        eprintln!("Body {body}");
 
         assert_eq!(
-            response.status().as_u16(),
-            200,
+            status, 200,
             "authenticated response status code should be 200"
         );
         Ok(())

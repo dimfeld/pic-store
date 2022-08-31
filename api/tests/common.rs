@@ -21,6 +21,17 @@ pub struct TestUser {
     pub client: TestClient,
 }
 
+impl std::fmt::Debug for TestUser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TestUser")
+            .field("team_id", &self.team_id)
+            .field("user_id", &self.user_id)
+            .field("password", &self.password)
+            .field("api_key", &self.api_key)
+            .finish_non_exhaustive()
+    }
+}
+
 pub struct TestApp {
     pub database: TestDatabase,
     /// The ID of the precreated organization.

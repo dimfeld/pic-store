@@ -29,6 +29,9 @@ pub enum Error {
     #[error("Auth error: {0}")]
     AuthError(#[from] pic_store_auth::Error),
 
+    #[error("API Key Not Found")]
+    ApiKeyNotFound,
+
     #[error("Storage error: {0}")]
     StorageError(#[from] pic_store_storage::Error),
 
@@ -81,6 +84,7 @@ impl Error {
             Error::MissingPermission(_) => StatusCode::FORBIDDEN,
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::AuthError(_) => StatusCode::UNAUTHORIZED,
+            Error::ApiKeyNotFound => StatusCode::UNAUTHORIZED,
             Error::InvalidSessionId => StatusCode::UNAUTHORIZED,
             Error::ObjectNotFound(_) => StatusCode::NOT_FOUND,
             Error::ContentLengthRequired => StatusCode::BAD_REQUEST,
