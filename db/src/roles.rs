@@ -24,5 +24,4 @@ pub struct NewRole {
     pub role_id: RoleId,
     pub team_id: TeamId,
     pub name: String,
-    pub created: DateTime<Utc>,
 }

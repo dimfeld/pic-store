@@ -1,9 +1,19 @@
-use crate::object_id::{TeamId, UserId};
+use crate::conversion_profiles::{
+    ConversionFormat, ConversionOutput, ConversionSize, NewConversionProfile,
+};
+use crate::object_id::{
+    ConversionProfileId, ProjectId, RoleId, StorageLocationId, TeamId, UploadProfileId, UserId,
+};
+use crate::projects::NewProject;
+use crate::role_permissions::RolePermission;
+use crate::roles::NewRole;
+use crate::storage_locations::NewStorageLocation;
+use crate::upload_profiles::NewUploadProfile;
+use crate::user_roles::UserAndRole;
 use crate::users::NewUser;
-use crate::{Pool, PoolExt};
+use crate::{Permission, Pool, PoolExt};
 use anyhow::{anyhow, Result};
 use deadpool_diesel::Manager;
-use diesel::connection::SimpleConnection;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::Connection;
@@ -45,14 +55,14 @@ where
     F: FnOnce(TestDatabase) -> R,
     R: Future<Output = Result<(), anyhow::Error>>,
 {
-    let (database, _, _) = create_database().await.expect("Creating database");
+    let (database, _) = create_database().await.expect("Creating database");
     f(database.clone()).await.unwrap();
     database.drop_db().expect("Cleaning up");
 }
 
 const MIGRATIONS: EmbeddedMigrations = diesel_migrations::embed_migrations!();
 
-pub async fn create_database() -> Result<(TestDatabase, TeamId, DatabaseUser)> {
+pub async fn create_database() -> Result<(TestDatabase, DatabaseInfo)> {
     dotenv::dotenv().ok();
     let host = std::env::var("TEST_DATABASE_HOST")
         .or_else(|_| std::env::var("DATABASE_HOST"))
@@ -92,7 +102,7 @@ END; $$;
     let manager = Manager::new(db_conn_str.clone(), deadpool_diesel::Runtime::Tokio1);
     let pool = Pool::builder(manager).max_size(4).build()?;
 
-    let admin_user = pool
+    let db_info = pool
         .interact(|conn| {
             conn.run_pending_migrations(MIGRATIONS).unwrap();
             let admin_user = populate_database(conn)?;
@@ -107,8 +117,7 @@ END; $$;
             name: database,
             global_connect_str: global_connect,
         },
-        admin_user.team_id,
-        admin_user,
+        db_info,
     ))
 }
 
@@ -121,7 +130,19 @@ lazy_static! {
         .unwrap_or_else(|_| UserId::new());
 }
 
-fn populate_database(conn: &mut PgConnection) -> Result<DatabaseUser, anyhow::Error> {
+pub struct DatabaseInfo {
+    pub admin_user: DatabaseUser,
+    pub team_id: TeamId,
+    pub project_id: ProjectId,
+    pub admin_role: RoleId,
+    pub user_role: RoleId,
+
+    pub base_storage_location_id: StorageLocationId,
+    pub output_storage_location_id: StorageLocationId,
+    pub conversion_profile_id: ConversionProfileId,
+}
+
+fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Error> {
     let user_id = *ADMIN_USER_ID;
     let team_id = TeamId::new();
 
@@ -132,6 +153,114 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseUser, anyhow::Er
         })
         .execute(conn)?;
 
+    let project_id = ProjectId::new();
+    diesel::insert_into(crate::projects::table)
+        .values(NewProject {
+            team_id,
+            project_id,
+            name: "Default project".to_string(),
+            base_location: String::new(),
+        })
+        .execute(conn)?;
+
+    let user_role = RoleId::new();
+    let admin_role = RoleId::new();
+
+    diesel::insert_into(crate::roles::table)
+        .values([
+            NewRole {
+                name: "Uploader".to_string(),
+                team_id,
+                role_id: user_role,
+            },
+            NewRole {
+                name: "Administrator".to_string(),
+                team_id,
+                role_id: admin_role,
+            },
+        ])
+        .execute(conn)?;
+
+    diesel::insert_into(crate::role_permissions::table)
+        .values([
+            RolePermission {
+                team_id,
+                role_id: admin_role,
+                project_id: None,
+                permission: Permission::TeamAdmin,
+            },
+            RolePermission {
+                team_id,
+                role_id: user_role,
+                project_id: Some(project_id),
+                permission: Permission::ImageCreate,
+            },
+        ])
+        .execute(conn)?;
+
+    let conversion_profile_id = ConversionProfileId::new();
+    diesel::insert_into(crate::conversion_profiles::table)
+        .values(NewConversionProfile {
+            team_id,
+            name: "Default Conversion Profile".to_string(),
+            conversion_profile_id,
+            project_id: None,
+            output: ConversionOutput::Cross {
+                formats: vec![ConversionFormat::Avif, ConversionFormat::Webp],
+                sizes: vec![
+                    ConversionSize {
+                        width: Some(200),
+                        ..Default::default()
+                    },
+                    ConversionSize {
+                        width: Some(400),
+                        ..Default::default()
+                    },
+                ],
+            },
+        })
+        .execute(conn)?;
+
+    let base_storage_location_id = StorageLocationId::new();
+    let output_storage_location_id = StorageLocationId::new();
+    diesel::insert_into(crate::storage_locations::table)
+        .values([
+            NewStorageLocation {
+                team_id,
+                name: "Local Base Images".to_string(),
+                storage_location_id: base_storage_location_id,
+                project_id: None,
+                provider: crate::storage_locations::Provider::Local,
+                base_location: "TODO".to_string(),
+                public_url_base: "https://my.images/orig_image/".to_string(),
+            },
+            NewStorageLocation {
+                team_id,
+                name: "Local Output Images".to_string(),
+                storage_location_id: output_storage_location_id,
+                project_id: None,
+                provider: crate::storage_locations::Provider::Local,
+                base_location: "TODO".to_string(),
+                public_url_base: "https://my.images/image/".to_string(),
+            },
+        ])
+        .execute(conn)?;
+
+    let upload_profile_id = UploadProfileId::new();
+
+    diesel::insert_into(crate::upload_profiles::table)
+        .values(NewUploadProfile {
+            team_id,
+            name: "Default Upload Profile".to_string(),
+            upload_profile_id,
+            project_id,
+            conversion_profile_id,
+            short_id: "blog".to_string(),
+            base_storage_location_id,
+            output_storage_location_id,
+        })
+        .execute(conn)?;
+
     diesel::insert_into(crate::users::table)
         .values(NewUser {
             user_id,
@@ -139,12 +268,29 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseUser, anyhow::Er
             name: "Test Admin User".to_string(),
             email: "user@example.com".to_string(),
             password_hash: Some(PASSWORD_HASH.to_string()),
+            default_upload_profile_id: Some(upload_profile_id),
         })
         .execute(conn)?;
 
-    Ok(DatabaseUser {
-        user_id,
+    diesel::insert_into(crate::user_roles::table)
+        .values(UserAndRole {
+            role_id: admin_role,
+            user_id,
+        })
+        .execute(conn)?;
+
+    Ok(DatabaseInfo {
         team_id,
-        password: Some(PASSWORD.to_string()),
+        project_id,
+        admin_role,
+        user_role,
+        base_storage_location_id,
+        output_storage_location_id,
+        conversion_profile_id,
+        admin_user: DatabaseUser {
+            user_id,
+            team_id,
+            password: Some(PASSWORD.to_string()),
+        },
     })
 }

@@ -7,7 +7,7 @@ use crate::{diesel_jsonb, schema::*};
 
 pub use crate::schema::conversion_profiles::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize, AsExpression, FromSqlRow)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, AsExpression, FromSqlRow)]
 #[diesel(sql_type = sql_types::Jsonb)]
 pub struct ConversionSize {
     pub width: Option<u32>,

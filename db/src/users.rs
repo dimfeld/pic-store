@@ -29,4 +29,5 @@ pub struct NewUser {
     pub email: String,
     pub name: String,
     pub password_hash: Option<String>,
+    pub default_upload_profile_id: Option<UploadProfileId>,
 }

@@ -27,6 +27,4 @@ pub struct NewProject {
     pub team_id: TeamId,
     pub name: String,
     pub base_location: String,
-
-    pub updated: chrono::DateTime<chrono::Utc>,
 }
