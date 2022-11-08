@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use diesel::prelude::*;
+use prefect::RunningJob;
 use serde::{Deserialize, Serialize};
-use sqlxmq::{job, Checkpoint, CurrentJob};
 
 use pic_store_convert as convert;
 use pic_store_db as db;
@@ -19,22 +19,22 @@ use db::{
 };
 use tracing::{event, instrument, Level};
 
+use super::JobContext;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateOutputImagesJobPayload {
     pub base_image: BaseImageId,
     pub conversions: Vec<OutputImageId>,
 }
 
-#[job(channel_name = "images")]
 #[instrument]
-pub async fn create_output_images_job(mut current_job: CurrentJob) -> Result<(), anyhow::Error> {
-    let mut payload = current_job
-        .json::<CreateOutputImagesJobPayload>()?
-        .ok_or_else(|| anyhow!("Missing payload"))?;
+pub async fn create_output_images_job(
+    job: RunningJob,
+    context: JobContext,
+) -> Result<(), anyhow::Error> {
+    let mut payload = job.json_payload::<CreateOutputImagesJobPayload>()?;
 
     event!(Level::INFO, ?payload);
-
-    let pool = current_job.pool().clone();
 
     let (bst, ost) = diesel::alias!(db::storage_locations as bst, db::storage_locations as ost);
 
@@ -44,7 +44,8 @@ pub async fn create_output_images_job(mut current_job: CurrentJob) -> Result<(),
         base_image_storage_provider,
         output_image_base_location,
         output_image_storage_provider,
-    ) = pool
+    ) = context
+        .pool
         .interact(move |conn| {
             db::base_images::table
                 .inner_join(
@@ -85,7 +86,8 @@ pub async fn create_output_images_job(mut current_job: CurrentJob) -> Result<(),
 
     while let Some(output_image_id) = payload.conversions.pop() {
         //  Get the next conversion profile from the list
-        let (output_location, conversion_format, conversion_size) = pool
+        let (output_location, conversion_format, conversion_size) = context
+            .pool
             .interact(move |conn| {
                 diesel::update(db::output_images::table)
                     .filter(db::output_images::output_image_id.eq(output_image_id))
@@ -128,34 +130,35 @@ pub async fn create_output_images_job(mut current_job: CurrentJob) -> Result<(),
         //  Write the file to storage
 
         let payload = payload.clone();
-        current_job = pool
+
+        context
+            .pool
             .interact(move |conn| {
-                //   Add the OutputImage entry
+                // Add the OutputImage entry
                 diesel::update(db::output_images::table)
                     .filter(db::output_images::output_image_id.eq(output_image_id))
                     .set(db::output_images::status.eq(OutputImageStatus::Ready))
                     .execute(conn)?;
 
-                //   Write a checkpoint
-                let mut cp = Checkpoint::new();
-                cp.set_json(&payload)?;
-                current_job.checkpoint(conn, &cp)?;
-
-                Ok::<_, anyhow::Error>(current_job)
+                Ok::<_, anyhow::Error>(())
             })
             .await?;
+
+        job.checkpoint_json(&payload).await?;
     }
 
     // Set the base image status to done.
-    pool.interact(move |conn| {
-        diesel::update(db::base_images::table)
-            .filter(db::base_images::base_image_id.eq(payload.base_image))
-            .set(db::base_images::status.eq(BaseImageStatus::Ready))
-            .execute(conn)?;
+    context
+        .pool
+        .interact(move |conn| {
+            diesel::update(db::base_images::table)
+                .filter(db::base_images::base_image_id.eq(payload.base_image))
+                .set(db::base_images::status.eq(BaseImageStatus::Ready))
+                .execute(conn)?;
 
-        Ok::<_, anyhow::Error>(())
-    })
-    .await?;
+            Ok::<_, anyhow::Error>(())
+        })
+        .await?;
 
     Ok(())
 }

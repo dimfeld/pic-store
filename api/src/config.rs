@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 #[derive(Debug, Parser)]
@@ -6,6 +8,9 @@ pub struct Config {
     pub host: String,
     #[clap(long, env, default_value_t = 7205)]
     pub port: u16,
+
+    #[clap(long, env, default_value_t = String::from("queue.db"))]
+    pub queue_db_path: String,
 
     #[clap(env, default_value_t = String::from("production"))]
     pub env: String,

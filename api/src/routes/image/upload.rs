@@ -258,18 +258,18 @@ pub async fn upload_image(
                 .values(&output_images)
                 .execute(conn)?;
 
-            let job_id = crate::jobs::create_output_images_job
-                .builder()
-                .set_json(&crate::jobs::CreateOutputImagesJobPayload {
-                    base_image: image_id,
-                    conversions: output_image_ids,
-                })?
-                .spawn(conn)?;
-            event!(Level::INFO, %job_id, "enqueued image conversion job");
-
             Ok::<(), anyhow::Error>(())
         })
         .await?;
+
+    let job_id = prefect::Job::builder(crate::jobs::CREATE_OUTPUT_IMAGES)
+        .json_payload(&crate::jobs::CreateOutputImagesJobPayload {
+            base_image: image_id,
+            conversions: output_image_ids,
+        })?
+        .add_to(&state.queue)
+        .await?;
+    event!(Level::INFO, %job_id, "enqueued image conversion job");
 
     Ok((StatusCode::OK, Json(json!({}))))
 }

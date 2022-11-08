@@ -32,7 +32,8 @@ bytes = "1.1.0"
 chrono = "0.4.19"
 clap = { version = "3.2.4", features = ["derive", "env", "wrap_help"] }
 color-eyre = "0.6.1"
-diesel = { version = "2.0.0-rc.1", features = ["chrono", "postgres", "uuid", "serde_json"] }
+deadpool-diesel = { version = "0.4.0", features = ["postgres"]}
+diesel = { version = "2.0.0", features = ["chrono", "postgres", "uuid", "serde_json"] }
 dotenv = "0.15.0"
 futures = "0.3.21"
 http = "0.2.8"
@@ -44,9 +45,9 @@ log = "0.4.17"
 num_cpus = "1.13.1"
 opentelemetry = { version= "0.17.0", features = ["rt-tokio-current-thread"] }
 opentelemetry-otlp = { version = "0.10.0" }
+prefect = { version = "0.1.1", path = "../../prefect/prefect" }
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
-sqlxmq = { git = "https://github.com/dimfeld/sqlxmq", default-features = false, features = ["runtime-tokio-rustls"]}
 thiserror = "1.0.31"
 time = { version = "0.3", features = ["serde"] }
 tokio = { version = "1.19.2", features = [ "full", "test-util" ] }
@@ -71,11 +72,6 @@ glob = { version = "0.3.0", optional = true }
 [dependencies.tower-http]
 version = "0.3.4"
 features = [ "catch-panic", "decompression-gzip", "decompression-br", "compression-gzip", "compression-deflate", "limit", "request-id", "trace" ]
-
-[dependencies.deadpool-diesel]
-git = "https://github.com/bikeshedder/deadpool"
-branch = "feature/diesel-2"
-features = ["postgres"]
 
 [features]
 default = ["bootstrap"]

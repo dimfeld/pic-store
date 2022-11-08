@@ -67,6 +67,9 @@ pub enum Error {
 
     #[error("Upload profile not specified and there is no default setting")]
     NoUploadProfile,
+
+    #[error("Queue error: {0}")]
+    Queue(#[from] prefect::Error),
 }
 
 impl Error {
@@ -99,17 +102,6 @@ impl Error {
             status,
             pic_store_http_errors::ErrorResponseData::new(self.to_string()),
         )
-    }
-}
-
-impl From<sqlxmq::Error> for Error {
-    fn from(s: sqlxmq::Error) -> Self {
-        match s {
-            sqlxmq::Error::Pool(e) => Self::from(e),
-            sqlxmq::Error::Diesel(e) => Self::from(e),
-            sqlxmq::Error::Interact(e) => panic!("{}", e),
-            sqlxmq::Error::ListenerError(e) => Self::QueueListener(anyhow::Error::new(e)),
-        }
     }
 }
 

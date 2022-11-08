@@ -15,6 +15,7 @@ use hyper::server::conn::AddrIncoming;
 use pic_store_db::object_id::{ProjectId, TeamId, UserId};
 use std::{
     net::{IpAddr, SocketAddr},
+    path::PathBuf,
     sync::Arc,
 };
 use tower::ServiceBuilder;
@@ -39,6 +40,7 @@ pub struct Server {
     pub host: String,
     pub port: u16,
     pub server: axum::Server<AddrIncoming, IntoMakeService<Router>>,
+    worker: prefect::Worker,
 }
 
 pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error> {
@@ -46,13 +48,14 @@ pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error>
 
     let production = config.env != "development" && !cfg!(debug_assertions);
 
-    let job_registry = jobs::create_registry(db.clone());
-    let _job_worker =
-        jobs::start_workers(config.database_url.clone(), db.clone(), job_registry, 5, 10).await?;
+    let (queue, worker) = jobs::create_job_queue(&PathBuf::from(config.queue_db_path), db.clone())
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to create job queue: {}", e))?;
 
     let state = Arc::new(InnerState {
         production,
         db: db.clone(),
+        queue,
         // Temporary hardcoded values
         project_id: std::env::var("DEFAULT_PROJECT_ID")
             .expect("DEFAULT_PROJECT_ID")
@@ -108,5 +111,6 @@ pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error>
         host: config.host,
         port,
         server,
+        worker,
     })
 }
