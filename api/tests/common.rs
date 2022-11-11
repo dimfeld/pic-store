@@ -48,10 +48,14 @@ async fn start_app(
     team_id: TeamId,
     admin_user: DatabaseUser,
 ) -> Result<TestApp> {
+    let queue_dir = temp_dir::TempDir::new().expect("Creating queue temp dir");
+    let queue_path = queue_dir.path().join("queue.db");
+
     let config = pic_store_api::config::Config {
         database_url: database.url.clone(),
         port: 0, // Bind to random port
         host: "127.0.0.1".to_string(),
+        queue_db_path: queue_path.to_string_lossy().to_string(),
         honeycomb_team: None,
         honeycomb_dataset: String::new(),
         env: "test".to_string(),
@@ -61,18 +65,11 @@ async fn start_app(
         session_cookie_name: "sid".to_string(),
     };
     Lazy::force(&pic_store_test::TRACING);
-    let Server { server, host, port } = pic_store_api::create_server(config).await?;
+    let server = pic_store_api::create_server(config).await?;
+    let host = server.host.clone();
+    let port = server.port;
 
-    tokio::task::spawn(async move {
-        let server_err = server.await;
-        server_err
-        // let shutdown_err = shutdown.shutdown().await;
-        // match (server_err, shutdown_err) {
-        //     (Err(e), _) => Err(anyhow!(e)),
-        //     (Ok(_), Err(e)) => Err(anyhow!(e)),
-        //     (Ok(_), Ok(_)) => Ok(()),
-        // }
-    });
+    tokio::task::spawn(async move { server.run().await.unwrap() });
 
     let base_url = format!("http://{}:{}/api", host, port);
     let client = TestClient {
@@ -118,8 +115,8 @@ where
     F: FnOnce(TestApp) -> R,
     R: Future<Output = Result<(), anyhow::Error>>,
 {
-    let (database, team_id, admin_user) = create_database().await.expect("Creating database");
-    let app = start_app(database.clone(), team_id, admin_user)
+    let (database, db_info) = create_database().await.expect("Creating database");
+    let app = start_app(database.clone(), db_info.team_id, db_info.admin_user)
         .await
         .expect("Starting app");
     f(app).await.unwrap();
@@ -170,6 +167,7 @@ impl TestApp {
             email: format!("test_user_{}@example.com", user_id),
             team_id,
             password_hash: hash,
+            default_upload_profile_id: None,
         };
 
         let key = self
