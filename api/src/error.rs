@@ -9,6 +9,8 @@ use thiserror::Error;
 
 use pic_store_http_errors::ErrorResponseData;
 
+pub type Result<T, E = Error> = std::result::Result<T, E>;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Database Error: {0}")]
@@ -16,6 +18,9 @@ pub enum Error {
 
     #[error("Database Pool Error: {0}")]
     DbPool(#[from] deadpool_diesel::PoolError),
+
+    #[error("Server error: {0}")]
+    ServerError(hyper::Error),
 
     #[error("Database Error: {0}")]
     DeadpoolInteract(anyhow::Error),

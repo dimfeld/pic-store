@@ -61,7 +61,7 @@ async fn start_app(
         session_cookie_name: "sid".to_string(),
     };
     Lazy::force(&pic_store_test::TRACING);
-    let Server { server, host, port } = pic_store_api::run_server(config).await?;
+    let Server { server, host, port } = pic_store_api::create_server(config).await?;
 
     tokio::task::spawn(async move {
         let server_err = server.await;

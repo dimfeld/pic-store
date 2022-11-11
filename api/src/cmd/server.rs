@@ -16,9 +16,11 @@ pub async fn run(
 
     tracing_config::configure(tracing_export_config)?;
 
-    pic_store_api::run_server(config).await?;
+    let server = pic_store_api::create_server(config).await?;
+    let result = server.run().await;
 
     tracing_config::teardown();
 
+    result?;
     Ok(())
 }

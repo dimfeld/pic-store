@@ -11,12 +11,14 @@ pub mod tracing_config;
 
 use axum::{routing::IntoMakeService, Extension, Router};
 use clap::Parser;
+use futures::Future;
 use hyper::server::conn::AddrIncoming;
 use pic_store_db::object_id::{ProjectId, TeamId, UserId};
 use std::{
     net::{IpAddr, SocketAddr},
     path::PathBuf,
     sync::Arc,
+    time::Duration,
 };
 use tower::ServiceBuilder;
 use tower_cookies::CookieManagerLayer;
@@ -30,7 +32,7 @@ use tracing::{event, Level};
 
 use crate::{
     auth::auth_layer,
-    error::Error,
+    error::{Error, Result},
     obfuscate_errors::ObfuscateErrorLayer,
     shared_state::InnerState,
     tracing_config::{HoneycombConfig, TracingExportConfig},
@@ -40,10 +42,55 @@ pub struct Server {
     pub host: String,
     pub port: u16,
     pub server: axum::Server<AddrIncoming, IntoMakeService<Router>>,
-    worker: prefect::Worker,
+    pub state: Arc<InnerState>,
+    pub worker: prefect::Worker,
 }
 
-pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error> {
+impl Server {
+    /// Run the server and wait for everything to close down once the server finishes.
+    pub async fn run(self) -> Result<()> {
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+
+        tokio::task::spawn(async move {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to listen for ctrl+c");
+            shutdown_tx.send(()).ok();
+        });
+
+        self.run_with_shutdown_signal(shutdown_rx).await
+    }
+
+    pub async fn run_with_shutdown_signal<T>(
+        self,
+        shutdown_rx: impl Future<Output = T> + Send + 'static,
+    ) -> Result<()> {
+        let (internal_shutdown_tx, internal_shutdown_rx) = tokio::sync::oneshot::channel();
+
+        tokio::task::spawn(async move {
+            shutdown_rx.await;
+            internal_shutdown_tx.send(()).ok();
+
+            event!(Level::INFO, "Shutting down background jobs");
+            if let Err(e) = self.worker.unregister(Some(Duration::from_secs(10))).await {
+                event!(Level::ERROR, "Failed to shut down queue worker: {}", e);
+            }
+        });
+
+        self.server
+            .with_graceful_shutdown(async move {
+                internal_shutdown_rx.await.ok();
+                event!(Level::INFO, "Shutting down server");
+            })
+            .await
+            .map_err(Error::ServerError)?;
+
+        self.state.queue.close(Duration::from_secs(10)).await?;
+        Ok(())
+    }
+}
+
+pub async fn create_server(config: config::Config) -> Result<Server, anyhow::Error> {
     let db = pic_store_db::connect(config.database_url.as_str(), 32)?;
 
     let production = config.env != "development" && !cfg!(debug_assertions);
@@ -83,7 +130,7 @@ pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error>
             .layer(CookieManagerLayer::new())
             .set_x_request_id(MakeRequestUuid)
             .propagate_x_request_id()
-            .layer(Extension(state))
+            .layer(Extension(state.clone()))
             .layer(auth_layer(
                 db.clone(),
                 config.session_cookie_name.clone(),
@@ -111,6 +158,7 @@ pub async fn run_server(config: config::Config) -> Result<Server, anyhow::Error>
         host: config.host,
         port,
         server,
+        state,
         worker,
     })
 }
