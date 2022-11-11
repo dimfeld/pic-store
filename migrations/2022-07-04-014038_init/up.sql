@@ -131,7 +131,7 @@ CREATE TYPE permission AS ENUM (
 CREATE TABLE api_key_permissions (
   team_id uuid not null references teams(team_id),
   api_key_id uuid not null references api_keys(api_key_id) on delete cascade,
-  project_id uuid not null,
+  project_id uuid not null default uuid_nil(),
   permission permission not null,
   primary key(team_id, api_key_id, project_id, permission)
 );
@@ -139,7 +139,7 @@ CREATE TABLE api_key_permissions (
 CREATE TABLE role_permissions (
   team_id uuid not null references teams(team_id),
   role_id uuid not null references roles(role_id),
-  project_id uuid not null,
+  project_id uuid not null default uuid_nil(),
   permission permission not null,
   primary key(team_id, role_id, project_id, permission)
 );

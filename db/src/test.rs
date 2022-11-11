@@ -74,8 +74,11 @@ pub async fn create_database() -> Result<(TestDatabase, DatabaseInfo)> {
         .unwrap_or(5432);
     let user = std::env::var("TEST_DATABASE_USER").unwrap_or_else(|_| "postgres".to_string());
     let password = std::env::var("TEST_DATABASE_PASSWORD").unwrap_or_else(|_| "".to_string());
+    let global_test_db =
+        std::env::var("TEST_DATABASE_GLOBAL_DB").unwrap_or_else(|_| "postgres".to_string());
 
-    let global_connect = format!("postgresql://{user}:{password}@{host}:{port}");
+    let base_connect = format!("postgresql://{user}:{password}@{host}:{port}");
+    let global_connect = format!("{base_connect}/{global_test_db}");
     let database = format!("pic_store_test_{}", crate::new_uuid().simple());
     println!("Database name: {}", database);
 
@@ -98,7 +101,7 @@ END; $$;
     diesel::sql_query(roles_query.as_str()).execute(&mut global_conn)?;
     drop(global_conn);
 
-    let db_conn_str = format!("{global_connect}/{database}");
+    let db_conn_str = format!("{base_connect}/{database}");
     let manager = Manager::new(db_conn_str.clone(), deadpool_diesel::Runtime::Tokio1);
     let pool = Pool::builder(manager).max_size(4).build()?;
 

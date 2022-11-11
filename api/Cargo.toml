@@ -33,7 +33,7 @@ chrono = "0.4.19"
 clap = { version = "3.2.4", features = ["derive", "env", "wrap_help"] }
 color-eyre = "0.6.1"
 deadpool-diesel = { version = "0.4.0", features = ["postgres"]}
-diesel = { version = "2.0.0", features = ["chrono", "postgres", "uuid", "serde_json"] }
+diesel = { version = "2.0.2", features = ["chrono", "postgres", "uuid", "serde_json"] }
 dotenv = "0.15.0"
 futures = "0.3.21"
 http = "0.2.8"
