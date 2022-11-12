@@ -10,13 +10,13 @@ anyhow = "1.0.58"
 chrono = { version = "0.4.19", features = ["serde"] }
 deadpool-diesel = { version = "0.4.0", features = ["postgres"]}
 diesel = { version = "2.0.2", features = ["chrono", "postgres", "uuid", "serde_json"] }
-diesel-derive-enum = { git = "https://github.com/adwhit/diesel-derive-enum", features = ["postgres"] }
+diesel-derive-enum = { version = "2.0.0-rc.0", features = ["postgres"] }
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 base64 = "0.13.0"
 thiserror = "1.0.31"
-ulid = { version = "0.6.0", features = ["serde", "uuid"] }
+ulid = { version = "1.0.0", features = ["serde", "uuid"] }
 async-trait = "0.1.56"
 image = "0.24.3"
 dotenv = "0.15.0"

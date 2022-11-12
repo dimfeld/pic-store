@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use aws_sdk_s3::{client::Client as S3Client, Credentials};
 use http::Uri;
-use opendal::Accessor;
+use opendal::{Accessor, Operator};
 
 #[derive(Debug, Clone)]
 pub struct S3ProviderConfig {
@@ -29,11 +29,11 @@ pub fn create_client(config: &S3ProviderConfig) -> S3Client {
     S3Client::from_conf(config)
 }
 
-pub(crate) async fn create_opendal_accessor(
+pub(crate) async fn create_opendal_operator(
     config: &S3ProviderConfig,
     base_location: &str,
-) -> Result<Arc<dyn Accessor>, anyhow::Error> {
-    let mut builder = opendal::services::s3::Backend::build();
+) -> Result<Operator, anyhow::Error> {
+    let mut builder = opendal::services::s3::Builder::default();
     builder
         .access_key_id(config.access_key_id.as_str())
         .secret_access_key(config.secret_key.as_str());
@@ -54,5 +54,7 @@ pub(crate) async fn create_opendal_accessor(
         }
     }
 
-    builder.finish().await.map_err(|e| e.into())
+    let acc = builder.build()?;
+
+    Ok(Operator::new(acc))
 }

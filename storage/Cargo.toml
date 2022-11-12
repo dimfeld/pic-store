@@ -11,9 +11,9 @@ pic-store-db = { path = "../db" }
 anyhow = "1.0.57"
 async-trait = "0.1.56"
 aws-sdk-s3 = "0.14.0"
-backon = "0.0.2"
+backon = "0.2.0"
 http = "0.2.8"
-opendal = { version = "0.10.0", features = ["retry"] }
+opendal = { version = "0.19.7", features = ["layers-tracing"] }
 thiserror = "1.0.31"
 tokio = { version = "1.19.2", features = ["fs"] }
 serde = { version = "1.0.137", features = ["derive"] }

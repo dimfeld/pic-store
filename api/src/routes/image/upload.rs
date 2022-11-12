@@ -9,6 +9,7 @@ use chrono::Utc;
 use diesel::prelude::*;
 use futures::{AsyncWrite, AsyncWriteExt, TryStreamExt};
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
+use opendal::{ObjectMultipart, ObjectPart};
 use serde_json::json;
 
 use pic_store_db as db;
@@ -17,7 +18,7 @@ use pic_store_storage as storage;
 use db::{
     conversion_profiles::{self, ConversionOutput},
     object_id::{BaseImageId, OutputImageId, StorageLocationId},
-    output_images::NewOutputImage,
+    output_images::{self, NewOutputImage},
     Permission, PoolExt,
 };
 use tracing::{event, Level};
@@ -91,16 +92,24 @@ impl Header {
             }
         };
     }
+
+    fn parse(&self) -> Result<ImageInfo, ImageInfoError> {
+        assert!(self.ready());
+        let bytes = self.as_slice();
+        ImageInfo::from_raw_data(bytes)
+    }
 }
 
 async fn handle_upload(
-    mut writer: impl AsyncWrite + Unpin,
+    upload: &opendal::ObjectMultipart,
     mut stream: BodyStream,
-) -> Result<(String, ImageInfo), Error> {
+) -> Result<(Vec<ObjectPart>, String, ImageInfo), Error> {
     let mut hasher = blake3::Hasher::new();
 
     let mut header = Header::new();
     let mut info: Option<ImageInfo> = None;
+
+    let mut parts = Vec::new();
 
     while let Some(chunk) = stream.try_next().await.transpose() {
         let chunk = chunk?;
@@ -109,14 +118,12 @@ async fn handle_upload(
         if info.is_none() {
             header.add_chunk(&chunk);
             if header.ready() {
-                let cursor = std::io::Cursor::new(header.as_slice());
-                let mut reader = std::io::BufReader::new(cursor);
-                let i = ImageInfo::from_reader(&mut reader)?;
+                let i = header.parse()?;
                 info = Some(i);
             }
         }
 
-        writer.write_all(&chunk).await?;
+        parts.push(upload.write(parts.len(), chunk).await?);
     }
 
     let info = info.ok_or(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat))?;
@@ -124,7 +131,7 @@ async fn handle_upload(
     let hash = hasher.finalize();
     let hash_hex = format!("{:x?}", hash);
 
-    Ok((hash_hex, info))
+    Ok((parts, hash_hex, info))
 }
 
 pub async fn upload_image(
@@ -182,9 +189,17 @@ pub async fn upload_image(
         .map_err(storage::Error::OperatorError)?;
 
     let object = operator.object(base_image.location.as_str());
-    let writer = object.writer(512 * 1024).await?;
-
-    let (hash_hex, info) = handle_upload(writer, stream).await?;
+    let upload = object.create_multipart().await?;
+    let (hash_hex, info) = match handle_upload(&upload, stream).await {
+        Ok((parts, hash_hex, info)) => {
+            upload.complete(parts).await?;
+            (hash_hex, info)
+        }
+        Err(e) => {
+            upload.abort().await?;
+            return Err(e);
+        }
+    };
 
     let format = match info.format {
         ImageFormat::PNG => db::ImageFormat::Png,
@@ -218,11 +233,15 @@ pub async fn upload_image(
                         }
                     };
 
-                    let location = format!("{basename}-{size_str}.{}", format.extension());
+                    let output_image_id = OutputImageId::new();
+                    let location = format!(
+                        "{basename}-{size_str}-{output_image_id}.{}",
+                        format.extension()
+                    );
 
                     NewOutputImage {
                         base_image_id: image_id,
-                        output_image_id: OutputImageId::new(),
+                        output_image_id,
                         size: size.clone(),
                         format: format.clone(),
                         team_id: user.team_id,
@@ -239,7 +258,7 @@ pub async fn upload_image(
         .map(|oi| oi.output_image_id)
         .collect::<Vec<_>>();
 
-    state
+    let to_delete = state
         .db
         .transaction(move |conn| {
             diesel::update(base_images::table)
@@ -254,13 +273,34 @@ pub async fn upload_image(
                 ))
                 .execute(conn)?;
 
+            // Set the existing output images to be deleted
+            let to_delete = diesel::update(output_images::table)
+                .filter(output_images::base_image_id.eq(image_id))
+                .filter(output_images::team_id.eq(user.team_id))
+                .set((output_images::status.eq(db::OutputImageStatus::QueuedForDelete),))
+                .returning(output_images::output_image_id)
+                .get_results::<OutputImageId>(conn)?;
+
             diesel::insert_into(db::output_images::table)
                 .values(&output_images)
                 .execute(conn)?;
 
-            Ok::<(), anyhow::Error>(())
+            Ok::<_, anyhow::Error>(to_delete)
         })
         .await?;
+
+    // TODO Implement this job
+    // if !to_delete.is_empty() {
+    //     let job_id = prefect::Job::builder(crate::jobs::DELETE_OUTPUT_IMAGES)
+    //         .json_payload(&crate::jobs::DeleteImagesPayload {
+    //             base_image: Vec::new(),
+    //             output_images: to_delete,
+    //         })?
+    //         .priority(0)
+    //         .add_to(&state.queue)
+    //         .await?;
+    //     event!(Level::INFO, %job_id, "enqueued old output image deletion job");
+    // }
 
     let job_id = prefect::Job::builder(crate::jobs::CREATE_OUTPUT_IMAGES)
         .json_payload(&crate::jobs::CreateOutputImagesJobPayload {

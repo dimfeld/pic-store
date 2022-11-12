@@ -1,6 +1,9 @@
 use aws_sdk_s3::client::Client as S3Client;
 use backon::ExponentialBackoff;
-use opendal::Operator;
+use opendal::{
+    layers::{RetryLayer, TracingLayer},
+    Operator,
+};
 
 use pic_store_db as db;
 
@@ -61,22 +64,25 @@ impl Provider {
     }
 
     pub async fn create_operator(&self, base_location: &str) -> Result<Operator, anyhow::Error> {
-        let accessor = match self {
+        let operator = match self {
             Self::S3 { config, .. } => {
-                crate::s3::create_opendal_accessor(config, base_location).await?
+                crate::s3::create_opendal_operator(config, base_location).await?
             }
             Self::Local => {
-                let mut builder = opendal::services::fs::Backend::build();
+                let mut builder = opendal::services::fs::Builder::default();
 
                 if !base_location.is_empty() {
                     builder.root(base_location);
                 }
 
-                builder.finish().await?
+                let acc = builder.build()?;
+                Operator::new(acc)
             }
         };
 
-        let operator = Operator::new(accessor).with_backoff(ExponentialBackoff::default());
+        let operator = operator
+            .layer(RetryLayer::new(ExponentialBackoff::default()))
+            .layer(TracingLayer);
         Ok(operator)
     }
 }

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use diesel::prelude::*;
+use image::DynamicImage;
 use prefect::RunningJob;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +10,7 @@ use pic_store_convert as convert;
 use pic_store_db as db;
 use pic_store_storage as storage;
 
-use crate::Error;
+use crate::{Error, Result};
 use db::{
     conversion_profiles::{ConversionFormat, ConversionSize},
     object_id::{BaseImageId, ConversionProfileId, OutputImageId},
@@ -73,11 +74,12 @@ pub async fn create_output_images_job(
         .await?;
 
     let base_image_storage = storage::Provider::from_db(base_image_storage_provider)?;
-    let op = base_image_storage
-        .create_operator(base_image_base_location.as_str())
-        .await?;
-    let base_image_data = op.object(base_image_location.as_str()).read().await?;
-    let base_image = Arc::new(convert::image_from_bytes(base_image_data.as_slice())?);
+    let base_image = read_image(
+        base_image_storage,
+        base_image_base_location.as_str(),
+        base_image_location.as_str(),
+    )
+    .await?;
 
     let output_image_storage = storage::Provider::from_db(output_image_storage_provider)?;
     let output_operator = output_image_storage
@@ -124,12 +126,8 @@ pub async fn create_output_images_job(
 
         output_operator
             .object(output_location.as_str())
-            .write(&output)
+            .write(output)
             .await?;
-
-        //  Write the file to storage
-
-        let payload = payload.clone();
 
         context
             .pool
@@ -161,4 +159,15 @@ pub async fn create_output_images_job(
         .await?;
 
     Ok(())
+}
+
+async fn read_image(
+    storage_provider: pic_store_storage::Provider,
+    base_location: &str,
+    location: &str,
+) -> Result<Arc<DynamicImage>, anyhow::Error> {
+    let op = storage_provider.create_operator(base_location).await?;
+    let base_image_data = op.object(location).read().await?;
+    let base_image = Arc::new(convert::image_from_bytes(base_image_data.as_slice())?);
+    Ok(base_image)
 }

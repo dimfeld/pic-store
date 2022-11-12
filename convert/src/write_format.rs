@@ -64,7 +64,7 @@ fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), Encode
         speed: 4,
         premultiplied_alpha: false,
         color_space: ravif::ColorSpace::RGB,
-        threads: 0,
+        threads: None,
     };
 
     let image = to_8bit(image);

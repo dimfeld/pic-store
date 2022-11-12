@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 image = { version = "0.24.2", features= ["avif-decoder", "webp"]}
-ravif = "0.8.9"
+ravif = "0.9.1"
 rgb = "0.8.32"
 thiserror = "1.0.31"
 webp = "0.2.2"
