@@ -2206,8 +2206,7 @@ dependencies = [
 [[package]]
 name = "imageinfo"
 version = "0.7.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "534ffc6504c20a4279347c5bbb7a9f979a919db488dd91570ed97369c65ac496"
+source = "git+https://github.com/dimfeld/imageinfo-rs#2a5bd3ab27bb18174244da52ca8a5deca1a96585"
 dependencies = [
  "regex",
 ]

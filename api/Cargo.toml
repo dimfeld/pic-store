@@ -40,7 +40,7 @@ http = "0.2.8"
 http-body = "0.4.5"
 hyper = "0.14.19"
 image = { version = "0.24.2", features= ["avif-decoder", "webp"]}
-imageinfo = "0.7.4"
+imageinfo = { git = "https://github.com/dimfeld/imageinfo-rs" }
 log = "0.4.17"
 num_cpus = "1.13.1"
 opendal = "0.19.7"

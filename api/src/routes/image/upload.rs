@@ -29,14 +29,6 @@ struct Header {
     buf: HeaderBuf,
 }
 
-impl Header {
-    fn new() -> Header {
-        Header {
-            buf: HeaderBuf::Empty,
-        }
-    }
-}
-
 enum HeaderBuf {
     Empty,
     Vec(Vec<u8>),
@@ -46,6 +38,12 @@ enum HeaderBuf {
 const HEADER_CAP: usize = 1024;
 
 impl Header {
+    fn new() -> Header {
+        Header {
+            buf: HeaderBuf::Empty,
+        }
+    }
+
     fn as_slice(&self) -> &[u8] {
         match &self.buf {
             HeaderBuf::Vec(vec) => vec.as_slice(),
@@ -312,4 +310,80 @@ pub async fn upload_image(
     event!(Level::INFO, %job_id, "enqueued image conversion job");
 
     Ok((StatusCode::OK, Json(json!({}))))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        fs::File,
+        io::{BufRead, Read, Seek},
+        path::PathBuf,
+    };
+
+    use bytes::Bytes;
+    use imageinfo::*;
+
+    fn read_test_image_header(filename: &str) -> Vec<u8> {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures")
+            .join(filename);
+        let mut file = File::open(path).expect("opening input file");
+        let buf_len = std::cmp::min(file.metadata().unwrap().len(), super::HEADER_CAP as u64);
+
+        let mut buf = vec![0; buf_len as usize];
+        file.read_exact(&mut buf).expect("reading input file");
+        buf
+    }
+
+    #[test]
+    fn header_avif() {
+        let file = read_test_image_header("test-input.avif");
+        let mut header = super::Header::new();
+        header.add_chunk(&Bytes::from(file));
+
+        assert!(header.ready());
+        let info = header.parse().unwrap();
+
+        assert_eq!(info.format, ImageFormat::AVIF);
+    }
+
+    #[test]
+    fn header_jpg() {
+        let file = read_test_image_header("test-input.jpeg");
+        let mut header = super::Header::new();
+        header.add_chunk(&Bytes::from(file));
+
+        assert!(header.ready());
+        let info = header.parse().unwrap();
+
+        assert_eq!(info.format, ImageFormat::JPEG);
+    }
+
+    #[test]
+    fn header_png() {
+        let file = read_test_image_header("test-input.png");
+        let mut header = super::Header::new();
+        header.add_chunk(&Bytes::from(file));
+
+        assert!(header.ready());
+        let info = header.parse().unwrap();
+
+        assert_eq!(info.format, ImageFormat::PNG);
+    }
+
+    #[test]
+    fn header_webp() {
+        let file = read_test_image_header("test-input.webp");
+        let mut header = super::Header::new();
+        header.add_chunk(&Bytes::from(file));
+
+        assert!(header.ready());
+        let info = header.parse().unwrap();
+
+        assert_eq!(info.format, ImageFormat::WEBP);
+    }
+
+    #[test]
+    #[ignore = "todo"]
+    fn header_small_chunks() {}
 }
