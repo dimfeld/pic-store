@@ -6,8 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-image = { version = "0.24.2", features= ["avif-decoder", "webp"]}
+image = { version = "0.24.5", features= ["webp"]}
+imageinfo = { git = "https://github.com/dimfeld/imageinfo-rs" }
+libavif = { version = "0.10.1", default-features = false, features = ["codec-dav1d"] }
 ravif = "0.9.1"
 rgb = "0.8.32"
 thiserror = "1.0.31"
 webp = "0.2.2"
+
+[features]
+default = ["codec-dav1d"]
+codec-dav1d = ["libavif/codec-dav1d"]
+codec-aom = ["libavif/codec-aom"]
+
+test-slow = []

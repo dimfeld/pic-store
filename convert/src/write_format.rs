@@ -123,3 +123,55 @@ impl From<image::ImageError> for EncodeError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use image::DynamicImage;
+
+    fn read_test_image(filename: &str) -> DynamicImage {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures")
+            .join(filename);
+        image::open(path).expect("reading image")
+    }
+
+    #[test]
+    #[cfg(feature = "test-slow")]
+    fn write_avif() {
+        let image = read_test_image("test-input.png");
+        let mut output = Vec::new();
+        super::write_image(&image, image::ImageFormat::Avif, &mut output).unwrap();
+
+        let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
+        assert_eq!(info.format, imageinfo::ImageFormat::AVIF);
+        assert_eq!(info.size.width as u32, image.width());
+        assert_eq!(info.size.height as u32, image.height());
+    }
+
+    #[test]
+    #[cfg(feature = "test-slow")]
+    fn write_png() {
+        let image = read_test_image("test-input.png");
+        let mut output = Vec::new();
+        super::write_image(&image, image::ImageFormat::Png, &mut output).unwrap();
+
+        let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
+        assert_eq!(info.format, imageinfo::ImageFormat::PNG);
+        assert_eq!(info.size.width as u32, image.width());
+        assert_eq!(info.size.height as u32, image.height());
+    }
+
+    #[test]
+    fn write_webp() {
+        let image = read_test_image("test-input.png");
+        let mut output = Vec::new();
+        super::write_image(&image, image::ImageFormat::WebP, &mut output).unwrap();
+
+        let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
+        assert_eq!(info.format, imageinfo::ImageFormat::WEBP);
+        assert_eq!(info.size.width as u32, image.width());
+        assert_eq!(info.size.height as u32, image.height());
+    }
+}

@@ -18,7 +18,7 @@ base64 = "0.13.0"
 thiserror = "1.0.31"
 ulid = { version = "1.0.0", features = ["serde", "uuid"] }
 async-trait = "0.1.56"
-image = "0.24.3"
+image = "0.24.5"
 dotenv = "0.15.0"
 futures = "0.3.21"
 diesel_migrations = { version = "2.0.0-rc.0", features = ["postgres"] }

@@ -27,7 +27,7 @@ pub fn verify_password(password: &str, hash_str: &str) -> Result<(), Error> {
         .map_err(|_| Error::InvalidPassword)
 }
 
-#[cfg(all(test, any(test_slow, test_password)))]
+#[cfg(all(test, any(feature = "test-slow", feature = "test-password")))]
 mod tests {
     use super::*;
     use crate::error::Result;
