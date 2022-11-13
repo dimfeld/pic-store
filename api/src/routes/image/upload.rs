@@ -328,7 +328,10 @@ mod tests {
             .join("../fixtures")
             .join(filename);
         let mut file = File::open(path).expect("opening input file");
-        let buf_len = std::cmp::min(file.metadata().unwrap().len(), super::HEADER_CAP as u64);
+        let buf_len = std::cmp::min(
+            file.metadata().unwrap().len(),
+            (super::HEADER_CAP + 10) as u64,
+        );
 
         let mut buf = vec![0; buf_len as usize];
         file.read_exact(&mut buf).expect("reading input file");
@@ -345,6 +348,8 @@ mod tests {
         let info = header.parse().unwrap();
 
         assert_eq!(info.format, ImageFormat::AVIF);
+        assert_eq!(info.size.width, 1334);
+        assert_eq!(info.size.height, 890);
     }
 
     #[test]
@@ -357,6 +362,8 @@ mod tests {
         let info = header.parse().unwrap();
 
         assert_eq!(info.format, ImageFormat::JPEG);
+        assert_eq!(info.size.width, 1334);
+        assert_eq!(info.size.height, 890);
     }
 
     #[test]
@@ -369,6 +376,8 @@ mod tests {
         let info = header.parse().unwrap();
 
         assert_eq!(info.format, ImageFormat::PNG);
+        assert_eq!(info.size.width, 667);
+        assert_eq!(info.size.height, 445);
     }
 
     #[test]
@@ -381,9 +390,26 @@ mod tests {
         let info = header.parse().unwrap();
 
         assert_eq!(info.format, ImageFormat::WEBP);
+        assert_eq!(info.size.width, 1334);
+        assert_eq!(info.size.height, 890);
     }
 
+    /// Ensure that the Header class properly handles multiple small chunks
     #[test]
-    #[ignore = "todo"]
-    fn header_small_chunks() {}
+    fn header_small_chunks() {
+        // AVIF has the most complex header, so use that.
+        let file = read_test_image_header("test-input.avif");
+        let mut header = super::Header::new();
+
+        for chunk in file.chunks(100) {
+            let chunk = Vec::from(chunk);
+            header.add_chunk(&Bytes::from(chunk));
+        }
+
+        assert!(header.ready());
+        let info = header.parse().unwrap();
+        assert_eq!(info.format, ImageFormat::AVIF);
+        assert_eq!(info.size.width, 1334);
+        assert_eq!(info.size.height, 890);
+    }
 }

@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -57,6 +56,9 @@ pub enum Error {
 
     #[error("Failed to decode image information: {0}")]
     ImageHeaderDecode(#[from] imageinfo::ImageInfoError),
+
+    #[error("Unsupported image type: {0:?}")]
+    UnsupportedImageType(imageinfo::ImageFormat),
 
     #[error("content-length header is required")]
     ContentLengthRequired,
