@@ -9,9 +9,8 @@ use crate::{
 pub use crate::schema::upload_profiles::*;
 
 #[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
-#[diesel(primary_key(upload_profile_id))]
 pub struct UploadProfile {
-    pub upload_profile_id: UploadProfileId,
+    pub id: UploadProfileId,
     pub team_id: TeamId,
     pub project_id: ProjectId,
     pub name: String,
@@ -32,7 +31,7 @@ pub struct UploadProfile {
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = upload_profiles)]
 pub struct NewUploadProfile {
-    pub upload_profile_id: UploadProfileId,
+    pub id: UploadProfileId,
     pub team_id: TeamId,
     pub project_id: ProjectId,
     pub name: String,

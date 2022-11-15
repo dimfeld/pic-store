@@ -1,5 +1,5 @@
 {
-  "storage_location_id": "{{DEFAULT_STORAGE_LOCATION_ID}}",
+  "id": "{{DEFAULT_STORAGE_LOCATION_ID}}",
   "team_id": "{{DEFAULT_TEAM_ID}}",
   "project_id": null,
   "name": "Default Local FS",

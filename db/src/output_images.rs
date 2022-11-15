@@ -8,9 +8,8 @@ pub use crate::schema::output_images::*;
 use crate::schema::*;
 
 #[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
-#[diesel(primary_key(output_image_id))]
 pub struct OutputImage {
-    pub output_image_id: OutputImageId,
+    pub id: OutputImageId,
     pub team_id: TeamId,
     pub base_image_id: BaseImageId,
     pub location: String,
@@ -26,7 +25,7 @@ pub struct OutputImage {
 #[derive(Debug, Insertable)]
 #[diesel(table_name = output_images)]
 pub struct NewOutputImage {
-    pub output_image_id: OutputImageId,
+    pub id: OutputImageId,
     pub team_id: TeamId,
     pub base_image_id: BaseImageId,
     pub location: String,

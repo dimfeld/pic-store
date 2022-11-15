@@ -38,9 +38,8 @@ impl std::fmt::Display for Provider {
 }
 
 #[derive(Clone, Debug, Queryable, Identifiable)]
-#[diesel(primary_key(storage_location_id))]
 pub struct StorageLocation {
-    pub storage_location_id: StorageLocationId,
+    pub id: StorageLocationId,
     pub team_id: TeamId,
     pub project_id: Option<ProjectId>,
     pub name: String,
@@ -58,7 +57,7 @@ pub struct StorageLocation {
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = storage_locations)]
 pub struct NewStorageLocation {
-    pub storage_location_id: StorageLocationId,
+    pub id: StorageLocationId,
     pub team_id: TeamId,
     pub project_id: Option<ProjectId>,
     pub name: String,

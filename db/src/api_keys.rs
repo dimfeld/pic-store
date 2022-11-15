@@ -11,9 +11,8 @@ use crate::{
 pub use crate::schema::api_keys::*;
 
 #[derive(Clone, Debug, Queryable, Identifiable, Insertable)]
-#[diesel(primary_key(api_key_id))]
 pub struct ApiKey {
-    pub api_key_id: Uuid,
+    pub id: Uuid,
     pub name: String,
     pub prefix: String,
     pub hash: Vec<u8>,

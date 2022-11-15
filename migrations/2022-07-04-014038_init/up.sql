@@ -8,14 +8,14 @@ CREATE TYPE image_format AS ENUM (
 );
 
 CREATE TABLE teams (
-  team_id uuid primary key,
+  id uuid primary key,
   name text not null,
   deleted timestamptz
 );
 
 CREATE TABLE projects (
-  project_id uuid primary key,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
   name text not null,
   base_location text not null,
   updated timestamptz not null default now(),
@@ -23,9 +23,9 @@ CREATE TABLE projects (
 );
 
 CREATE TABLE conversion_profiles (
-  conversion_profile_id uuid primary key,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
-  project_id uuid references projects(project_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
+  project_id uuid references projects(id) DEFERRABLE INITIALLY IMMEDIATE,
   name text not null,
 
   output jsonb not null,
@@ -37,9 +37,9 @@ CREATE TABLE conversion_profiles (
 CREATE INDEX conversion_profiles_team_id ON conversion_profiles(team_id);
 
 CREATE TABLE storage_locations (
-  storage_location_id uuid primary key,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
-  project_id uuid references projects(project_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
+  project_id uuid references projects(id) DEFERRABLE INITIALLY IMMEDIATE,
   name text not null,
   provider jsonb not null,
   base_location text not null,
@@ -51,14 +51,14 @@ CREATE TABLE storage_locations (
 CREATE INDEX storage_locations_team_id ON storage_locations(team_id);
 
 CREATE TABLE upload_profiles (
-  upload_profile_id uuid primary key,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
-  project_id uuid not null references projects(project_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
+  project_id uuid not null references projects(id) DEFERRABLE INITIALLY IMMEDIATE,
   name text not null,
   short_id text,
-  base_storage_location_id uuid not null references storage_locations(storage_location_id) DEFERRABLE INITIALLY IMMEDIATE,
-  output_storage_location_id uuid not null references storage_locations(storage_location_id) DEFERRABLE INITIALLY IMMEDIATE,
-  conversion_profile_id uuid not null references conversion_profiles(conversion_profile_id) DEFERRABLE INITIALLY IMMEDIATE,
+  base_storage_location_id uuid not null references storage_locations(id) DEFERRABLE INITIALLY IMMEDIATE,
+  output_storage_location_id uuid not null references storage_locations(id) DEFERRABLE INITIALLY IMMEDIATE,
+  conversion_profile_id uuid not null references conversion_profiles(id) DEFERRABLE INITIALLY IMMEDIATE,
   updated timestamptz not null default now(),
   deleted timestamptz
 );
@@ -67,28 +67,28 @@ CREATE INDEX upload_profiles_team_id_project_id ON upload_profiles(team_id, proj
 CREATE INDEX upload_profiles_short_id ON upload_profiles(team_id, short_id);
 
 CREATE TABLE users (
-  user_id uuid primary key,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
   email text not null,
   password_hash text,
   name text not null,
 
-  default_upload_profile_id uuid references upload_profiles(upload_profile_id) DEFERRABLE INITIALLY IMMEDIATE,
+  default_upload_profile_id uuid references upload_profiles(id) DEFERRABLE INITIALLY IMMEDIATE,
   updated timestamptz not null default now(),
   deleted timestamptz
 );
 
 CREATE TABLE roles (
-  role_id uuid primary key,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
   name text not null,
   created timestamptz not null default now(),
   deleted timestamptz
 );
 
 CREATE TABLE user_roles (
-  user_id uuid not null references users(user_id) on delete cascade DEFERRABLE INITIALLY IMMEDIATE,
-  role_id uuid not null references roles(role_id) on delete cascade DEFERRABLE INITIALLY IMMEDIATE,
+  user_id uuid not null references users(id) on delete cascade DEFERRABLE INITIALLY IMMEDIATE,
+  role_id uuid not null references roles(id) on delete cascade DEFERRABLE INITIALLY IMMEDIATE,
   added timestamptz not null default now(),
   primary key(user_id, role_id)
 );
@@ -96,19 +96,19 @@ CREATE TABLE user_roles (
 CREATE INDEX users_team_id ON users(team_id);
 
 CREATE TABLE sessions (
-  session_id uuid primary key,
-  user_id uuid not null references users(user_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  user_id uuid not null references users(id) DEFERRABLE INITIALLY IMMEDIATE,
   expires timestamptz not null
 );
 
 CREATE TABLE api_keys (
-  api_key_id uuid primary key,
+  id uuid primary key,
   name text not null default '',
   prefix text not null,
   hash bytea not null,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
-  user_id uuid not null references users(user_id) DEFERRABLE INITIALLY IMMEDIATE,
-  default_upload_profile_id uuid references upload_profiles(upload_profile_id) DEFERRABLE INITIALLY IMMEDIATE,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
+  user_id uuid not null references users(id) DEFERRABLE INITIALLY IMMEDIATE,
+  default_upload_profile_id uuid references upload_profiles(id) DEFERRABLE INITIALLY IMMEDIATE,
   inherits_user_permissions boolean not null,
   created timestamptz not null default now(),
   expires timestamptz
@@ -129,16 +129,16 @@ CREATE TYPE permission AS ENUM (
 );
 
 CREATE TABLE api_key_permissions (
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
-  api_key_id uuid not null references api_keys(api_key_id) on delete cascade DEFERRABLE INITIALLY IMMEDIATE,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
+  api_key_id uuid not null references api_keys(id) on delete cascade DEFERRABLE INITIALLY IMMEDIATE,
   project_id uuid not null default uuid_nil(),
   permission permission not null,
   primary key(team_id, api_key_id, project_id, permission)
 );
 
 CREATE TABLE role_permissions (
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
-  role_id uuid not null references roles(role_id) DEFERRABLE INITIALLY IMMEDIATE,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
+  role_id uuid not null references roles(id) DEFERRABLE INITIALLY IMMEDIATE,
   project_id uuid not null default uuid_nil(),
   permission permission not null,
   primary key(team_id, role_id, project_id, permission)
@@ -155,17 +155,17 @@ CREATE TYPE base_image_status AS ENUM (
 );
 
 CREATE TABLE base_images (
-  base_image_id uuid primary key,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
-  project_id uuid not null references projects(project_id) DEFERRABLE INITIALLY IMMEDIATE,
-  user_id uuid not null references users(user_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
+  project_id uuid not null references projects(id) DEFERRABLE INITIALLY IMMEDIATE,
+  user_id uuid not null references users(id) DEFERRABLE INITIALLY IMMEDIATE,
   hash text,
   filename text not null,
   location text not null,
   width int not null default 0,
   height int not null default 0,
   format image_format,
-  upload_profile_id uuid not null references upload_profiles(upload_profile_id) DEFERRABLE INITIALLY IMMEDIATE,
+  upload_profile_id uuid not null references upload_profiles(id) DEFERRABLE INITIALLY IMMEDIATE,
   status base_image_status not null,
   alt_text text not null,
   placeholder text,
@@ -185,9 +185,9 @@ CREATE TYPE output_image_status AS ENUM (
 );
 
 CREATE TABLE output_images (
-  output_image_id uuid primary key,
-  team_id uuid not null references teams(team_id) DEFERRABLE INITIALLY IMMEDIATE,
-  base_image_id uuid not null references base_images(base_image_id) DEFERRABLE INITIALLY IMMEDIATE,
+  id uuid primary key,
+  team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
+  base_image_id uuid not null references base_images(id) DEFERRABLE INITIALLY IMMEDIATE,
   location text not null,
   width int not null,
   height int not null,

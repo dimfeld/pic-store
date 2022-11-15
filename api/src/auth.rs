@@ -59,12 +59,12 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
                     .left_join(
                         db::user_roles::table.on(db::user_roles::user_id.eq(db::api_keys::user_id)),
                     )
-                    .group_by(db::api_keys::api_key_id)
-                    .filter(db::api_keys::api_key_id.eq(key_id))
+                    .group_by(db::api_keys::id)
+                    .filter(db::api_keys::id.eq(key_id))
                     .filter(db::api_keys::hash.eq(hash.as_bytes().as_slice()))
                     .filter(db::api_keys::expires.gt(diesel::dsl::now))
                     .select((
-                        db::api_keys::api_key_id,
+                        db::api_keys::id,
                         db::api_keys::user_id,
                         db::api_keys::team_id,
                         sql::<diesel::sql_types::Array<diesel::sql_types::Uuid>>(
@@ -89,7 +89,7 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
         data: ApiKeyNewData,
     ) -> Result<(), Self::Error> {
         let input = db::api_keys::ApiKey {
-            api_key_id: key.api_key_id,
+            id: key.id,
             name: data.name,
             prefix: key.prefix,
             hash: key.hash.as_bytes().to_vec(),
@@ -115,7 +115,7 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
 
         conn.interact(move |conn| {
             diesel::delete(db::api_keys::table)
-                .filter(db::api_keys::api_key_id.eq(key_id))
+                .filter(db::api_keys::id.eq(key_id))
                 .execute(conn)
         })
         .await??;
@@ -156,7 +156,7 @@ impl auth::session::SessionStore for SessionStore {
         let session = conn
             .interact(move |conn| {
                 let input = db::sessions::Session {
-                    session_id: Ulid::new().into(),
+                    id: Ulid::new().into(),
                     user_id,
                     expires,
                 };
@@ -165,7 +165,7 @@ impl auth::session::SessionStore for SessionStore {
                     .values(&input)
                     .execute(conn)?;
 
-                Ok::<Uuid, crate::Error>(input.session_id)
+                Ok::<Uuid, crate::Error>(input.id)
             })
             .await??;
 
@@ -178,11 +178,11 @@ impl auth::session::SessionStore for SessionStore {
         conn.interact(move |conn| {
             db::sessions::table
                 .inner_join(db::users::table.inner_join(db::user_roles::table))
-                .group_by(db::users::user_id)
-                .filter(db::sessions::session_id.eq(session_id))
+                .group_by(db::users::id)
+                .filter(db::sessions::id.eq(session_id))
                 .filter(db::sessions::expires.gt(diesel::dsl::now))
                 .select((
-                    db::users::user_id,
+                    db::users::id,
                     db::users::team_id,
                     db::array_agg(db::user_roles::role_id),
                     db::users::default_upload_profile_id,
@@ -198,7 +198,7 @@ impl auth::session::SessionStore for SessionStore {
         let conn = self.db.get().await?;
         conn.interact(move |conn| {
             diesel::delete(db::sessions::table)
-                .filter(db::sessions::session_id.eq(session_id))
+                .filter(db::sessions::id.eq(session_id))
                 .execute(conn)
         })
         .await??;

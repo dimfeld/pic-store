@@ -12,8 +12,6 @@ pub fn make_key(
     description: Option<&str>,
     expires: Option<DateTime<Utc>>,
 ) -> Result<ApiKeyData> {
-    // Eventually all this code will be integrated into the ergo library itself.
-
     let default_date = Utc.ymd(3000, 1, 1).and_hms(0, 0, 0);
     let key = ApiKeyData::from_params(
         crate::auth::API_KEY_PREFIX,
@@ -27,7 +25,7 @@ pub fn make_key(
         .first::<pic_store_db::users::User>(conn)?;
 
     let new_key = pic_store_db::api_keys::ApiKey {
-        api_key_id: key.api_key_id,
+        id: key.id,
         prefix: key.prefix.clone(),
         hash: key.hash.as_bytes().to_vec(),
         team_id: user.team_id,

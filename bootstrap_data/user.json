@@ -1,5 +1,5 @@
 {
-  "user_id": "{{DEFAULT_USER_ID}}",
+  "id": "{{DEFAULT_USER_ID}}",
   "team_id": "{{DEFAULT_TEAM_ID}}",
   "email": "{{DEFAULT_USER_EMAIL}}",
   "password_hash": "{{DEFAULT_PASSWORD_HASH}}",

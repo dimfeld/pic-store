@@ -147,13 +147,12 @@ pub async fn upload_image(
             base_images::table
                 .inner_join(
                     upload_profiles::table
-                        .inner_join(
-                            storage_locations::table.on(storage_locations::storage_location_id
-                                .eq(upload_profiles::base_storage_location_id)),
-                        )
+                        .inner_join(storage_locations::table.on(
+                            storage_locations::id.eq(upload_profiles::base_storage_location_id),
+                        ))
                         .inner_join(conversion_profiles::table),
                 )
-                .filter(base_images::base_image_id.eq(image_id))
+                .filter(base_images::id.eq(image_id))
                 .filter(base_images::team_id.eq(user.team_id))
                 .select((
                     base_images::all_columns,
@@ -238,8 +237,8 @@ pub async fn upload_image(
                     );
 
                     NewOutputImage {
+                        id: output_image_id,
                         base_image_id: image_id,
-                        output_image_id,
                         size: size.clone(),
                         format: format.clone(),
                         team_id: user.team_id,
@@ -251,16 +250,13 @@ pub async fn upload_image(
             .collect::<Vec<_>>(),
     };
 
-    let output_image_ids = output_images
-        .iter()
-        .map(|oi| oi.output_image_id)
-        .collect::<Vec<_>>();
+    let output_image_ids = output_images.iter().map(|oi| oi.id).collect::<Vec<_>>();
 
     let to_delete = state
         .db
         .transaction(move |conn| {
             diesel::update(base_images::table)
-                .filter(base_images::base_image_id.eq(image_id))
+                .filter(base_images::id.eq(image_id))
                 .filter(base_images::team_id.eq(user.team_id))
                 .set((
                     base_images::hash.eq(hash_hex),
@@ -276,7 +272,7 @@ pub async fn upload_image(
                 .filter(output_images::base_image_id.eq(image_id))
                 .filter(output_images::team_id.eq(user.team_id))
                 .set((output_images::status.eq(db::OutputImageStatus::QueuedForDelete),))
-                .returning(output_images::output_image_id)
+                .returning(output_images::id)
                 .get_results::<OutputImageId>(conn)?;
 
             diesel::insert_into(db::output_images::table)

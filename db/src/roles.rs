@@ -10,9 +10,8 @@ use crate::{
 pub use crate::schema::roles::*;
 
 #[derive(Queryable, Identifiable, Debug)]
-#[diesel(primary_key(role_id))]
 pub struct Role {
-    pub role_id: RoleId,
+    pub id: RoleId,
     pub team_id: TeamId,
     pub name: String,
     pub created: DateTime<Utc>,
@@ -21,7 +20,7 @@ pub struct Role {
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = roles)]
 pub struct NewRole {
-    pub role_id: RoleId,
+    pub id: RoleId,
     pub team_id: TeamId,
     pub name: String,
 }

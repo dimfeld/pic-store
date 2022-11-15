@@ -82,8 +82,7 @@ macro_rules! insert_object {
 
 #[derive(Deserialize)]
 pub struct ApiKeyInput {
-    api_key_id: Uuid,
-    random: Uuid,
+    key: String,
     name: String,
     team_id: TeamId,
     user_id: UserId,
@@ -140,15 +139,31 @@ fn apply_object(
         ),
         "api_key" | "api_keys" => {
             let input: ApiKeyInput = serde_json::from_value(obj)?;
+
+            // Parse the key into its component parts, so we can recreate it.
+            let parts = input.key.split('.').collect::<Vec<_>>();
+            if parts.len() != 3 {
+                return Err(anyhow!("API key must have 3 parts"));
+            }
+
+            if parts[0] != API_KEY_PREFIX {
+                return Err(anyhow!("API KEY must start with {API_KEY_PREFIX}."));
+            }
+
+            let id_data = base64::decode_config(parts[1], base64::URL_SAFE_NO_PAD)?;
+            let id = Uuid::from_slice(&id_data)?;
+            let random_data = base64::decode_config(parts[2], base64::URL_SAFE_NO_PAD)?;
+            let random = Uuid::from_slice(&random_data)?;
+
             let data = pic_store_auth::api_key::ApiKeyData::from_params(
                 API_KEY_PREFIX,
-                input.api_key_id,
-                input.random,
+                id,
+                random,
                 input.expires,
             );
 
             let value = db::api_keys::ApiKey {
-                api_key_id: input.api_key_id,
+                id,
                 name: input.name,
                 prefix: data.prefix,
                 hash: data.hash.as_bytes().to_vec(),

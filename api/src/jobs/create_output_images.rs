@@ -16,7 +16,7 @@ use db::{
     object_id::{BaseImageId, ConversionProfileId, OutputImageId},
     output_images::NewOutputImage,
     storage_locations::Provider,
-    BaseImageStatus, ImageFormat, OutputImageStatus, PoolExt,
+    BaseImageStatus, OutputImageStatus, PoolExt,
 };
 use tracing::{event, instrument, Level};
 
@@ -53,14 +53,14 @@ pub async fn create_output_images_job(
                     db::upload_profiles::table
                         .inner_join(
                             bst.on(db::upload_profiles::base_storage_location_id
-                                .eq(bst.field(db::storage_locations::storage_location_id))),
+                                .eq(bst.field(db::storage_locations::id))),
                         )
                         .inner_join(
                             ost.on(db::upload_profiles::base_storage_location_id
-                                .eq(ost.field(db::storage_locations::storage_location_id))),
+                                .eq(ost.field(db::storage_locations::id))),
                         ),
                 )
-                .filter(db::base_images::base_image_id.eq(payload.base_image))
+                .filter(db::base_images::id.eq(payload.base_image))
                 .select((
                     db::base_images::location,
                     bst.field(db::storage_locations::base_location),
@@ -92,7 +92,7 @@ pub async fn create_output_images_job(
             .pool
             .interact(move |conn| {
                 diesel::update(db::output_images::table)
-                    .filter(db::output_images::output_image_id.eq(output_image_id))
+                    .filter(db::output_images::id.eq(output_image_id))
                     .set(db::output_images::status.eq(OutputImageStatus::Converting))
                     .returning((
                         db::output_images::location,
@@ -134,7 +134,7 @@ pub async fn create_output_images_job(
             .interact(move |conn| {
                 // Add the OutputImage entry
                 diesel::update(db::output_images::table)
-                    .filter(db::output_images::output_image_id.eq(output_image_id))
+                    .filter(db::output_images::id.eq(output_image_id))
                     .set(db::output_images::status.eq(OutputImageStatus::Ready))
                     .execute(conn)?;
 
@@ -150,7 +150,7 @@ pub async fn create_output_images_job(
         .pool
         .interact(move |conn| {
             diesel::update(db::base_images::table)
-                .filter(db::base_images::base_image_id.eq(payload.base_image))
+                .filter(db::base_images::id.eq(payload.base_image))
                 .set(db::base_images::status.eq(BaseImageStatus::Ready))
                 .execute(conn)?;
 

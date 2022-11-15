@@ -1,5 +1,5 @@
 {
-  "conversion_profile_id": "{{DEFAULT_CONVERSION_PROFILE_ID}}",
+  "id": "{{DEFAULT_CONVERSION_PROFILE_ID}}",
   "team_id": "{{DEFAULT_TEAM_ID}}",
   "project_id": "{{DEFAULT_PROJECT_ID}}",
   "name": "Default",

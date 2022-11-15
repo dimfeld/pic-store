@@ -7,9 +7,8 @@ use crate::schema::*;
 pub use crate::schema::base_images::*;
 
 #[derive(Clone, Debug, Queryable, Identifiable)]
-#[diesel(primary_key(base_image_id))]
 pub struct BaseImage {
-    pub base_image_id: BaseImageId,
+    pub id: BaseImageId,
     pub team_id: TeamId,
     pub project_id: ProjectId,
     pub user_id: UserId,
@@ -38,7 +37,7 @@ pub struct BaseImage {
 #[derive(Debug, Insertable)]
 #[diesel(table_name = base_images)]
 pub struct NewBaseImage {
-    pub base_image_id: BaseImageId,
+    pub id: BaseImageId,
     pub user_id: UserId,
     pub team_id: TeamId,
     pub project_id: ProjectId,

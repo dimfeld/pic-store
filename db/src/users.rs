@@ -9,9 +9,8 @@ use crate::{
 pub use crate::schema::users::*;
 
 #[derive(Clone, Debug, Queryable, Identifiable)]
-#[diesel(primary_key(user_id))]
 pub struct User {
-    pub user_id: UserId,
+    pub id: UserId,
     pub team_id: TeamId,
     pub email: String,
     pub password_hash: Option<String>,
@@ -24,7 +23,7 @@ pub struct User {
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = users)]
 pub struct NewUser {
-    pub user_id: UserId,
+    pub id: UserId,
     pub team_id: TeamId,
     pub email: String,
     pub name: String,

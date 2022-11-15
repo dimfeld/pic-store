@@ -151,7 +151,7 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Er
 
     diesel::insert_into(crate::teams::table)
         .values(crate::teams::NewTeam {
-            team_id,
+            id: team_id,
             name: "Test Team".to_string(),
         })
         .execute(conn)?;
@@ -159,8 +159,8 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Er
     let project_id = ProjectId::new();
     diesel::insert_into(crate::projects::table)
         .values(NewProject {
+            id: project_id,
             team_id,
-            project_id,
             name: "Default project".to_string(),
             base_location: String::new(),
         })
@@ -172,14 +172,14 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Er
     diesel::insert_into(crate::roles::table)
         .values([
             NewRole {
+                id: user_role,
                 name: "Uploader".to_string(),
                 team_id,
-                role_id: user_role,
             },
             NewRole {
+                id: admin_role,
                 name: "Administrator".to_string(),
                 team_id,
-                role_id: admin_role,
             },
         ])
         .execute(conn)?;
@@ -204,9 +204,9 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Er
     let conversion_profile_id = ConversionProfileId::new();
     diesel::insert_into(crate::conversion_profiles::table)
         .values(NewConversionProfile {
+            id: conversion_profile_id,
             team_id,
             name: "Default Conversion Profile".to_string(),
-            conversion_profile_id,
             project_id: None,
             output: ConversionOutput::Cross {
                 formats: vec![ConversionFormat::Avif, ConversionFormat::Webp],
@@ -229,18 +229,18 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Er
     diesel::insert_into(crate::storage_locations::table)
         .values([
             NewStorageLocation {
+                id: base_storage_location_id,
                 team_id,
                 name: "Local Base Images".to_string(),
-                storage_location_id: base_storage_location_id,
                 project_id: None,
                 provider: crate::storage_locations::Provider::Local,
                 base_location: "TODO".to_string(),
                 public_url_base: "https://my.images/orig_image/".to_string(),
             },
             NewStorageLocation {
+                id: output_storage_location_id,
                 team_id,
                 name: "Local Output Images".to_string(),
-                storage_location_id: output_storage_location_id,
                 project_id: None,
                 provider: crate::storage_locations::Provider::Local,
                 base_location: "TODO".to_string(),
@@ -253,9 +253,9 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Er
 
     diesel::insert_into(crate::upload_profiles::table)
         .values(NewUploadProfile {
+            id: upload_profile_id,
             team_id,
             name: "Default Upload Profile".to_string(),
-            upload_profile_id,
             project_id,
             conversion_profile_id,
             short_id: "blog".to_string(),
@@ -266,7 +266,7 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Er
 
     diesel::insert_into(crate::users::table)
         .values(NewUser {
-            user_id,
+            id: user_id,
             team_id,
             name: "Test Admin User".to_string(),
             email: "user@example.com".to_string(),

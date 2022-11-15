@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query},
+    extract::Path,
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
@@ -34,8 +34,7 @@ pub struct ConversionProfileInput {
 #[derive(Debug, Serialize, Queryable, Selectable)]
 #[diesel(table_name = conversion_profiles)]
 pub struct ConversionProfileOutput {
-    #[serde(rename = "id")]
-    conversion_profile_id: ConversionProfileId,
+    id: ConversionProfileId,
     name: String,
     output: db::conversion_profiles::ConversionOutput,
     updated: DateTime<Utc>,
@@ -44,7 +43,7 @@ pub struct ConversionProfileOutput {
 impl From<ConversionProfile> for ConversionProfileOutput {
     fn from(value: ConversionProfile) -> Self {
         ConversionProfileOutput {
-            conversion_profile_id: value.conversion_profile_id,
+            id: value.id,
             name: value.name,
             output: value.output,
             updated: value.updated,
@@ -158,7 +157,7 @@ async fn write_profile(
             )?;
 
             let result = diesel::update(dsl::conversion_profiles)
-                .filter(dsl::conversion_profile_id.eq(profile_id))
+                .filter(dsl::id.eq(profile_id))
                 .filter(dsl::project_id.is_not_distinct_from(project_id))
                 .filter(dsl::team_id.eq(user.team_id))
                 .set((dsl::name.eq(body.name), dsl::updated.eq(Utc::now())))
@@ -198,7 +197,7 @@ async fn new_profile(
     use db::conversion_profiles::dsl;
 
     let value = NewConversionProfile {
-        conversion_profile_id: ConversionProfileId::new(),
+        id: ConversionProfileId::new(),
         name: body.name,
         team_id: state.team_id,
         project_id,
@@ -275,7 +274,7 @@ async fn get_profile(
                         db::role_permissions::Permission::ProjectRead
                     ),
                 ))
-                .filter(dsl::conversion_profile_id.eq(profile_id))
+                .filter(dsl::id.eq(profile_id))
                 .filter(dsl::project_id.is_not_distinct_from(project_id))
                 .filter(dsl::team_id.eq(user.team_id))
                 .first::<(ConversionProfileOutput, bool)>(conn)
@@ -331,7 +330,7 @@ async fn disable_profile(
         )?;
 
         diesel::update(dsl::conversion_profiles)
-            .filter(dsl::conversion_profile_id.eq(profile_id))
+            .filter(dsl::id.eq(profile_id))
             .filter(dsl::project_id.is_not_distinct_from(project_id))
             .filter(dsl::team_id.eq(user.team_id))
             .set((dsl::deleted.eq(Some(Utc::now())),))

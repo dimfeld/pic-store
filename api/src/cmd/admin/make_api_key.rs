@@ -30,7 +30,7 @@ pub fn main(args: MakeApiKeyArgs) -> Result<()> {
         args.expires,
     )?;
 
-    println!("Key ID: {}", key.api_key_id);
+    println!("Key ID: {}", key.id);
     println!("Key: {}", key.key);
 
     Ok(())

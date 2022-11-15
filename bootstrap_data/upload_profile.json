@@ -1,5 +1,5 @@
 {
-  "upload_profile_id": "{{DEFAULT_UPLOAD_PROFILE_ID}}",
+  "id": "{{DEFAULT_UPLOAD_PROFILE_ID}}",
   "team_id": "{{DEFAULT_TEAM_ID}}",
   "short_id": "default",
   "project_id": "{{DEFAULT_PROJECT_ID}}",

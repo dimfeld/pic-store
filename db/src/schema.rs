@@ -35,8 +35,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    api_keys (api_key_id) {
-        api_key_id -> Uuid,
+    api_keys (id) {
+        id -> Uuid,
         name -> Text,
         prefix -> Text,
         hash -> Bytea,
@@ -55,8 +55,8 @@ diesel::table! {
     use super::sql_types::ImageFormat;
     use super::sql_types::BaseImageStatus;
 
-    base_images (base_image_id) {
-        base_image_id -> Uuid,
+    base_images (id) {
+        id -> Uuid,
         team_id -> Uuid,
         project_id -> Uuid,
         user_id -> Uuid,
@@ -79,8 +79,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    conversion_profiles (conversion_profile_id) {
-        conversion_profile_id -> Uuid,
+    conversion_profiles (id) {
+        id -> Uuid,
         team_id -> Uuid,
         project_id -> Nullable<Uuid>,
         name -> Text,
@@ -95,8 +95,8 @@ diesel::table! {
     use crate::enums::*;
     use super::sql_types::OutputImageStatus;
 
-    output_images (output_image_id) {
-        output_image_id -> Uuid,
+    output_images (id) {
+        id -> Uuid,
         team_id -> Uuid,
         base_image_id -> Uuid,
         location -> Text,
@@ -114,8 +114,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    projects (project_id) {
-        project_id -> Uuid,
+    projects (id) {
+        id -> Uuid,
         team_id -> Uuid,
         name -> Text,
         base_location -> Text,
@@ -141,8 +141,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    roles (role_id) {
-        role_id -> Uuid,
+    roles (id) {
+        id -> Uuid,
         team_id -> Uuid,
         name -> Text,
         created -> Timestamptz,
@@ -154,8 +154,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    sessions (session_id) {
-        session_id -> Uuid,
+    sessions (id) {
+        id -> Uuid,
         user_id -> Uuid,
         expires -> Timestamptz,
     }
@@ -165,8 +165,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    storage_locations (storage_location_id) {
-        storage_location_id -> Uuid,
+    storage_locations (id) {
+        id -> Uuid,
         team_id -> Uuid,
         project_id -> Nullable<Uuid>,
         name -> Text,
@@ -182,8 +182,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    teams (team_id) {
-        team_id -> Uuid,
+    teams (id) {
+        id -> Uuid,
         name -> Text,
         deleted -> Nullable<Timestamptz>,
     }
@@ -193,8 +193,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    upload_profiles (upload_profile_id) {
-        upload_profile_id -> Uuid,
+    upload_profiles (id) {
+        id -> Uuid,
         team_id -> Uuid,
         project_id -> Uuid,
         name -> Text,
@@ -222,8 +222,8 @@ diesel::table! {
     use diesel::sql_types::*;
     use crate::enums::*;
 
-    users (user_id) {
-        user_id -> Uuid,
+    users (id) {
+        id -> Uuid,
         team_id -> Uuid,
         email -> Text,
         password_hash -> Nullable<Text>,

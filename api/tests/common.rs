@@ -128,7 +128,7 @@ impl TestApp {
         let team_id = TeamId::new();
 
         let team = pic_store_db::teams::NewTeam {
-            team_id,
+            id: team_id,
             name: name.to_string(),
         };
 
@@ -162,7 +162,7 @@ impl TestApp {
 
         let user_id = UserId::new();
         let user = NewUser {
-            user_id,
+            id: user_id,
             name: name.to_string(),
             email: format!("test_user_{}@example.com", user_id),
             team_id,

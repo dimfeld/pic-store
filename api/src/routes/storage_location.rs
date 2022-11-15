@@ -41,8 +41,7 @@ pub struct StorageLocationInput {
 #[derive(Debug, Serialize, Queryable, Selectable)]
 #[diesel(table_name = db::storage_locations)]
 pub struct StorageLocationOutput {
-    #[serde(rename = "id")]
-    pub storage_location_id: StorageLocationId,
+    pub id: StorageLocationId,
     pub name: String,
     pub provider: Provider,
     pub base_location: String,
@@ -149,7 +148,7 @@ async fn write_location(
             )?;
 
             let result = diesel::update(dsl::storage_locations)
-                .filter(dsl::storage_location_id.eq(location_id))
+                .filter(dsl::id.eq(location_id))
                 .filter(dsl::project_id.is_not_distinct_from(project_id))
                 .filter(dsl::team_id.eq(user.team_id))
                 .set((
@@ -195,7 +194,7 @@ async fn new_location(
     use db::storage_locations::dsl;
 
     let value = NewStorageLocation {
-        storage_location_id: StorageLocationId::new(),
+        id: StorageLocationId::new(),
         name: body.name,
         provider: body.provider,
         base_location: body.base_location,
@@ -266,7 +265,7 @@ async fn get_location(
                         db::role_permissions::Permission::ProjectRead
                     ),
                 ))
-                .filter(dsl::storage_location_id.eq(location_id))
+                .filter(dsl::id.eq(location_id))
                 .filter(dsl::project_id.is_not_distinct_from(project_id))
                 .filter(dsl::team_id.eq(user.team_id))
                 .first::<(StorageLocationOutput, bool)>(conn)
@@ -316,7 +315,7 @@ async fn disable_location(
         )?;
 
         diesel::update(dsl::storage_locations)
-            .filter(dsl::storage_location_id.eq(location_id))
+            .filter(dsl::id.eq(location_id))
             .filter(dsl::project_id.is_not_distinct_from(project_id))
             .filter(dsl::team_id.eq(user.team_id))
             .set((dsl::deleted.eq(Some(Utc::now())),))

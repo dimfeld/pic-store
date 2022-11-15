@@ -2,7 +2,6 @@ use crate::error::Error;
 use async_trait::async_trait;
 use axum::{
     body::Body,
-    extract::{FromRequest, RequestParts},
     http::{header::AUTHORIZATION, Request},
     response::IntoResponse,
 };
@@ -29,7 +28,7 @@ pub type Hash = blake3::Hash;
 
 #[derive(Debug, Clone)]
 pub struct ApiKeyData {
-    pub api_key_id: Uuid,
+    pub id: Uuid,
     pub key: String,
     pub prefix: String,
     pub hash: Hash,
@@ -54,7 +53,7 @@ impl ApiKeyData {
         let hash = hash_key(&key);
 
         ApiKeyData {
-            api_key_id: id,
+            id,
             key,
             prefix,
             hash,
@@ -249,7 +248,7 @@ mod tests {
         println!("key data {:?}", data.key);
 
         let (api_key_id, hash) = decode_key(&test_store, &data.key).unwrap();
-        assert_eq!(api_key_id, data.api_key_id, "api_key_id");
+        assert_eq!(api_key_id, data.id, "id");
         assert_eq!(hash, data.hash, "hash");
         Ok(())
     }
@@ -265,7 +264,7 @@ mod tests {
         key.push('a');
 
         let (api_key_id, hash) = decode_key(&test_store, &key).unwrap();
-        assert_eq!(api_key_id, data.api_key_id, "api_key_id");
+        assert_eq!(api_key_id, data.id, "id");
         assert_ne!(hash, data.hash, "hash");
         Ok(())
     }
@@ -322,7 +321,7 @@ mod tests {
     async fn lookup_api_key() {
         let mut test_store = TestKeyStore::default();
         let data = ApiKeyData::new(&test_store, Utc.ymd(3000, 1, 1).and_hms(0, 0, 0));
-        test_store.keys.insert(data.api_key_id, data.clone());
+        test_store.keys.insert(data.id, data.clone());
 
         let (id, hash) = decode_key(&test_store, &data.key).unwrap();
         test_store.lookup_api_key(id, hash).await.unwrap();

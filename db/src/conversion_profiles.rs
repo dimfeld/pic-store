@@ -54,9 +54,8 @@ pub enum ConversionOutput {
 diesel_jsonb!(ConversionOutput);
 
 #[derive(Clone, Debug, Queryable, Identifiable)]
-#[diesel(primary_key(conversion_profile_id))]
 pub struct ConversionProfile {
-    pub conversion_profile_id: ConversionProfileId,
+    pub id: ConversionProfileId,
     pub team_id: TeamId,
     pub project_id: Option<ProjectId>,
     pub name: String,
@@ -70,7 +69,7 @@ pub struct ConversionProfile {
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = conversion_profiles)]
 pub struct NewConversionProfile {
-    pub conversion_profile_id: ConversionProfileId,
+    pub id: ConversionProfileId,
     pub team_id: TeamId,
     pub project_id: Option<ProjectId>,
     pub name: String,

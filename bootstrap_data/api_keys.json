@@ -1,0 +1,10 @@
+[
+  {
+    "key": "ps1.YiO7U994SoKUgLa7I2gRlg.sjf9cQqXRIqmObpi90sgVQ",
+    "name": "default",
+    "team_id": "{{DEFAULT_TEAM_ID}}",
+    "user_id": "{{DEFAULT_USER_ID}}",
+    "inherits_user_permissions": true,
+    "expires": "2050-01-01T00:00:00Z"
+  }
+]

@@ -1,4 +1,4 @@
 {
-  "team_id": "{{DEFAULT_TEAM_ID}}",
+  "id": "{{DEFAULT_TEAM_ID}}",
   "name": "{{DEFAULT_TEAM_NAME}}"
 }

@@ -1,6 +1,9 @@
+use chrono::{DateTime, Utc};
 use clap::{Args, Subcommand};
 
+use pic_store_api::auth::API_KEY_PREFIX;
 use pic_store_db::object_id;
+use uuid::Uuid;
 
 use self::make_api_key::MakeApiKeyArgs;
 
@@ -26,10 +29,10 @@ pub enum Commands {
     /// This is useful for generating a package of initial data, such as the first team and user,
     /// or for other testing.
     MakeId(MakeId),
-    /// Hash a password
+    /// Generate a password hash
     HashPassword(HashPassword),
-    /// Create an API key
-    MakeApiKey(MakeApiKeyArgs),
+    /// Add an API key for a particular user and insert it into the database.
+    AddApiKey(MakeApiKeyArgs),
 }
 
 #[derive(Debug, Args)]
@@ -49,6 +52,7 @@ enum IdType {
     UploadProfile,
     BaseImage,
     OutputImage,
+    ApiKey,
 }
 
 #[derive(Debug, Args)]
@@ -62,7 +66,7 @@ pub fn admin_commands(cmd: AdminArgs) -> Result<(), anyhow::Error> {
         #[cfg(feature = "bootstrap")]
         Commands::Bootstrap(args) => bootstrap::bootstrap(args)?,
         Commands::MakeId(MakeId { command }) => make_id(command),
-        Commands::MakeApiKey(args) => make_api_key::main(args)?,
+        Commands::AddApiKey(args) => make_api_key::main(args)?,
         Commands::HashPassword(HashPassword { password }) => hash_password(password)?,
     }
 
@@ -80,6 +84,16 @@ fn make_id(id: IdType) {
         IdType::UploadProfile => object_id::UploadProfileId::new().to_string(),
         IdType::BaseImage => object_id::BaseImageId::new().to_string(),
         IdType::OutputImage => object_id::OutputImageId::new().to_string(),
+        IdType::ApiKey => {
+            let data = pic_store_auth::api_key::ApiKeyData::from_params(
+                API_KEY_PREFIX,
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                // expiration doesn't matter here
+                Utc::now(),
+            );
+            data.key
+        }
     };
 
     println!("{id}");

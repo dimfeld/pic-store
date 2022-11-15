@@ -49,7 +49,7 @@ async fn new_base_image(
     let image_id = conn
         .interact(move |conn| {
             let (profile, allowed) = db::upload_profiles::table
-                .filter(db::upload_profiles::upload_profile_id.eq(upload_profile))
+                .filter(db::upload_profiles::id.eq(upload_profile))
                 .select((
                     db::upload_profiles::all_columns,
                     db::obj_allowed!(
@@ -68,7 +68,7 @@ async fn new_base_image(
             let new_image_id = BaseImageId::new();
 
             let new_image = db::base_images::NewBaseImage {
-                base_image_id: new_image_id,
+                id: new_image_id,
                 user_id: user.user_id,
                 team_id: user.team_id,
                 project_id: profile.project_id,
