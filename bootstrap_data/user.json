@@ -1,7 +1,7 @@
 {
   "user_id": "{{DEFAULT_USER_ID}}",
   "team_id": "{{DEFAULT_TEAM_ID}}",
-  "email": "{{DEFAULT_USER_EMAIL}",
+  "email": "{{DEFAULT_USER_EMAIL}}",
   "password_hash": "{{DEFAULT_PASSWORD_HASH}}",
   "name": "{{DEFAULT_USER_NAME}}",
   "default_upload_profile_id": "{{DEFAULT_UPLOAD_PROFILE_ID}}"

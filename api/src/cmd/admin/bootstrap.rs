@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Error};
 use chrono::{DateTime, Utc};
 use clap::Args;
-use diesel::prelude::*;
+use diesel::{prelude::*, sql_query};
 use pic_store_api::auth::API_KEY_PREFIX;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::Deserialize;
 use std::{collections::HashMap, env, path::Path};
 use uuid::Uuid;
 
@@ -13,7 +13,7 @@ use pic_store_db as db;
 #[derive(Debug, Args)]
 pub struct BootstrapArgs {
     /// A directory containing JSON files to load
-    #[clap(env="BOOTSTRAP_LOCATION", default_value_t = String::from("./data"))]
+    #[clap(env="BOOTSTRAP_LOCATION", default_value_t = String::from("./bootstrap_data"))]
     location: String,
 }
 
@@ -27,7 +27,10 @@ pub fn bootstrap(args: BootstrapArgs) -> Result<(), anyhow::Error> {
 
     let parser = liquid::ParserBuilder::with_stdlib().build()?;
 
-    conn.transaction(move |conn| {
+    conn.build_transaction().run(move |conn| {
+        // Set constraints deferrable so that we can load the objects without having to sort them
+        // topologically by foreign key.
+        sql_query("SET CONSTRAINTS ALL DEFERRED").execute(conn)?;
         for file in glob::glob(file_glob.as_str())? {
             let file = file?;
             apply_file(conn, &parser, &vars, &file)?;
@@ -45,21 +48,25 @@ fn apply_file(
     vars: &liquid::Object,
     filename: &Path,
 ) -> Result<(), anyhow::Error> {
+    println!("Applying {}", filename.display());
+
     let template = parser.parse_file(filename)?;
     let rendered = template.render(vars)?;
     let objs: serde_json::Value = serde_json::from_str(rendered.as_str())?;
+
+    let final_path = filename.file_name().unwrap().to_string_lossy();
 
     match objs {
         serde_json::Value::Array(a) => {
             for obj in a {
                 if let serde_json::Value::Object(_) = &obj {
-                    apply_object(conn, filename, obj)?;
+                    apply_object(conn, final_path.as_ref(), obj)?;
                 } else {
                     return Err(anyhow!("Expected object, found {obj:?}"));
                 }
             }
         }
-        objs @ serde_json::Value::Object(_) => apply_object(conn, filename, objs)?,
+        objs @ serde_json::Value::Object(_) => apply_object(conn, final_path.as_ref(), objs)?,
         _ => return Err(anyhow!("Expected object, found {objs:?}")),
     }
 
@@ -86,11 +93,10 @@ pub struct ApiKeyInput {
 
 fn apply_object(
     conn: &mut PgConnection,
-    filename: &Path,
+    filename: &str,
     obj: serde_json::Value,
 ) -> Result<(), Error> {
-    let f = filename.to_string_lossy();
-    let object_type = f
+    let object_type = filename
         .rsplit('.')
         .nth(1)
         .ok_or_else(|| anyhow!("No object type found in filename {filename:?}"))?;
@@ -126,7 +132,7 @@ fn apply_object(
             obj
         ),
         "role" | "roles" => insert_object!(db::roles::table, db::roles::NewRole, conn, obj),
-        "role_permissions" | "role_permissions" => insert_object!(
+        "role_permission" | "role_permissions" => insert_object!(
             db::role_permissions::table,
             db::role_permissions::RolePermission,
             conn,
