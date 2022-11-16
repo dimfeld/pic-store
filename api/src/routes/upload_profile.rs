@@ -22,6 +22,7 @@ use pic_store_storage as storage;
 
 use crate::{
     auth::{must_have_permission_on_project, UserInfo},
+    disable_object,
     shared_state::State,
     Error, Result,
 };
@@ -187,25 +188,16 @@ async fn disable_project_upload_profile(
 ) -> Result<impl IntoResponse> {
     use db::upload_profiles::dsl;
 
-    state
-        .db
-        .interact(move |conn| {
-            must_have_permission_on_project(
-                conn,
-                &user,
-                project_id,
-                ProjectPermission::ProjectWrite,
-            )?;
-
-            diesel::update(dsl::upload_profiles)
-                .filter(dsl::id.eq(profile_id))
-                .filter(dsl::project_id.eq(project_id))
-                .filter(dsl::team_id.eq(user.team_id))
-                .set(dsl::deleted.eq(Some(Utc::now())))
-                .execute(conn)
-                .map_err(Error::from)
-        })
-        .await?;
+    disable_object!(
+        state,
+        user,
+        dsl,
+        dsl::upload_profiles,
+        profile_id,
+        project_id,
+        ProjectPermission::ProjectWrite
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(json!({}))))
 }

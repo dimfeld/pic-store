@@ -1,6 +1,7 @@
 pub mod api_key;
 pub mod auth;
 pub mod config;
+mod crud_helpers;
 pub mod error;
 pub mod jobs;
 pub mod obfuscate_errors;

@@ -21,6 +21,7 @@ use pic_store_db as db;
 
 use crate::{
     auth::{must_have_permission_on_project, UserInfo},
+    disable_maybe_global_object, disable_object,
     shared_state::State,
     Error,
 };
@@ -311,25 +312,16 @@ async fn disable_profile(
 ) -> Result<impl IntoResponse, crate::Error> {
     use db::conversion_profiles::dsl;
 
-    let conn = state.db.get().await?;
-    conn.interact(move |conn| {
-        must_have_permission_on_project(
-            conn,
-            &user,
-            project_id.unwrap_or_else(ProjectId::nil),
-            ProjectPermission::ConversionProfileWrite,
-        )?;
-
-        diesel::update(dsl::conversion_profiles)
-            .filter(dsl::id.eq(profile_id))
-            .filter(dsl::project_id.is_not_distinct_from(project_id))
-            .filter(dsl::team_id.eq(user.team_id))
-            .set((dsl::deleted.eq(Some(Utc::now())),))
-            .execute(conn)?;
-
-        Ok::<(), Error>(())
-    })
-    .await??;
+    disable_maybe_global_object!(
+        state,
+        user,
+        dsl,
+        dsl::conversion_profiles,
+        profile_id,
+        project_id,
+        ProjectPermission::ConversionProfileWrite
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(json!({}))))
 }
