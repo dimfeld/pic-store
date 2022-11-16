@@ -1,6 +1,6 @@
 [
   {
-    "key": "ps1.YiO7U994SoKUgLa7I2gRlg.sjf9cQqXRIqmObpi90sgVQ",
+    "key": "{{DEFAULT_API_KEY}}",
     "name": "default",
     "team_id": "{{DEFAULT_TEAM_ID}}",
     "user_id": "{{DEFAULT_USER_ID}}",

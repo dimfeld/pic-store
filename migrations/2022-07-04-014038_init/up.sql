@@ -64,7 +64,7 @@ CREATE TABLE upload_profiles (
 );
 
 CREATE INDEX upload_profiles_team_id_project_id ON upload_profiles(team_id, project_id);
-CREATE INDEX upload_profiles_short_id ON upload_profiles(team_id, short_id);
+CREATE UNIQUE INDEX upload_profiles_short_id ON upload_profiles(team_id, short_id);
 
 CREATE TABLE users (
   id uuid primary key,

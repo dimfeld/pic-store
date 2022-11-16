@@ -15,7 +15,7 @@ use db::{
     conversion_profiles::{ConversionProfile, NewConversionProfile},
     object_id::{ConversionProfileId, ProjectId},
     permissions::ProjectPermission,
-    Permission,
+    Permission, PoolExt,
 };
 use pic_store_db as db;
 
@@ -79,9 +79,8 @@ async fn list_profiles(
     project_id: Option<ProjectId>,
 ) -> Result<impl IntoResponse, Error> {
     use db::conversion_profiles::dsl;
-    let conn = state.db.get().await?;
-
-    let objects = conn
+    let objects = state
+        .db
         .interact(move |conn| {
             let q = dsl::conversion_profiles
                 .select(ConversionProfileOutput::as_select())
@@ -94,19 +93,11 @@ async fn list_profiles(
                     Permission::ProjectRead
                 ));
 
-            let q = if let Some(project_id) = project_id {
-                q.filter(
-                    dsl::project_id
-                        .is_null()
-                        .or(dsl::project_id.is_not_distinct_from(project_id)),
-                )
-            } else {
-                q.filter(dsl::project_id.is_null())
-            };
+            let q = db::with_project_or_global!(q, project_id);
 
-            q.load::<ConversionProfileOutput>(conn)
+            q.load::<ConversionProfileOutput>(conn).map_err(Error::from)
         })
-        .await??;
+        .await?;
 
     Ok((StatusCode::OK, Json(objects)))
 }

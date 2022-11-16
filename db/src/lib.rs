@@ -26,7 +26,8 @@ pub use enums::*;
 pub use json::*;
 
 use async_trait::async_trait;
-use diesel::{Connection, PgConnection};
+use diesel::{helper_types::IntoBoxed, Connection, PgConnection};
+use object_id::ProjectId;
 
 pub type Pool = deadpool_diesel::postgres::Pool;
 
@@ -74,6 +75,21 @@ where
             .unwrap()?;
         Ok(result)
     }
+}
+
+#[macro_export]
+macro_rules! with_project_or_global {
+    ($query: expr,  $project_id: expr) => {
+        if let Some(project_id) = $project_id {
+            $query.filter(
+                dsl::project_id
+                    .is_null()
+                    .or(dsl::project_id.is_not_distinct_from(project_id)),
+            )
+        } else {
+            $query.filter(dsl::project_id.is_null())
+        }
+    };
 }
 
 sql_function! {

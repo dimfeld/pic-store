@@ -26,20 +26,16 @@ struct NewBaseImageInput {
     filename: String,
     location: Option<String>,
     alt_text: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct UploadProfileIdQuery {
     upload_profile_id: Option<UploadProfileId>,
 }
 
 async fn new_base_image(
     Extension(ref state): Extension<State>,
     Extension(user): Extension<UserInfo>,
-    Query(q): Query<UploadProfileIdQuery>,
     Json(payload): Json<NewBaseImageInput>,
 ) -> Result<impl IntoResponse, Error> {
-    let upload_profile = q
+    // TODO Handle it might be a string
+    let upload_profile = payload
         .upload_profile_id
         .or(user.default_upload_profile_id)
         .ok_or(Error::NoUploadProfile)?;
