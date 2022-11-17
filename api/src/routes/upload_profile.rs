@@ -1,13 +1,13 @@
 use axum::{
-    extract::{BodyStream, ContentLengthLimit, Multipart, Path},
-    http::{Request, StatusCode},
+    extract::Path,
+    http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use db::{
-    object_id::{ConversionProfileId, ProjectId, StorageLocationId, TeamId, UploadProfileId},
+    object_id::{ConversionProfileId, ProjectId, StorageLocationId, UploadProfileId},
     permissions::ProjectPermission,
     upload_profiles::{self, NewUploadProfile},
     Permission, PoolExt,
@@ -15,16 +15,14 @@ use db::{
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use uuid::Uuid;
 
 use pic_store_db as db;
-use pic_store_storage as storage;
 
 use crate::{
     auth::{must_have_permission_on_project, UserInfo},
-    disable_object,
+    disable_object, get_object, list_project_objects,
     shared_state::State,
-    Error, Result,
+    write_object, Error, Result,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,24 +49,15 @@ async fn list_project_upload_profiles(
     Extension(user): Extension<UserInfo>,
     Path(project_id): Path<ProjectId>,
 ) -> Result<impl IntoResponse> {
-    use db::upload_profiles::dsl;
-    let objects = state
-        .db
-        .interact(move |conn| {
-            dsl::upload_profiles
-                .select(UploadProfileOutput::as_select())
-                .filter(dsl::deleted.is_null())
-                .filter(db::obj_allowed!(
-                    user.team_id,
-                    &user.roles,
-                    dsl::project_id,
-                    Permission::ProjectRead
-                ))
-                .filter(dsl::project_id.eq(project_id))
-                .load::<UploadProfileOutput>(conn)
-                .map_err(Error::from)
-        })
-        .await?;
+    let objects = list_project_objects!(
+        upload_profiles,
+        state,
+        user,
+        UploadProfileOutput,
+        project_id,
+        ProjectPermission::UploadProfileRead
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(objects)))
 }
@@ -78,27 +67,16 @@ async fn get_project_upload_profile(
     Extension(user): Extension<UserInfo>,
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
 ) -> Result<impl IntoResponse> {
-    use db::upload_profiles::dsl;
-    let (object, allowed) = state
-        .db
-        .interact(move |conn| {
-            dsl::upload_profiles
-                .select((
-                    UploadProfileOutput::as_select(),
-                    db::obj_allowed!(
-                        user.team_id,
-                        &user.roles,
-                        dsl::project_id.assume_not_null(),
-                        db::role_permissions::Permission::ProjectRead
-                    ),
-                ))
-                .filter(dsl::id.eq(profile_id))
-                .filter(dsl::team_id.eq(user.team_id))
-                .filter(dsl::project_id.eq(project_id))
-                .first::<(UploadProfileOutput, bool)>(conn)
-                .map_err(Error::from)
-        })
-        .await?;
+    let (object, allowed) = get_object!(
+        upload_profiles,
+        state,
+        user,
+        UploadProfileOutput,
+        profile_id,
+        project_id,
+        db::role_permissions::Permission::ProjectRead
+    )
+    .await?;
 
     if !allowed {
         return Err(Error::MissingPermission(
@@ -115,28 +93,17 @@ async fn write_project_upload_profile(
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
     Json(body): Json<UploadProfileInput>,
 ) -> Result<impl IntoResponse> {
-    use db::upload_profiles::dsl;
-
-    let result = state
-        .db
-        .interact(move |conn| {
-            must_have_permission_on_project(
-                conn,
-                &user,
-                project_id,
-                ProjectPermission::ProjectWrite,
-            )?;
-
-            diesel::update(dsl::upload_profiles)
-                .filter(dsl::id.eq(profile_id))
-                .filter(dsl::project_id.eq(project_id))
-                .filter(dsl::team_id.eq(user.team_id))
-                .set((dsl::name.eq(body.name), dsl::updated.eq(Utc::now())))
-                .returning(UploadProfileOutput::as_select())
-                .get_result::<UploadProfileOutput>(conn)
-                .map_err(Error::from)
-        })
-        .await?;
+    let result = write_object!(
+        upload_profiles,
+        state,
+        user,
+        profile_id,
+        project_id,
+        UploadProfileOutput,
+        ProjectPermission::ProjectWrite,
+        (dsl::name.eq(body.name), dsl::updated.eq(Utc::now()))
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(result)))
 }
@@ -186,13 +153,10 @@ async fn disable_project_upload_profile(
     Extension(user): Extension<UserInfo>,
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
 ) -> Result<impl IntoResponse> {
-    use db::upload_profiles::dsl;
-
     disable_object!(
+        upload_profiles,
         state,
         user,
-        dsl,
-        dsl::upload_profiles,
         profile_id,
         project_id,
         ProjectPermission::ProjectWrite

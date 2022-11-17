@@ -12,7 +12,7 @@ use serde_json::json;
 
 use db::{
     conversion_profiles,
-    conversion_profiles::{ConversionProfile, NewConversionProfile},
+    conversion_profiles::{ConversionOutput, ConversionProfile, NewConversionProfile},
     object_id::{ConversionProfileId, ProjectId},
     permissions::ProjectPermission,
     Permission, PoolExt,
@@ -20,16 +20,14 @@ use db::{
 use pic_store_db as db;
 
 use crate::{
-    auth::{must_have_permission_on_project, UserInfo},
-    disable_maybe_global_object, disable_object,
-    shared_state::State,
-    Error,
+    auth::UserInfo, disable_maybe_global_object, get_maybe_global_object,
+    list_project_and_global_objects, shared_state::State, write_maybe_global_object, Error,
 };
 
 #[derive(Debug, Deserialize)]
 pub struct ConversionProfileInput {
     pub name: String,
-    pub output: db::conversion_profiles::ConversionOutput,
+    pub output: ConversionOutput,
 }
 
 #[derive(Debug, Serialize, Queryable, Selectable)]
@@ -37,7 +35,7 @@ pub struct ConversionProfileInput {
 pub struct ConversionProfileOutput {
     id: ConversionProfileId,
     name: String,
-    output: db::conversion_profiles::ConversionOutput,
+    output: ConversionOutput,
     updated: DateTime<Utc>,
 }
 
@@ -79,26 +77,15 @@ async fn list_profiles(
     user: UserInfo,
     project_id: Option<ProjectId>,
 ) -> Result<impl IntoResponse, Error> {
-    use db::conversion_profiles::dsl;
-    let objects = state
-        .db
-        .interact(move |conn| {
-            let q = dsl::conversion_profiles
-                .select(ConversionProfileOutput::as_select())
-                .filter(dsl::deleted.is_null())
-                .into_boxed()
-                .filter(db::obj_allowed_or_projectless!(
-                    user.team_id,
-                    &user.roles,
-                    dsl::project_id,
-                    Permission::ProjectRead
-                ));
-
-            let q = db::with_project_or_global!(q, project_id);
-
-            q.load::<ConversionProfileOutput>(conn).map_err(Error::from)
-        })
-        .await?;
+    let objects = list_project_and_global_objects!(
+        conversion_profiles,
+        state,
+        user,
+        ConversionProfileOutput,
+        project_id,
+        Permission::ProjectRead
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(objects)))
 }
@@ -135,30 +122,21 @@ async fn write_profile(
     profile_id: ConversionProfileId,
     body: ConversionProfileInput,
 ) -> Result<impl IntoResponse, Error> {
-    use db::conversion_profiles::dsl;
-
-    let conn = state.db.get().await?;
-
-    let result = conn
-        .interact(move |conn| {
-            must_have_permission_on_project(
-                conn,
-                &user,
-                project_id.unwrap_or_else(ProjectId::nil),
-                ProjectPermission::ConversionProfileWrite,
-            )?;
-
-            let result = diesel::update(dsl::conversion_profiles)
-                .filter(dsl::id.eq(profile_id))
-                .filter(dsl::project_id.is_not_distinct_from(project_id))
-                .filter(dsl::team_id.eq(user.team_id))
-                .set((dsl::name.eq(body.name), dsl::updated.eq(Utc::now())))
-                .returning(ConversionProfileOutput::as_select())
-                .get_result::<ConversionProfileOutput>(conn)?;
-
-            Ok::<_, Error>(result)
-        })
-        .await??;
+    let result = write_maybe_global_object!(
+        conversion_profiles,
+        state,
+        user,
+        profile_id,
+        project_id,
+        ConversionProfileOutput,
+        ProjectPermission::ConversionProfileWrite,
+        (
+            dsl::name.eq(body.name),
+            dsl::output.eq(body.output),
+            dsl::updated.eq(Utc::now())
+        )
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(result)))
 }
@@ -251,27 +229,16 @@ async fn get_profile(
     project_id: Option<ProjectId>,
     profile_id: ConversionProfileId,
 ) -> Result<impl IntoResponse, crate::Error> {
-    use db::conversion_profiles::dsl;
-    let conn = state.db.get().await?;
-
-    let (profile, allowed) = conn
-        .interact(move |conn| {
-            dsl::conversion_profiles
-                .select((
-                    ConversionProfileOutput::as_select(),
-                    db::obj_allowed_or_projectless!(
-                        user.team_id,
-                        &user.roles,
-                        dsl::project_id.assume_not_null(),
-                        db::role_permissions::Permission::ProjectRead
-                    ),
-                ))
-                .filter(dsl::id.eq(profile_id))
-                .filter(dsl::project_id.is_not_distinct_from(project_id))
-                .filter(dsl::team_id.eq(user.team_id))
-                .first::<(ConversionProfileOutput, bool)>(conn)
-        })
-        .await??;
+    let (profile, allowed) = get_maybe_global_object!(
+        conversion_profiles,
+        state,
+        user,
+        ConversionProfileOutput,
+        profile_id,
+        project_id,
+        db::role_permissions::Permission::ProjectRead
+    )
+    .await?;
 
     if !allowed {
         return Err(Error::MissingPermission(
@@ -310,13 +277,10 @@ async fn disable_profile(
     project_id: Option<ProjectId>,
     profile_id: ConversionProfileId,
 ) -> Result<impl IntoResponse, crate::Error> {
-    use db::conversion_profiles::dsl;
-
     disable_maybe_global_object!(
+        conversion_profiles,
         state,
         user,
-        dsl,
-        dsl::conversion_profiles,
         profile_id,
         project_id,
         ProjectPermission::ConversionProfileWrite
