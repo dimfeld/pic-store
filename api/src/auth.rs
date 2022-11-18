@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use auth::session::{SessionCookieManager, SessionManager};
 use auth::{AuthenticationLayer, RequestUser};
 use chrono::{DateTime, Utc};
+use db::PoolExt;
 use diesel::dsl::sql;
 use diesel::prelude::*;
 use serde::Deserialize;
@@ -51,15 +52,24 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
         key_id: Uuid,
         hash: auth::api_key::Hash,
     ) -> Result<Self::FetchData, Self::Error> {
-        let conn = self.db.get().await?;
+        #[derive(Queryable)]
+        struct ApiKeyLookupResult {
+            pub api_key_id: Uuid,
+            pub user_id: UserId,
+            pub team_id: TeamId,
+            pub roles: Vec<RoleId>,
+            pub inherits_user_permissions: bool,
+            pub api_key_default_upload_profile_id: Option<UploadProfileId>,
+            pub user_default_upload_profile_id: Option<UploadProfileId>,
+        }
 
-        let info = conn
+        let info = self.db
             .interact(move |conn| {
                 db::api_keys::table
                     .left_join(
                         db::user_roles::table.on(db::user_roles::user_id.eq(db::api_keys::user_id)),
                     )
-                    .group_by(db::api_keys::id)
+                    .group_by( db::api_keys::id)
                     .filter(db::api_keys::id.eq(key_id))
                     .filter(db::api_keys::hash.eq(hash.as_bytes().as_slice()))
                     .filter(db::api_keys::expires.gt(diesel::dsl::now))
@@ -70,17 +80,31 @@ impl auth::api_key::ApiKeyStore for ApiKeyStore {
                         sql::<diesel::sql_types::Array<diesel::sql_types::Uuid>>(
                             "COALESCE(ARRAY_AGG(role_id) FILTER (WHERE role_id IS NOT NULL), '{}') AS roles",
                         ),
-                        db::api_keys::inherits_user_permissions,
+                        db::bool_or(db::api_keys::inherits_user_permissions),
                         db::api_keys::default_upload_profile_id,
+                        db::users::table
+                            .select(db::users::default_upload_profile_id)
+                            .filter(db::users::id.eq(db::api_keys::user_id))
+                            .single_value(),
                     ))
-                    .first::<ApiKeyData>(conn)
+                    .first::<ApiKeyLookupResult>(conn)
                     .optional()
+                    .map_err(Error::from)
             })
-            .await??;
+            .await?;
 
         let info = info.ok_or(crate::Error::ApiKeyNotFound)?;
 
-        Ok(info)
+        Ok(ApiKeyData {
+            api_key_id: info.api_key_id,
+            user_id: info.user_id,
+            team_id: info.team_id,
+            roles: info.roles,
+            inherits_user_permissions: info.inherits_user_permissions,
+            default_upload_profile_id: info
+                .api_key_default_upload_profile_id
+                .or(info.user_default_upload_profile_id),
+        })
     }
 
     async fn create_api_key(

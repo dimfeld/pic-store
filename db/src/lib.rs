@@ -26,7 +26,7 @@ pub use enums::*;
 pub use json::*;
 
 use async_trait::async_trait;
-use diesel::{helper_types::IntoBoxed, Connection, PgConnection};
+use diesel::{helper_types::IntoBoxed, sql_types, Connection, PgConnection};
 use object_id::ProjectId;
 
 pub type Pool = deadpool_diesel::postgres::Pool;
@@ -94,5 +94,14 @@ macro_rules! with_project_or_global {
 
 sql_function! {
     #[aggregate]
-    fn array_agg<X: diesel::sql_types::SingleValue>(x: X) -> diesel::sql_types::Array<X>
+    fn array_agg<X: sql_types::SingleValue>(x: X) -> sql_types::Array<X>
+}
+
+sql_function! {
+    fn coalesce<X: sql_types::SingleValue>(x: sql_types::Nullable<X>, y: sql_types::Nullable<X>) -> sql_types::Nullable<X>
+}
+
+sql_function! {
+    #[aggregate]
+    fn bool_or(x: sql_types::Bool) -> sql_types::Bool
 }

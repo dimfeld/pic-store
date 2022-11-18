@@ -31,3 +31,9 @@ pub struct ApiKeyPermission {
     pub project_id: Option<ProjectId>,
     pub permission: Permission,
 }
+
+allow_columns_to_appear_in_same_group_by_clause!(
+    api_keys::id,
+    api_keys::default_upload_profile_id,
+    users::default_upload_profile_id
+);

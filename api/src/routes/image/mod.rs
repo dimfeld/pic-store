@@ -15,6 +15,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use pic_store_db as db;
+use tracing::{event, Level};
 
 use crate::{
     auth::UserInfo, get_object_by_field_query, get_object_query, shared_state::State, Error,
@@ -40,6 +41,7 @@ async fn new_base_image(
     Extension(user): Extension<UserInfo>,
     Json(payload): Json<NewBaseImageInput>,
 ) -> Result<impl IntoResponse, Error> {
+    event!(Level::INFO, ?user);
     let upload_profile = payload
         .upload_profile_id
         .or_else(|| {
@@ -92,6 +94,7 @@ async fn new_base_image(
                 project_id: profile.project_id,
                 upload_profile_id: profile.id,
                 filename: payload.filename.clone(),
+                // TODO sanitize file path for standard path exploits
                 location: payload.location.unwrap_or(payload.filename),
                 format: None,
                 hash: String::new(),
