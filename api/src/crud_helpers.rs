@@ -2,6 +2,7 @@
 #[macro_export]
 macro_rules! list_project_objects {
     ($schema: ident, $state: expr, $user: expr, $output: ty, $project_id: ident, $permission: expr) => {{
+        use pic_store_db::PoolExt;
         use $schema::dsl;
         $state.db.interact(move |conn| {
             $schema::table
@@ -24,6 +25,7 @@ macro_rules! list_project_objects {
 #[macro_export]
 macro_rules! list_project_and_global_objects {
     ($schema: ident, $state: expr, $user: expr, $output: ty, $project_id: ident, $permission: expr) => {{
+        use pic_store_db::PoolExt;
         use $schema::dsl;
         $state.db.interact(move |conn| {
             let q = $schema::table
@@ -48,6 +50,7 @@ macro_rules! list_project_and_global_objects {
 #[macro_export]
 macro_rules! get_object {
     ($schema: ident, $state: expr, $user: expr, $output: ty, $id: ident, $project_id: ident, $permission: expr) => {{
+        use pic_store_db::PoolExt;
         use $schema::dsl;
         $state.db.interact(move |conn| {
             $schema::table
@@ -73,6 +76,7 @@ macro_rules! get_object {
 #[macro_export]
 macro_rules! get_maybe_global_object {
     ($schema: ident, $state: expr, $user: expr, $output: ty, $id: ident, $project_id: ident, $permission: expr) => {{
+        use pic_store_db::PoolExt;
         use $schema::dsl;
         $state.db.interact(move |conn| {
             $schema::table
@@ -98,6 +102,7 @@ macro_rules! get_maybe_global_object {
 #[macro_export]
 macro_rules! write_object {
     ($schema: ident, $state: expr, $user: expr, $id: expr, $project_id: expr, $output: ty, $permission: expr, $sets: expr) => {{
+        use pic_store_db::PoolExt;
         use $schema::dsl;
         $state.db.interact(move |conn| {
             $crate::auth::must_have_permission_on_project(conn, &$user, $project_id, $permission)?;
@@ -130,10 +135,43 @@ macro_rules! write_maybe_global_object {
     };
 }
 
+/// Create a new object
+#[macro_export]
+macro_rules! create_object {
+    ($schema: ident, $state: expr, $user: expr, $project_id: expr, $output: ty, $permission: expr, $value: expr) => {{
+        use pic_store_db::PoolExt;
+        $state.db.interact(move |conn| {
+            $crate::auth::must_have_permission_on_project(conn, &$user, $project_id, $permission)?;
+            diesel::insert_into($schema::table)
+                .values($value)
+                .returning(<$output>::as_select())
+                .get_result::<$output>(conn)
+                .map_err($crate::Error::from)
+        })
+    }};
+}
+
+/// Create an object that might be team-wide or bound to a project.
+#[macro_export]
+macro_rules! create_maybe_global_object {
+    ($schema: ident, $state: expr, $user: expr, $project_id: expr, $output: ty, $permission: expr, $value: expr) => {
+        $crate::create_object!(
+            $schema,
+            $state,
+            $user,
+            $project_id.unwrap_or_else(ProjectId::nil),
+            $output,
+            $permission,
+            $value
+        )
+    };
+}
+
 /// Delete an object
 #[macro_export]
 macro_rules! disable_object {
     ($schema: ident, $state: expr, $user: expr, $id: expr, $project_id: expr, $permission: expr) => {{
+        use pic_store_db::PoolExt;
         use $schema::dsl;
         $state.db.interact(move |conn| {
             $crate::auth::must_have_permission_on_project(conn, &$user, $project_id, $permission)?;
@@ -153,6 +191,7 @@ macro_rules! disable_object {
 #[macro_export]
 macro_rules! disable_maybe_global_object {
     ($schema: ident, $state: expr, $user: expr, $id: expr, $project_id: ident, $permission: expr) => {{
+        use pic_store_db::PoolExt;
         use $schema::dsl;
         $state.db.interact(move |conn| {
             $crate::auth::must_have_permission_on_project(

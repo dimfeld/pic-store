@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query},
+    extract::Path,
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
@@ -12,16 +12,16 @@ use serde::{Deserialize, Serialize};
 use db::{
     object_id::{ProjectId, StorageLocationId},
     permissions::ProjectPermission,
-    storage_locations::{NewStorageLocation, Provider},
+    storage_locations::{self, NewStorageLocation, Provider},
     Permission,
 };
 use pic_store_db as db;
 use serde_json::json;
 
 use crate::{
-    auth::{must_have_permission_on_project, UserInfo},
-    shared_state::State,
-    Error,
+    auth::UserInfo, create_maybe_global_object, disable_maybe_global_object,
+    get_maybe_global_object, list_project_and_global_objects, shared_state::State,
+    write_maybe_global_object, Error,
 };
 
 #[derive(Deserialize)]
@@ -69,35 +69,15 @@ async fn list_locations(
     user: UserInfo,
     project_id: Option<ProjectId>,
 ) -> Result<impl IntoResponse, Error> {
-    use db::storage_locations::dsl;
-    let conn = state.db.get().await?;
-
-    let objects = conn
-        .interact(move |conn| {
-            let q = dsl::storage_locations
-                .select(StorageLocationOutput::as_select())
-                .into_boxed()
-                .filter(dsl::deleted.is_null())
-                .filter(db::obj_allowed_or_projectless!(
-                    user.team_id,
-                    &user.roles,
-                    dsl::project_id,
-                    Permission::ProjectRead
-                ));
-
-            let q = if let Some(project_id) = project_id {
-                q.filter(
-                    dsl::project_id
-                        .is_null()
-                        .or(dsl::project_id.is_not_distinct_from(project_id)),
-                )
-            } else {
-                q.filter(dsl::project_id.is_null())
-            };
-
-            q.load::<StorageLocationOutput>(conn)
-        })
-        .await??;
+    let objects = list_project_and_global_objects!(
+        storage_locations,
+        state,
+        user,
+        StorageLocationOutput,
+        project_id,
+        Permission::ProjectRead
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(objects)))
 }
@@ -134,36 +114,23 @@ async fn write_location(
     location_id: StorageLocationId,
     body: StorageLocationInput,
 ) -> Result<impl IntoResponse, Error> {
-    use db::storage_locations::dsl;
-
-    let conn = state.db.get().await?;
-
-    let result = conn
-        .interact(move |conn| {
-            must_have_permission_on_project(
-                conn,
-                &user,
-                project_id.unwrap_or_else(ProjectId::nil),
-                ProjectPermission::StorageLocationWrite,
-            )?;
-
-            let result = diesel::update(dsl::storage_locations)
-                .filter(dsl::id.eq(location_id))
-                .filter(dsl::project_id.is_not_distinct_from(project_id))
-                .filter(dsl::team_id.eq(user.team_id))
-                .set((
-                    dsl::name.eq(body.name),
-                    dsl::provider.eq(body.provider),
-                    dsl::base_location.eq(body.base_location),
-                    dsl::public_url_base.eq(body.public_url_base),
-                    dsl::updated.eq(Utc::now()),
-                ))
-                .returning(StorageLocationOutput::as_select())
-                .get_result::<StorageLocationOutput>(conn)?;
-
-            Ok::<_, Error>(result)
-        })
-        .await??;
+    let result = write_maybe_global_object!(
+        storage_locations,
+        state,
+        user,
+        location_id,
+        project_id,
+        StorageLocationOutput,
+        ProjectPermission::StorageLocationWrite,
+        (
+            dsl::name.eq(body.name),
+            dsl::provider.eq(body.provider),
+            dsl::base_location.eq(body.base_location),
+            dsl::public_url_base.eq(body.public_url_base),
+            dsl::updated.eq(Utc::now()),
+        )
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(result)))
 }
@@ -191,8 +158,6 @@ async fn new_location(
     project_id: Option<ProjectId>,
     body: StorageLocationInput,
 ) -> Result<impl IntoResponse, Error> {
-    use db::storage_locations::dsl;
-
     let value = NewStorageLocation {
         id: StorageLocationId::new(),
         name: body.name,
@@ -203,27 +168,16 @@ async fn new_location(
         project_id,
     };
 
-    let conn = state.db.get().await?;
-    let result = conn
-        .interact(move |conn| {
-            if !db::permissions::has_permission_on_project(
-                conn,
-                user.team_id,
-                &user.roles,
-                project_id,
-                ProjectPermission::StorageLocationWrite,
-            )? {
-                return Err(Error::MissingPermission(Permission::StorageLocationWrite));
-            }
-
-            let output = diesel::insert_into(dsl::storage_locations)
-                .values(&value)
-                .returning(StorageLocationOutput::as_select())
-                .get_result::<StorageLocationOutput>(conn)?;
-
-            Ok::<_, crate::Error>(output)
-        })
-        .await??;
+    let result = create_maybe_global_object!(
+        storage_locations,
+        state,
+        user,
+        project_id,
+        StorageLocationOutput,
+        ProjectPermission::StorageLocationWrite,
+        &value
+    )
+    .await?;
 
     Ok((StatusCode::ACCEPTED, Json(result)))
 }
@@ -250,27 +204,16 @@ async fn get_location(
     project_id: Option<ProjectId>,
     location_id: StorageLocationId,
 ) -> Result<impl IntoResponse, crate::Error> {
-    use db::storage_locations::dsl;
-    let conn = state.db.get().await?;
-
-    let (location, allowed) = conn
-        .interact(move |conn| {
-            dsl::storage_locations
-                .select((
-                    StorageLocationOutput::as_select(),
-                    db::obj_allowed_or_projectless!(
-                        user.team_id,
-                        &user.roles,
-                        dsl::project_id.assume_not_null(),
-                        db::role_permissions::Permission::ProjectRead
-                    ),
-                ))
-                .filter(dsl::id.eq(location_id))
-                .filter(dsl::project_id.is_not_distinct_from(project_id))
-                .filter(dsl::team_id.eq(user.team_id))
-                .first::<(StorageLocationOutput, bool)>(conn)
-        })
-        .await??;
+    let (location, allowed) = get_maybe_global_object!(
+        storage_locations,
+        state,
+        user,
+        StorageLocationOutput,
+        location_id,
+        project_id,
+        db::role_permissions::Permission::ProjectRead
+    )
+    .await?;
 
     if !allowed {
         return Err(Error::MissingPermission(
@@ -303,27 +246,15 @@ async fn disable_location(
     project_id: Option<ProjectId>,
     location_id: StorageLocationId,
 ) -> Result<impl IntoResponse, crate::Error> {
-    use db::storage_locations::dsl;
-
-    let conn = state.db.get().await?;
-    conn.interact(move |conn| {
-        must_have_permission_on_project(
-            conn,
-            &user,
-            project_id.unwrap_or_else(ProjectId::nil),
-            ProjectPermission::StorageLocationWrite,
-        )?;
-
-        diesel::update(dsl::storage_locations)
-            .filter(dsl::id.eq(location_id))
-            .filter(dsl::project_id.is_not_distinct_from(project_id))
-            .filter(dsl::team_id.eq(user.team_id))
-            .set((dsl::deleted.eq(Some(Utc::now())),))
-            .execute(conn)?;
-
-        Ok::<(), Error>(())
-    })
-    .await??;
+    disable_maybe_global_object!(
+        storage_locations,
+        state,
+        user,
+        location_id,
+        project_id,
+        ProjectPermission::StorageLocationWrite
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(json!({}))))
 }

@@ -15,13 +15,14 @@ use db::{
     conversion_profiles::{ConversionOutput, ConversionProfile, NewConversionProfile},
     object_id::{ConversionProfileId, ProjectId},
     permissions::ProjectPermission,
-    Permission, PoolExt,
+    Permission,
 };
 use pic_store_db as db;
 
 use crate::{
-    auth::UserInfo, disable_maybe_global_object, get_maybe_global_object,
-    list_project_and_global_objects, shared_state::State, write_maybe_global_object, Error,
+    auth::UserInfo, create_maybe_global_object, disable_maybe_global_object,
+    get_maybe_global_object, list_project_and_global_objects, shared_state::State,
+    write_maybe_global_object, Error,
 };
 
 #[derive(Debug, Deserialize)]
@@ -164,8 +165,6 @@ async fn new_profile(
     project_id: Option<ProjectId>,
     body: ConversionProfileInput,
 ) -> Result<impl IntoResponse, Error> {
-    use db::conversion_profiles::dsl;
-
     let value = NewConversionProfile {
         id: ConversionProfileId::new(),
         name: body.name,
@@ -174,29 +173,16 @@ async fn new_profile(
         output: body.output,
     };
 
-    let conn = state.db.get().await?;
-    let result = conn
-        .interact(move |conn| {
-            if !db::permissions::has_permission_on_project(
-                conn,
-                user.team_id,
-                &user.roles,
-                project_id,
-                ProjectPermission::ConversionProfileWrite,
-            )? {
-                return Err(Error::MissingPermission(
-                    db::role_permissions::Permission::ConversionProfileWrite,
-                ));
-            }
-
-            let output = diesel::insert_into(dsl::conversion_profiles)
-                .values(&value)
-                .returning(ConversionProfileOutput::as_select())
-                .get_result::<ConversionProfileOutput>(conn)?;
-
-            Ok::<_, crate::Error>(output)
-        })
-        .await??;
+    let result = create_maybe_global_object!(
+        conversion_profiles,
+        state,
+        user,
+        project_id,
+        ConversionProfileOutput,
+        ProjectPermission::ConversionProfileWrite,
+        &value
+    )
+    .await?;
 
     Ok((StatusCode::ACCEPTED, Json(result)))
 }

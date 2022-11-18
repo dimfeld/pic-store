@@ -20,7 +20,7 @@ use pic_store_db as db;
 
 use crate::{
     auth::{must_have_permission_on_project, UserInfo},
-    disable_object, get_object, list_project_objects,
+    create_object, disable_object, get_object, list_project_objects,
     shared_state::State,
     write_object, Error, Result,
 };
@@ -127,23 +127,16 @@ async fn new_project_upload_profile(
         team_id: user.team_id,
     };
 
-    let result = state
-        .db
-        .interact(move |conn| {
-            must_have_permission_on_project(
-                conn,
-                &user,
-                project_id,
-                ProjectPermission::ProjectWrite,
-            )?;
-
-            diesel::insert_into(dsl::upload_profiles)
-                .values(&value)
-                .returning(UploadProfileOutput::as_select())
-                .get_result::<UploadProfileOutput>(conn)
-                .map_err(Error::from)
-        })
-        .await?;
+    let result = create_object!(
+        upload_profiles,
+        state,
+        user,
+        project_id,
+        UploadProfileOutput,
+        ProjectPermission::ProjectWrite,
+        &value
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(result)))
 }
