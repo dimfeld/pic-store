@@ -20,9 +20,8 @@ use db::{
 use pic_store_db as db;
 
 use crate::{
-    auth::UserInfo, create_maybe_global_object, disable_maybe_global_object,
-    get_maybe_global_object, list_project_and_global_objects, shared_state::State,
-    write_maybe_global_object, Error,
+    auth::UserInfo, create_object, disable_object, get_object, list_project_and_global_objects,
+    shared_state::State, write_object, Error,
 };
 
 #[derive(Debug, Deserialize)]
@@ -123,12 +122,12 @@ async fn write_profile(
     profile_id: ConversionProfileId,
     body: ConversionProfileInput,
 ) -> Result<impl IntoResponse, Error> {
-    let result = write_maybe_global_object!(
+    let result = write_object!(
         conversion_profiles,
         state,
         user,
         profile_id,
-        project_id,
+        project_id.unwrap_or_else(ProjectId::nil),
         ConversionProfileOutput,
         ProjectPermission::ConversionProfileWrite,
         (
@@ -173,11 +172,11 @@ async fn new_profile(
         output: body.output,
     };
 
-    let result = create_maybe_global_object!(
+    let result = create_object!(
         conversion_profiles,
         state,
         user,
-        project_id,
+        project_id.unwrap_or_else(ProjectId::nil),
         ConversionProfileOutput,
         ProjectPermission::ConversionProfileWrite,
         &value
@@ -192,7 +191,7 @@ async fn get_global_profile(
     Extension(user): Extension<UserInfo>,
     Path(profile_id): Path<ConversionProfileId>,
 ) -> Result<impl IntoResponse, crate::Error> {
-    get_profile(state, user, None, profile_id).await
+    get_profile(state, user, profile_id).await
 }
 
 async fn get_project_profile(
@@ -200,28 +199,20 @@ async fn get_project_profile(
     Extension(user): Extension<UserInfo>,
     Path(path): Path<ProjectConversionProfilePath>,
 ) -> Result<impl IntoResponse, crate::Error> {
-    get_profile(
-        state,
-        user,
-        Some(path.project_id),
-        path.conversion_profile_id,
-    )
-    .await
+    get_profile(state, user, path.conversion_profile_id).await
 }
 
 async fn get_profile(
     state: &State,
     user: UserInfo,
-    project_id: Option<ProjectId>,
     profile_id: ConversionProfileId,
 ) -> Result<impl IntoResponse, crate::Error> {
-    let (profile, allowed) = get_maybe_global_object!(
+    let (profile, allowed) = get_object!(
         conversion_profiles,
         state,
         user,
         ConversionProfileOutput,
         profile_id,
-        project_id,
         db::role_permissions::Permission::ProjectRead
     )
     .await?;
@@ -263,12 +254,12 @@ async fn disable_profile(
     project_id: Option<ProjectId>,
     profile_id: ConversionProfileId,
 ) -> Result<impl IntoResponse, crate::Error> {
-    disable_maybe_global_object!(
+    disable_object!(
         conversion_profiles,
         state,
         user,
         profile_id,
-        project_id,
+        project_id.unwrap_or_else(ProjectId::nil),
         ProjectPermission::ConversionProfileWrite
     )
     .await?;

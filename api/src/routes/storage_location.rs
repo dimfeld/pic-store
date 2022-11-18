@@ -19,9 +19,8 @@ use pic_store_db as db;
 use serde_json::json;
 
 use crate::{
-    auth::UserInfo, create_maybe_global_object, disable_maybe_global_object,
-    get_maybe_global_object, list_project_and_global_objects, shared_state::State,
-    write_maybe_global_object, Error,
+    auth::UserInfo, create_object, disable_object, get_object, list_project_and_global_objects,
+    shared_state::State, write_object, Error,
 };
 
 #[derive(Deserialize)]
@@ -114,12 +113,12 @@ async fn write_location(
     location_id: StorageLocationId,
     body: StorageLocationInput,
 ) -> Result<impl IntoResponse, Error> {
-    let result = write_maybe_global_object!(
+    let result = write_object!(
         storage_locations,
         state,
         user,
         location_id,
-        project_id,
+        project_id.unwrap_or_else(ProjectId::nil),
         StorageLocationOutput,
         ProjectPermission::StorageLocationWrite,
         (
@@ -168,11 +167,11 @@ async fn new_location(
         project_id,
     };
 
-    let result = create_maybe_global_object!(
+    let result = create_object!(
         storage_locations,
         state,
         user,
-        project_id,
+        project_id.unwrap_or_else(ProjectId::nil),
         StorageLocationOutput,
         ProjectPermission::StorageLocationWrite,
         &value
@@ -187,7 +186,7 @@ async fn get_global_location(
     Extension(user): Extension<UserInfo>,
     Path(location_id): Path<StorageLocationId>,
 ) -> Result<impl IntoResponse, crate::Error> {
-    get_location(state, user, None, location_id).await
+    get_location(state, user, location_id).await
 }
 
 async fn get_project_location(
@@ -195,22 +194,20 @@ async fn get_project_location(
     Extension(user): Extension<UserInfo>,
     Path(path): Path<ProjectStorageLocationPath>,
 ) -> Result<impl IntoResponse, crate::Error> {
-    get_location(state, user, Some(path.project_id), path.storage_location_id).await
+    get_location(state, user, path.storage_location_id).await
 }
 
 async fn get_location(
     state: &State,
     user: UserInfo,
-    project_id: Option<ProjectId>,
     location_id: StorageLocationId,
 ) -> Result<impl IntoResponse, crate::Error> {
-    let (location, allowed) = get_maybe_global_object!(
+    let (location, allowed) = get_object!(
         storage_locations,
         state,
         user,
         StorageLocationOutput,
         location_id,
-        project_id,
         db::role_permissions::Permission::ProjectRead
     )
     .await?;
@@ -246,12 +243,12 @@ async fn disable_location(
     project_id: Option<ProjectId>,
     location_id: StorageLocationId,
 ) -> Result<impl IntoResponse, crate::Error> {
-    disable_maybe_global_object!(
+    disable_object!(
         storage_locations,
         state,
         user,
         location_id,
-        project_id,
+        project_id.unwrap_or_else(ProjectId::nil),
         ProjectPermission::StorageLocationWrite
     )
     .await?;

@@ -1,25 +1,22 @@
 mod upload;
 
 use axum::{
-    extract::Query,
     response::IntoResponse,
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
 use db::{
-    object_id::{BaseImageId, UploadProfileId},
-    Permission,
+    object_id::{BaseImageId, ProjectId, UploadProfileId},
+    upload_profiles, Permission,
 };
 use diesel::prelude::*;
 use http::StatusCode;
 use serde::Deserialize;
 use serde_json::json;
-use uuid::Uuid;
 
 use pic_store_db as db;
-use pic_store_storage as storage;
 
-use crate::{auth::UserInfo, shared_state::State, Error};
+use crate::{auth::UserInfo, get_object_query, shared_state::State, Error};
 
 #[derive(Deserialize, Debug)]
 struct NewBaseImageInput {
@@ -44,18 +41,20 @@ async fn new_base_image(
 
     let image_id = conn
         .interact(move |conn| {
-            let (profile, allowed) = db::upload_profiles::table
-                .filter(db::upload_profiles::id.eq(upload_profile))
-                .select((
-                    db::upload_profiles::all_columns,
-                    db::obj_allowed!(
-                        user.team_id,
-                        &user.roles,
-                        db::upload_profiles::project_id,
-                        Permission::ImageCreate
-                    ),
-                ))
-                .first::<(db::upload_profiles::UploadProfile, bool)>(conn)?;
+            #[derive(Debug, Queryable, Selectable)]
+            #[diesel(table_name = upload_profiles)]
+            struct UploadProfileInfo {
+                project_id: ProjectId,
+            }
+
+            let (profile, allowed) = get_object_query!(
+                upload_profiles,
+                conn,
+                user,
+                UploadProfileInfo,
+                upload_profile,
+                Permission::ImageCreate
+            )?;
 
             if !allowed {
                 return Err(Error::MissingPermission(Permission::ImageCreate));
@@ -91,7 +90,7 @@ async fn new_base_image(
     Ok((
         StatusCode::OK,
         Json(json!({
-            "image_id": image_id,
+            "id": image_id,
         })),
     ))
 }

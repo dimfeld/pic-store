@@ -73,7 +73,6 @@ async fn get_project_upload_profile(
         user,
         UploadProfileOutput,
         profile_id,
-        project_id,
         db::role_permissions::Permission::ProjectRead
     )
     .await?;
