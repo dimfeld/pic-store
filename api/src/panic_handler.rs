@@ -4,10 +4,11 @@ use axum::{
     body::Body,
     http::{header, Response, StatusCode},
 };
+use pic_store_http_errors::ErrorResponseData;
 
 pub fn handle_panic(production: bool, err: Box<dyn Any + Send + 'static>) -> Response<Body> {
     let body = if production {
-        serde_json::json!({ "error": { "details": "Server error" } })
+        ErrorResponseData::new("internal_server_error", "Server error")
     } else {
         let details = if let Some(s) = err.downcast_ref::<String>() {
             s.clone()
@@ -17,12 +18,7 @@ pub fn handle_panic(production: bool, err: Box<dyn Any + Send + 'static>) -> Res
             "Unknown panic message".to_string()
         };
 
-        serde_json::json!({
-            "error": {
-                "kind": "panic",
-                "details": details,
-            }
-        })
+        ErrorResponseData::new("panic", details)
     };
 
     let body = serde_json::to_string(&body).unwrap();

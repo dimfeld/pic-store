@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::borrow::Cow;
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponseData {
@@ -7,13 +8,20 @@ pub struct ErrorResponseData {
 
 #[derive(Debug, Serialize)]
 struct ErrorDetails {
-    details: String,
+    kind: Cow<'static, str>,
+    message: Cow<'static, str>,
 }
 
 impl ErrorResponseData {
-    pub fn new(message: String) -> ErrorResponseData {
+    pub fn new(
+        kind: impl Into<Cow<'static, str>>,
+        message: impl Into<Cow<'static, str>>,
+    ) -> ErrorResponseData {
         ErrorResponseData {
-            error: ErrorDetails { details: message },
+            error: ErrorDetails {
+                kind: kind.into(),
+                message: message.into(),
+            },
         }
     }
 }

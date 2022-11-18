@@ -24,9 +24,6 @@ pub enum Error {
     #[error("Database Error: {0}")]
     DeadpoolInteract(anyhow::Error),
 
-    #[error("Queue Listener Error: {0}")]
-    QueueListener(anyhow::Error),
-
     #[error("Missing Permission {0}")]
     MissingPermission(Permission),
 
@@ -44,9 +41,6 @@ pub enum Error {
 
     #[error("Unknown {0}")]
     ObjectNotFound(&'static str),
-
-    #[error("Storage provider does not support pre-signed URLs")]
-    NoUploadUrlError,
 
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
@@ -80,16 +74,33 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn from_presign_error(err: std::io::Error) -> Self {
-        match err.kind() {
-            std::io::ErrorKind::Unsupported => Self::NoUploadUrlError,
-            _ => Self::from(err),
+    fn error_kind(&self) -> &'static str {
+        match self {
+            Error::DbErr(_) => "db",
+            Error::DbPool(_) => "db_pool",
+            Error::ServerError(_) => "internal_server_error",
+            Error::DeadpoolInteract(_) => "db",
+            Error::MissingPermission(_) => "missing_permission",
+            Error::AuthError(_) => "auth",
+            Error::ApiKeyNotFound => "auth",
+            Error::StorageError(_) => "storage",
+            Error::NotFound => "not_found",
+            Error::ObjectNotFound(_) => "not_found",
+            Error::IoError(_) => "internal_server_error",
+            Error::AxumError(_) => "bad_request",
+            Error::ImageHeaderDecode(_) => "image_decode",
+            Error::UnsupportedImageType(_) => "unsupported_image_type",
+            Error::ContentLengthRequired => "bad_request",
+            Error::RequestTooLarge => "bad_request",
+            Error::Generic(_) => "internal_server_error",
+            Error::InvalidSessionId => "auth",
+            Error::NoUploadProfile => "no_upload_profile",
+            Error::Queue(_) => "job_queue",
         }
     }
 
     pub fn response_tuple(&self) -> (StatusCode, ErrorResponseData) {
         let status = match self {
-            Error::NoUploadUrlError => StatusCode::BAD_REQUEST,
             Error::NoUploadProfile => StatusCode::BAD_REQUEST,
             Error::MissingPermission(_) => StatusCode::FORBIDDEN,
             Error::NotFound => StatusCode::NOT_FOUND,
@@ -107,7 +118,7 @@ impl Error {
 
         (
             status,
-            pic_store_http_errors::ErrorResponseData::new(self.to_string()),
+            pic_store_http_errors::ErrorResponseData::new(self.error_kind(), self.to_string()),
         )
     }
 }
