@@ -49,7 +49,7 @@ macro_rules! list_project_and_global_objects {
 /// Get an object for the given project.
 #[macro_export]
 macro_rules! get_object {
-    ($schema: ident, $state: expr, $user: expr, $output: ty, $id: ident, $permission: expr) => {{
+    ($schema: ident, $state: expr, $user: expr, $output: ty, $id: expr, $permission: expr) => {{
         use pic_store_db::PoolExt;
         $state.db.interact(move |conn| {
             $crate::get_object_query!($schema, conn, $user, $output, $id, $permission)
@@ -59,7 +59,14 @@ macro_rules! get_object {
 
 #[macro_export]
 macro_rules! get_object_query {
-    ($schema: ident, $conn: ident, $user: expr, $output: ty, $id: ident, $permission: expr) => {{
+    ($schema: ident, $conn: ident, $user: expr, $output: ty, $id: expr, $permission: expr) => {{
+        $crate::get_object_by_field_query!($schema, $conn, $user, $output, id, $id, $permission)
+    }};
+}
+
+#[macro_export]
+macro_rules! get_object_by_field_query {
+    ($schema: ident, $conn: ident, $user: expr, $output: ty, $lookup_field: ident, $lookup_value: expr, $permission: expr) => {{
         use $schema::dsl;
         $schema::table
             .select((
@@ -71,7 +78,7 @@ macro_rules! get_object_query {
                     $permission
                 ),
             ))
-            .filter(dsl::id.eq($id))
+            .filter(dsl::$lookup_field.eq($lookup_value))
             .filter(dsl::team_id.eq($user.team_id))
             .first::<($output, bool)>($conn)
             .map_err(Error::from)

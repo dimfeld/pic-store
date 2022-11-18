@@ -16,14 +16,23 @@ use serde_json::json;
 
 use pic_store_db as db;
 
-use crate::{auth::UserInfo, get_object_query, shared_state::State, Error};
+use crate::{
+    auth::UserInfo, get_object_by_field_query, get_object_query, shared_state::State, Error,
+};
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum UploadProfileOrShortId {
+    Id(UploadProfileId),
+    ShortId(String),
+}
 
 #[derive(Deserialize, Debug)]
 struct NewBaseImageInput {
     filename: String,
     location: Option<String>,
     alt_text: Option<String>,
-    upload_profile_id: Option<UploadProfileId>,
+    upload_profile_id: Option<UploadProfileOrShortId>,
 }
 
 async fn new_base_image(
@@ -31,10 +40,12 @@ async fn new_base_image(
     Extension(user): Extension<UserInfo>,
     Json(payload): Json<NewBaseImageInput>,
 ) -> Result<impl IntoResponse, Error> {
-    // TODO Handle it might be a string
     let upload_profile = payload
         .upload_profile_id
-        .or(user.default_upload_profile_id)
+        .or_else(|| {
+            user.default_upload_profile_id
+                .map(UploadProfileOrShortId::Id)
+        })
         .ok_or(Error::NoUploadProfile)?;
 
     let conn = state.db.get().await?;
@@ -44,17 +55,29 @@ async fn new_base_image(
             #[derive(Debug, Queryable, Selectable)]
             #[diesel(table_name = upload_profiles)]
             struct UploadProfileInfo {
+                id: UploadProfileId,
                 project_id: ProjectId,
             }
 
-            let (profile, allowed) = get_object_query!(
-                upload_profiles,
-                conn,
-                user,
-                UploadProfileInfo,
-                upload_profile,
-                Permission::ImageCreate
-            )?;
+            let (profile, allowed) = match upload_profile {
+                UploadProfileOrShortId::Id(id) => get_object_query!(
+                    upload_profiles,
+                    conn,
+                    user,
+                    UploadProfileInfo,
+                    id,
+                    Permission::ImageCreate
+                ),
+                UploadProfileOrShortId::ShortId(short_id) => get_object_by_field_query!(
+                    upload_profiles,
+                    conn,
+                    user,
+                    UploadProfileInfo,
+                    short_id,
+                    short_id,
+                    Permission::ImageCreate
+                ),
+            }?;
 
             if !allowed {
                 return Err(Error::MissingPermission(Permission::ImageCreate));
@@ -67,7 +90,7 @@ async fn new_base_image(
                 user_id: user.user_id,
                 team_id: user.team_id,
                 project_id: profile.project_id,
-                upload_profile_id: upload_profile,
+                upload_profile_id: profile.id,
                 filename: payload.filename.clone(),
                 location: payload.location.unwrap_or(payload.filename),
                 format: None,
