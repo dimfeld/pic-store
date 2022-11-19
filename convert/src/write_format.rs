@@ -63,7 +63,7 @@ fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), Encode
         alpha_quality,
         speed: 4,
         premultiplied_alpha: false,
-        color_space: ravif::ColorSpace::RGB,
+        color_space: ravif::ColorSpace::YCbCr,
         threads: None,
     };
 
