@@ -41,7 +41,8 @@ pub fn resize_image(input: &DynamicImage, transform: &ImageSizeTransform) -> Opt
 
     let (w, h) = match (tw, th, transform.preserve_aspect_ratio) {
         (Some(w), Some(h), false) => (w, h),
-        (None, None, _) => panic!("resize_image must take width or height"),
+        // No resize requested. Allow this so we don't have to check explciitly for it everywhere.
+        (None, None, _) => (iw, ih),
         _ => calculate_size(iw, ih, transform),
     };
 
@@ -83,6 +84,21 @@ mod tests {
             &ImageSizeTransform {
                 width: Some(100),
                 height: Some(100),
+                preserve_aspect_ratio: false,
+            },
+        );
+
+        assert!(output.is_none(), "Should return None");
+    }
+
+    #[test]
+    fn no_resize_requested() {
+        let image = DynamicImage::new_rgb8(100, 100);
+        let output = resize_image(
+            &image,
+            &ImageSizeTransform {
+                width: None,
+                height: None,
                 preserve_aspect_ratio: false,
             },
         );
