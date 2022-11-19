@@ -252,7 +252,7 @@ pub async fn upload_image(
 
     let output_image_ids = output_images.iter().map(|oi| oi.id).collect::<Vec<_>>();
 
-    let to_delete = state
+    state
         .db
         .transaction(move |conn| {
             diesel::update(base_images::table)
@@ -267,7 +267,10 @@ pub async fn upload_image(
                 ))
                 .execute(conn)?;
 
-            // Set the existing output images to be deleted
+            // Set the existing output images to be deleted, but don't delete them yet since the
+            // user may need to transition some other code away that uses it.
+            // (Alternatively, should we just replace the files with the same parameters? I'm leaning
+            // toward that.)
             let to_delete = diesel::update(output_images::table)
                 .filter(output_images::base_image_id.eq(image_id))
                 .filter(output_images::team_id.eq(user.team_id))
@@ -282,19 +285,6 @@ pub async fn upload_image(
             Ok::<_, anyhow::Error>(to_delete)
         })
         .await?;
-
-    // TODO Implement this job
-    // if !to_delete.is_empty() {
-    //     let job_id = prefect::Job::builder(crate::jobs::DELETE_OUTPUT_IMAGES)
-    //         .json_payload(&crate::jobs::DeleteImagesPayload {
-    //             base_image: Vec::new(),
-    //             output_images: to_delete,
-    //         })?
-    //         .priority(0)
-    //         .add_to(&state.queue)
-    //         .await?;
-    //     event!(Level::INFO, %job_id, "enqueued old output image deletion job");
-    // }
 
     let job_id = prefect::Job::builder(crate::jobs::CREATE_OUTPUT_IMAGES)
         .json_payload(&crate::jobs::CreateOutputImagesJobPayload {

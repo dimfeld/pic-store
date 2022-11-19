@@ -106,6 +106,7 @@ pub async fn create_output_images_job(
 
         //  Do the conversion
 
+        event!(Level::INFO, image=%output_location, "Converting image");
         let size = convert::ImageSizeTransform {
             width: conversion_size.width,
             height: conversion_size.height,
@@ -120,13 +121,13 @@ pub async fn create_output_images_job(
         };
 
         let b = base_image.clone();
-        let output =
+        let convert_result =
             tokio::task::spawn_blocking(move || convert::convert(&b, output_format, &size))
                 .await??;
 
         output_operator
             .object(output_location.as_str())
-            .write(output)
+            .write(convert_result.image)
             .await?;
 
         context
@@ -135,7 +136,11 @@ pub async fn create_output_images_job(
                 // Add the OutputImage entry
                 diesel::update(db::output_images::table)
                     .filter(db::output_images::id.eq(output_image_id))
-                    .set(db::output_images::status.eq(OutputImageStatus::Ready))
+                    .set((
+                        db::output_images::status.eq(OutputImageStatus::Ready),
+                        db::output_images::width.eq(convert_result.width as i32),
+                        db::output_images::height.eq(convert_result.height as i32),
+                    ))
                     .execute(conn)?;
 
                 Ok::<_, anyhow::Error>(())

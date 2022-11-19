@@ -27,16 +27,31 @@ pub fn image_from_bytes(bytes: &[u8]) -> ImageResult<DynamicImage> {
     }
 }
 
+pub struct ConvertResult {
+    pub width: u32,
+    pub height: u32,
+    pub image: Vec<u8>,
+}
+
 pub fn convert(
     image: &DynamicImage,
     format: image::ImageFormat,
     size: &ImageSizeTransform,
-) -> Result<Vec<u8>, EncodeError> {
+) -> Result<ConvertResult, EncodeError> {
     let resized = resize_image(image, size);
     let mut output = Vec::new();
 
-    write_format::write_image(resized.as_ref().unwrap_or(image), format, &mut output)?;
-    Ok(output)
+    let convert_input = resized.as_ref().unwrap_or(image);
+
+    let width = convert_input.width();
+    let height = convert_input.height();
+
+    write_format::write_image(convert_input, format, &mut output)?;
+    Ok(ConvertResult {
+        width,
+        height,
+        image: output,
+    })
 }
 
 #[cfg(test)]
