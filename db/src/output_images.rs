@@ -13,6 +13,8 @@ pub struct OutputImage {
     pub team_id: TeamId,
     pub base_image_id: BaseImageId,
     pub location: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
     pub size: ConversionSize,
     pub format: ConversionFormat,
 
@@ -29,6 +31,8 @@ pub struct NewOutputImage {
     pub team_id: TeamId,
     pub base_image_id: BaseImageId,
     pub location: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
     pub size: ConversionSize,
     pub format: ConversionFormat,
 

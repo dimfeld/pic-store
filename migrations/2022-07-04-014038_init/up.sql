@@ -144,6 +144,7 @@ CREATE TABLE role_permissions (
   primary key(team_id, role_id, project_id, permission)
 );
 
+CREATE INDEX role_permissions_team_id_role_id ON role_permissions(team_id, role_id);
 
 CREATE TYPE base_image_status AS ENUM (
   'awaiting_upload',
@@ -189,8 +190,8 @@ CREATE TABLE output_images (
   team_id uuid not null references teams(id) DEFERRABLE INITIALLY IMMEDIATE,
   base_image_id uuid not null references base_images(id) DEFERRABLE INITIALLY IMMEDIATE,
   location text not null,
-  width int not null,
-  height int not null,
+  width int,
+  height int,
   size jsonb not null,
   format jsonb not null,
   status output_image_status not null,

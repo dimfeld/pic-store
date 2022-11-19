@@ -1,4 +1,4 @@
-use diesel::{dsl::exists, prelude::*, PgConnection};
+use diesel::{prelude::*, PgConnection};
 
 use crate::{
     object_id::{ProjectId, RoleId, TeamId},
@@ -53,8 +53,13 @@ macro_rules! obj_allowed {
                 $crate::role_permissions::team_id
                     .eq($team_id)
                     .and($crate::role_permissions::role_id.eq_any($roles))
-                    .and($crate::role_permissions::permission.eq($permission))
-                    .and($crate::role_permissions::project_id.eq($obj_project_field)),
+                    .and(
+                        $crate::role_permissions::permission
+                            .eq($permission)
+                            .and($crate::role_permissions::project_id.eq($obj_project_field))
+                            .or($crate::role_permissions::permission
+                                .eq($crate::Permission::TeamAdmin)),
+                    ),
             ),
         )
     };
@@ -85,7 +90,11 @@ pub fn has_global_permission(
             crate::role_permissions::team_id
                 .eq(team_id)
                 .and(crate::role_permissions::role_id.eq_any(roles))
-                .and(crate::role_permissions::permission.eq(permission)),
+                .and(
+                    crate::role_permissions::permission
+                        .eq(permission)
+                        .or(crate::role_permissions::permission.eq(Permission::TeamAdmin)),
+                ),
         )
         .select((1i32.into_sql::<diesel::sql_types::Integer>(),))
         .first::<(i32,)>(conn)
@@ -109,8 +118,12 @@ pub fn has_permission_on_project(
             crate::role_permissions::team_id
                 .eq(team_id)
                 .and(crate::role_permissions::role_id.eq_any(roles))
-                .and(crate::role_permissions::project_id.eq(project_id))
-                .and(crate::role_permissions::permission.eq(permission)),
+                .and(
+                    crate::role_permissions::project_id
+                        .eq(project_id)
+                        .and(crate::role_permissions::permission.eq(permission))
+                        .or(crate::role_permissions::permission.eq(Permission::TeamAdmin)),
+                ),
         )
         .select((1i32.into_sql::<diesel::sql_types::Integer>(),))
         .first::<(i32,)>(conn)

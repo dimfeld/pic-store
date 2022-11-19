@@ -43,7 +43,7 @@ image = { version = "0.24.5", features= ["avif-decoder", "webp"]}
 imageinfo = { git = "https://github.com/dimfeld/imageinfo-rs" }
 log = "0.4.17"
 num_cpus = "1.13.1"
-opendal = "0.19.7"
+opendal = "0.20.1"
 opentelemetry = { version= "0.17.0", features = ["rt-tokio-current-thread"] }
 opentelemetry-otlp = { version = "0.10.0" }
 prefect = { version = "0.1.2" }

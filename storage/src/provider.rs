@@ -1,13 +1,10 @@
 use aws_sdk_s3::client::Client as S3Client;
 use backon::ExponentialBackoff;
-use opendal::{
-    layers::{RetryLayer, TracingLayer},
-    Operator,
-};
+use opendal::layers::{RetryLayer, TracingLayer};
 
 use pic_store_db as db;
 
-use crate::{error::Error, s3::S3ProviderConfig};
+use crate::{error::Error, s3::S3ProviderConfig, Operator};
 
 #[derive(Debug, Clone)]
 pub enum ProviderConfig {
@@ -64,25 +61,36 @@ impl Provider {
     }
 
     pub async fn create_operator(&self, base_location: &str) -> Result<Operator, anyhow::Error> {
-        let operator = match self {
-            Self::S3 { config, .. } => {
-                crate::s3::create_opendal_operator(config, base_location).await?
-            }
+        let (operator, supports_multipart) = match self {
+            Self::S3 { config, .. } => (
+                crate::s3::create_opendal_operator(config, base_location).await?,
+                true,
+            ),
             Self::Local => {
                 let mut builder = opendal::services::fs::Builder::default();
 
                 if !base_location.is_empty() {
-                    builder.root(base_location);
+                    let path = std::path::PathBuf::from(base_location);
+                    if !path.is_absolute() {
+                        let full_path = path.canonicalize()?;
+                        let new_root = full_path.to_string_lossy();
+                        builder.root(&new_root);
+                    } else {
+                        builder.root(base_location);
+                    }
                 }
 
                 let acc = builder.build()?;
-                Operator::new(acc)
+                (opendal::Operator::new(acc), false)
             }
         };
 
         let operator = operator
             .layer(RetryLayer::new(ExponentialBackoff::default()))
             .layer(TracingLayer);
-        Ok(operator)
+        Ok(Operator {
+            operator,
+            supports_multipart,
+        })
     }
 }

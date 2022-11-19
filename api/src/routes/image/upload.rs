@@ -99,15 +99,13 @@ impl Header {
 }
 
 async fn handle_upload(
-    upload: &opendal::ObjectMultipart,
+    upload: &mut storage::Writer,
     mut stream: BodyStream,
-) -> Result<(Vec<ObjectPart>, String, ImageInfo), Error> {
+) -> Result<(String, ImageInfo), Error> {
     let mut hasher = blake3::Hasher::new();
 
     let mut header = Header::new();
     let mut info: Option<ImageInfo> = None;
-
-    let mut parts = Vec::new();
 
     while let Some(chunk) = stream.try_next().await.transpose() {
         let chunk = chunk?;
@@ -121,7 +119,7 @@ async fn handle_upload(
             }
         }
 
-        parts.push(upload.write(parts.len(), chunk).await?);
+        upload.add_part(chunk).await?;
     }
 
     let info = info.ok_or(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat))?;
@@ -129,7 +127,7 @@ async fn handle_upload(
     let hash = hasher.finalize();
     let hash_hex = format!("{:x?}", hash);
 
-    Ok((parts, hash_hex, info))
+    Ok((hash_hex, info))
 }
 
 pub async fn upload_image(
@@ -181,15 +179,15 @@ pub async fn upload_image(
     let provider = storage::Provider::from_db(output_path.provider)?;
 
     let operator = provider
-        .create_operator(output_path.public_url_base.as_str())
+        .create_operator(output_path.base_location.as_str())
         .await
         .map_err(storage::Error::OperatorError)?;
 
     let object = operator.object(base_image.location.as_str());
-    let upload = object.create_multipart().await?;
-    let (hash_hex, info) = match handle_upload(&upload, stream).await {
-        Ok((parts, hash_hex, info)) => {
-            upload.complete(parts).await?;
+    let mut upload = operator.writer(object).await?;
+    let (hash_hex, info) = match handle_upload(&mut upload, stream).await {
+        Ok((hash_hex, info)) => {
+            upload.complete().await?;
             (hash_hex, info)
         }
         Err(e) => {
@@ -239,6 +237,8 @@ pub async fn upload_image(
                     NewOutputImage {
                         id: output_image_id,
                         base_image_id: image_id,
+                        width: None,
+                        height: None,
                         size: size.clone(),
                         format: format.clone(),
                         team_id: user.team_id,
