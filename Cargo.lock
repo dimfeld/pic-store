@@ -3527,9 +3527,9 @@ dependencies = [
 
 [[package]]
 name = "prefect"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f965c77ab2d0740c105af81bcbeacc68b6a59cda26d210afe4e660f628b8516"
+checksum = "87b675a58ca5a27510b5dd41f2048d63d22cdbf40c210bcc87d1b982cd347999"
 dependencies = [
  "ahash 0.8.1",
  "backoff",

@@ -28,7 +28,7 @@ pub struct CreateOutputImagesJobPayload {
     pub conversions: Vec<OutputImageId>,
 }
 
-#[instrument]
+#[instrument(skip(job))]
 pub async fn create_output_images_job(
     job: RunningJob,
     context: JobContext,
