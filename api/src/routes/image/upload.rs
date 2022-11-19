@@ -125,7 +125,7 @@ async fn handle_upload(
     let info = info.ok_or(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat))?;
 
     let hash = hasher.finalize();
-    let hash_hex = format!("{:x?}", hash);
+    let hash_hex = hash.to_string();
 
     Ok((hash_hex, info))
 }
