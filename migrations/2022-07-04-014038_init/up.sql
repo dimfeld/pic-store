@@ -201,4 +201,5 @@ CREATE TABLE output_images (
 
 CREATE INDEX output_images_team_id ON output_images(team_id);
 CREATE INDEX output_images_base_image_id ON output_images(base_image_id);
+CREATE UNIQUE INDEX output_images_base_image_id_location ON output_images(base_image_id, location);
 

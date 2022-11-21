@@ -1,3 +1,4 @@
+use base64::display::Base64Display;
 use diesel::{deserialize::FromSql, serialize::ToSql};
 use std::{ops::Deref, str::FromStr};
 use thiserror::Error;
@@ -69,6 +70,10 @@ impl<const PREFIX: usize> ObjectId<PREFIX> {
     pub fn nil() -> Self {
         Self(Uuid::nil())
     }
+
+    pub fn display_without_prefix(&self) -> Base64Display {
+        base64::display::Base64Display::with_config(self.0.as_bytes(), base64::URL_SAFE_NO_PAD)
+    }
 }
 
 impl<const PREFIX: usize> Default for ObjectId<PREFIX> {
@@ -115,8 +120,7 @@ impl<const PREFIX: usize> std::fmt::Debug for ObjectId<PREFIX> {
 impl<const PREFIX: usize> std::fmt::Display for ObjectId<PREFIX> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(Self::prefix())?;
-        base64::display::Base64Display::with_config(self.0.as_bytes(), base64::URL_SAFE_NO_PAD)
-            .fmt(f)
+        self.display_without_prefix().fmt(f)
     }
 }
 

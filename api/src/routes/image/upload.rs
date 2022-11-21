@@ -6,7 +6,7 @@ use axum::{
 };
 use bytes::Bytes;
 use chrono::Utc;
-use diesel::prelude::*;
+use diesel::{prelude::*, upsert::excluded};
 use futures::{AsyncWrite, AsyncWriteExt, TryStreamExt};
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
 use opendal::{ObjectMultipart, ObjectPart};
@@ -205,7 +205,7 @@ pub async fn upload_image(
     };
 
     let basename = match base_image.location.rsplit_once('.') {
-        Some((base, ext)) => base,
+        Some((base, _ext)) => base,
         None => base_image.location.as_str(),
     };
 
@@ -230,7 +230,8 @@ pub async fn upload_image(
 
                     let output_image_id = OutputImageId::new();
                     let location = format!(
-                        "{basename}-{size_str}-{output_image_id}.{}",
+                        "{basename}-{size_str}-{}.{}",
+                        base_image.id.display_without_prefix(),
                         format.extension()
                     );
 
@@ -250,9 +251,7 @@ pub async fn upload_image(
             .collect::<Vec<_>>(),
     };
 
-    let output_image_ids = output_images.iter().map(|oi| oi.id).collect::<Vec<_>>();
-
-    state
+    let output_image_ids = state
         .db
         .transaction(move |conn| {
             diesel::update(base_images::table)
@@ -267,22 +266,36 @@ pub async fn upload_image(
                 ))
                 .execute(conn)?;
 
+            let output_image_locations = output_images
+                .iter()
+                .map(|oi| &oi.location)
+                .collect::<Vec<_>>();
+
             // Set the existing output images to be deleted, but don't delete them yet since the
             // user may need to transition some other code away that uses it.
             // (Alternatively, should we just replace the files with the same parameters? I'm leaning
             // toward that.)
-            let to_delete = diesel::update(output_images::table)
+            diesel::update(output_images::table)
                 .filter(output_images::base_image_id.eq(image_id))
                 .filter(output_images::team_id.eq(user.team_id))
+                .filter(output_images::location.ne_all(output_image_locations))
                 .set((output_images::status.eq(db::OutputImageStatus::QueuedForDelete),))
-                .returning(output_images::id)
-                .get_results::<OutputImageId>(conn)?;
-
-            diesel::insert_into(db::output_images::table)
-                .values(&output_images)
                 .execute(conn)?;
 
-            Ok::<_, anyhow::Error>(to_delete)
+            let output_image_ids = diesel::insert_into(db::output_images::table)
+                .values(&output_images)
+                .on_conflict((output_images::base_image_id, output_images::location))
+                .do_update()
+                .set((
+                    output_images::status.eq(db::OutputImageStatus::Queued),
+                    output_images::updated.eq(diesel::dsl::now),
+                    output_images::size.eq(excluded(output_images::size)),
+                    output_images::format.eq(excluded(output_images::format)),
+                ))
+                .returning(output_images::id)
+                .get_results(conn)?;
+
+            Ok::<_, anyhow::Error>(output_image_ids)
         })
         .await?;
 
