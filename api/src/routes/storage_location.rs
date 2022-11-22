@@ -19,8 +19,10 @@ use pic_store_db as db;
 use serde_json::json;
 
 use crate::{
-    auth::UserInfo, create_object, disable_object, get_object, list_project_and_global_objects,
-    shared_state::State, write_object, Error,
+    auth::{Authenticated, UserInfo},
+    create_object, disable_object, get_object, list_project_and_global_objects,
+    shared_state::State,
+    write_object, Error,
 };
 
 #[derive(Deserialize)]
@@ -50,14 +52,14 @@ pub struct StorageLocationOutput {
 
 async fn list_global_locations(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
 ) -> Result<impl IntoResponse, Error> {
     list_locations(state, user, None).await
 }
 
 async fn list_project_locations(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
 ) -> Result<impl IntoResponse, Error> {
     list_locations(state, user, Some(project_id)).await
@@ -83,7 +85,7 @@ async fn list_locations(
 
 async fn write_project_location(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(path): Path<ProjectStorageLocationPath>,
     Json(body): Json<StorageLocationInput>,
 ) -> Result<impl IntoResponse, Error> {
@@ -99,7 +101,7 @@ async fn write_project_location(
 
 async fn write_global_location(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(location_id): Path<StorageLocationId>,
     Json(body): Json<StorageLocationInput>,
 ) -> Result<impl IntoResponse, Error> {
@@ -136,7 +138,7 @@ async fn write_location(
 
 async fn new_project_location(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
     Json(body): Json<StorageLocationInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -145,7 +147,7 @@ async fn new_project_location(
 
 async fn new_global_location(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Json(body): Json<StorageLocationInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
     new_location(state, user, None, body).await
@@ -183,7 +185,7 @@ async fn new_location(
 
 async fn get_global_location(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(location_id): Path<StorageLocationId>,
 ) -> Result<impl IntoResponse, crate::Error> {
     get_location(state, user, location_id).await
@@ -191,7 +193,7 @@ async fn get_global_location(
 
 async fn get_project_location(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(path): Path<ProjectStorageLocationPath>,
 ) -> Result<impl IntoResponse, crate::Error> {
     get_location(state, user, path.storage_location_id).await
@@ -223,7 +225,7 @@ async fn get_location(
 
 async fn disable_project_location(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(path): Path<ProjectStorageLocationPath>,
 ) -> Result<impl IntoResponse, crate::Error> {
     disable_location(state, user, Some(path.project_id), path.storage_location_id).await
@@ -231,7 +233,7 @@ async fn disable_project_location(
 
 async fn disable_global_location(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(location_id): Path<StorageLocationId>,
 ) -> Result<impl IntoResponse, crate::Error> {
     disable_location(state, user, None, location_id).await

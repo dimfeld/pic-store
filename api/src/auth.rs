@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use auth::session::{SessionCookieManager, SessionManager};
 use auth::{AuthenticationLayer, RequestUser};
+use axum::extract::{FromRequest, RequestParts};
+use axum::Extension;
 use chrono::{DateTime, Utc};
 use db::PoolExt;
 use diesel::dsl::sql;
@@ -281,6 +283,24 @@ pub fn auth_layer(
     };
 
     AuthenticationLayer::new(api_store, session_manager)
+}
+
+pub struct Authenticated(pub UserInfo);
+
+#[async_trait]
+impl<B> FromRequest<B> for Authenticated
+where
+    B: Send,
+{
+    type Rejection = Error;
+
+    async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
+        req.extensions()
+            .get::<UserInfo>()
+            .cloned()
+            .map(Self)
+            .ok_or(Error::Unauthenticated)
+    }
 }
 
 pub fn must_have_permission_on_project(

@@ -27,6 +27,9 @@ pub enum Error {
     #[error("Missing Permission {0}")]
     MissingPermission(Permission),
 
+    #[error("Unauthenticated")]
+    Unauthenticated,
+
     #[error("Auth error: {0}")]
     AuthError(#[from] pic_store_auth::Error),
 
@@ -81,8 +84,9 @@ impl Error {
             Error::ServerError(_) => "internal_server_error",
             Error::DeadpoolInteract(_) => "db",
             Error::MissingPermission(_) => "missing_permission",
-            Error::AuthError(_) => "auth",
-            Error::ApiKeyNotFound => "auth",
+            Error::Unauthenticated => "authn",
+            Error::AuthError(_) => "authz",
+            Error::ApiKeyNotFound => "authn",
             Error::StorageError(_) => "storage",
             Error::NotFound => "not_found",
             Error::ObjectNotFound(_) => "not_found",
@@ -93,7 +97,7 @@ impl Error {
             Error::ContentLengthRequired => "bad_request",
             Error::RequestTooLarge => "bad_request",
             Error::Generic(_) => "internal_server_error",
-            Error::InvalidSessionId => "auth",
+            Error::InvalidSessionId => "authn",
             Error::NoUploadProfile => "no_upload_profile",
             Error::Queue(_) => "job_queue",
         }
@@ -104,6 +108,7 @@ impl Error {
             Error::NoUploadProfile => StatusCode::BAD_REQUEST,
             Error::MissingPermission(_) => StatusCode::FORBIDDEN,
             Error::NotFound => StatusCode::NOT_FOUND,
+            Error::Unauthenticated => StatusCode::FORBIDDEN,
             Error::AuthError(_) => StatusCode::UNAUTHORIZED,
             Error::ApiKeyNotFound => StatusCode::UNAUTHORIZED,
             Error::InvalidSessionId => StatusCode::UNAUTHORIZED,

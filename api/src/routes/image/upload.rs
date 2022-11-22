@@ -23,7 +23,11 @@ use db::{
 };
 use tracing::{event, Level};
 
-use crate::{auth::UserInfo, shared_state::State, Error};
+use crate::{
+    auth::{Authenticated, UserInfo},
+    shared_state::State,
+    Error,
+};
 
 struct Header {
     buf: HeaderBuf,
@@ -132,7 +136,7 @@ async fn handle_upload(
 
 pub async fn upload_image(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     ContentLengthLimit(stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
     Path(image_id): Path<BaseImageId>,
 ) -> Result<impl IntoResponse, Error> {

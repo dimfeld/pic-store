@@ -19,7 +19,7 @@ use serde_json::json;
 use pic_store_db as db;
 
 use crate::{
-    auth::{must_have_permission_on_project, UserInfo},
+    auth::{must_have_permission_on_project, Authenticated, UserInfo},
     create_object, disable_object, get_object, list_project_objects,
     shared_state::State,
     write_object, Error, Result,
@@ -46,7 +46,7 @@ struct UploadProfileOutput {
 
 async fn list_project_upload_profiles(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
 ) -> Result<impl IntoResponse> {
     let objects = list_project_objects!(
@@ -64,7 +64,7 @@ async fn list_project_upload_profiles(
 
 async fn get_project_upload_profile(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
 ) -> Result<impl IntoResponse> {
     let (object, allowed) = get_object!(
@@ -88,7 +88,7 @@ async fn get_project_upload_profile(
 
 async fn write_project_upload_profile(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
     Json(body): Json<UploadProfileInput>,
 ) -> Result<impl IntoResponse> {
@@ -109,7 +109,7 @@ async fn write_project_upload_profile(
 
 async fn new_project_upload_profile(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
     Json(payload): Json<UploadProfileInput>,
 ) -> Result<impl IntoResponse> {
@@ -142,7 +142,7 @@ async fn new_project_upload_profile(
 
 async fn disable_project_upload_profile(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
 ) -> Result<impl IntoResponse> {
     disable_object!(

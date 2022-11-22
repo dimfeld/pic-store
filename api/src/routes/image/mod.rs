@@ -1,24 +1,29 @@
 mod upload;
 
 use axum::{
+    extract::Path,
     response::IntoResponse,
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
 use db::{
+    base_images,
     object_id::{BaseImageId, ProjectId, UploadProfileId},
-    upload_profiles, Permission,
+    upload_profiles, BaseImageStatus, ImageFormat, Permission,
 };
 use diesel::prelude::*;
 use http::StatusCode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use pic_store_db as db;
 use tracing::{event, Level};
 
 use crate::{
-    auth::UserInfo, get_object_by_field_query, get_object_query, shared_state::State, Error,
+    auth::{Authenticated, UserInfo},
+    get_object, get_object_by_field_query, get_object_query,
+    shared_state::State,
+    Error, Result,
 };
 
 #[derive(Debug, Deserialize)]
@@ -38,7 +43,7 @@ struct NewBaseImageInput {
 
 async fn new_base_image(
     Extension(ref state): Extension<State>,
-    Extension(user): Extension<UserInfo>,
+    Authenticated(user): Authenticated,
     Json(payload): Json<NewBaseImageInput>,
 ) -> Result<impl IntoResponse, Error> {
     event!(Level::INFO, ?user);
@@ -121,8 +126,46 @@ async fn new_base_image(
     ))
 }
 
-async fn get_base_image() -> impl IntoResponse {
-    todo!();
+async fn get_base_image(
+    Extension(ref state): Extension<State>,
+    Authenticated(user): Authenticated,
+    Path(image_id): Path<BaseImageId>,
+) -> Result<impl IntoResponse> {
+    #[derive(Debug, Queryable, Selectable, Serialize)]
+    #[diesel(table_name = base_images)]
+    pub struct BaseImageResult {
+        pub id: BaseImageId,
+        pub project_id: ProjectId,
+        pub hash: Option<String>,
+        pub filename: String,
+        pub location: String,
+        pub width: i32,
+        pub height: i32,
+        pub format: Option<ImageFormat>,
+        pub upload_profile_id: UploadProfileId,
+        pub status: BaseImageStatus,
+        pub alt_text: String,
+        pub placeholder: Option<String>,
+
+        pub updated: chrono::DateTime<chrono::Utc>,
+    }
+
+    // TODO Join on output images
+    let (info, allowed) = get_object!(
+        base_images,
+        state,
+        user,
+        BaseImageResult,
+        image_id,
+        db::Permission::ProjectRead
+    )
+    .await?;
+
+    if !allowed {
+        return Err(Error::NotFound);
+    }
+
+    Ok((StatusCode::OK, Json(info)))
 }
 
 async fn remove_base_image() -> impl IntoResponse {
