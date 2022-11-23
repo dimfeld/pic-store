@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use diesel::prelude::*;
 use image::DynamicImage;
 use prefect::RunningJob;
@@ -10,13 +9,13 @@ use pic_store_convert as convert;
 use pic_store_db as db;
 use pic_store_storage as storage;
 
-use crate::{Error, Result};
+use crate::Result;
 use db::{
+    base_images,
     conversion_profiles::{ConversionFormat, ConversionSize},
-    object_id::{BaseImageId, ConversionProfileId, OutputImageId},
-    output_images::NewOutputImage,
+    object_id::{BaseImageId, OutputImageId},
     storage_locations::Provider,
-    BaseImageStatus, OutputImageStatus, PoolExt,
+    upload_profiles, BaseImageStatus, OutputImageStatus, PoolExt,
 };
 use tracing::{event, instrument, Level};
 
@@ -51,12 +50,13 @@ pub async fn create_output_images_job(
             db::base_images::table
                 .inner_join(
                     db::upload_profiles::table
+                        .on(base_images::upload_profile_id.eq(upload_profiles::id))
                         .inner_join(
                             bst.on(db::upload_profiles::base_storage_location_id
                                 .eq(bst.field(db::storage_locations::id))),
                         )
                         .inner_join(
-                            ost.on(db::upload_profiles::base_storage_location_id
+                            ost.on(db::upload_profiles::output_storage_location_id
                                 .eq(ost.field(db::storage_locations::id))),
                         ),
                 )
