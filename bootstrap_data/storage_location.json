@@ -1,11 +1,28 @@
-{
-  "id": "{{DEFAULT_STORAGE_LOCATION_ID}}",
-  "team_id": "{{DEFAULT_TEAM_ID}}",
-  "project_id": null,
-  "name": "Default Local FS",
-  "provider": {
-    "type": "local"
+[
+  {
+    "id": "{{LOCAL_STORAGE_LOCATION_ID}}",
+    "team_id": "{{DEFAULT_TEAM_ID}}",
+    "project_id": null,
+    "name": "Default Local FS",
+    "provider": {
+      "type": "local"
+    },
+    "base_location": "./store",
+    "public_url_base": "http://localhost"
   },
-  "base_location": "./store",
-  "public_url_base": "http://localhost"
-}
+  {
+    "id": "{{S3_STORAGE_LOCATION_ID}}",
+    "team_id": "{{DEFAULT_TEAM_ID}}",
+    "project_id": null,
+    "name": "{{S3_STORAGE_LOCATION_NAME}}",
+    "provider": {
+      "type": "s3",
+      "endpoint": "{{S3_STORAGE_LOCATION_ENDPOINT}}",
+      "region": "{{S3_STORAGE_LOCATION_REGION}}",
+      "access_key_id": "{{S3_STORAGE_LOCATION_ACCESS_KEY}}",
+      "secret_key": "{{S3_STORAGE_LOCATION_SECRET_KEY}}"
+    },
+    "base_location": "{{S3_STORAGE_LOCATION_BUCKET}}",
+    "public_url_base": "{{S3_STORAGE_LOCATION_BASE_URL}}"
+  }
+]
