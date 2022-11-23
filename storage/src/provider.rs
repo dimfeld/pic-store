@@ -19,15 +19,19 @@ impl ProviderConfig {
         match provider_type {
             db::storage_locations::Provider::S3 {
                 endpoint,
+                region,
                 access_key_id,
                 secret_key,
+                virtual_host_style,
             } => {
                 let uri = endpoint.map(|ep| ep.parse::<http::Uri>()).transpose()?;
 
                 Ok(ProviderConfig::S3(S3ProviderConfig {
                     endpoint: uri,
+                    region,
                     access_key_id,
                     secret_key,
+                    virtual_host_style,
                 }))
             }
             db::storage_locations::Provider::Local => Ok(Self::Local),

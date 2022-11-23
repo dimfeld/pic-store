@@ -19,8 +19,10 @@ pub enum Provider {
     /// S3 or compatible storage
     S3 {
         endpoint: Option<String>,
+        region: Option<String>,
         access_key_id: String,
         secret_key: String,
+        virtual_host_style: Option<bool>,
     },
 }
 

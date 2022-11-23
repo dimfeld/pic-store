@@ -1,7 +1,8 @@
 use diesel_derive_enum::DbEnum;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, DbEnum)]
+#[derive(Debug, Clone, Copy, DbEnum, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ImageFormat {
     Png,
     Jpg,
@@ -20,7 +21,8 @@ impl From<ImageFormat> for image::ImageFormat {
     }
 }
 
-#[derive(Debug, Clone, Copy, DbEnum)]
+#[derive(Debug, Clone, Copy, DbEnum, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BaseImageStatus {
     AwaitingUpload,
     Converting,
@@ -36,7 +38,8 @@ impl Default for BaseImageStatus {
     }
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug, DbEnum)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, DbEnum, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum OutputImageStatus {
     Queued,
     Converting,

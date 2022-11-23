@@ -7,8 +7,10 @@ use opendal::{Accessor, Operator};
 #[derive(Debug, Clone)]
 pub struct S3ProviderConfig {
     pub endpoint: Option<Uri>,
+    pub region: Option<String>,
     pub access_key_id: String,
     pub secret_key: String,
+    pub virtual_host_style: Option<bool>,
 }
 
 pub fn create_client(config: &S3ProviderConfig) -> S3Client {
@@ -37,9 +39,14 @@ pub(crate) async fn create_opendal_operator(
     builder
         .access_key_id(config.access_key_id.as_str())
         .secret_access_key(config.secret_key.as_str());
+
     if let Some(endpoint) = config.endpoint.as_ref() {
         let e = endpoint.to_string();
         builder.endpoint(e.as_str());
+    }
+
+    if let Some(region) = config.region.as_ref() {
+        builder.region(region.as_str());
     }
 
     if !base_location.is_empty() {
@@ -52,6 +59,10 @@ pub(crate) async fn create_opendal_operator(
         if !root.is_empty() {
             builder.root(root);
         }
+    }
+
+    if config.virtual_host_style.unwrap_or(false) {
+        builder.enable_virtual_host_style();
     }
 
     let acc = builder.build()?;

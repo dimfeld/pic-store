@@ -26,7 +26,12 @@ pub use enums::*;
 pub use json::*;
 
 use async_trait::async_trait;
-use diesel::{helper_types::IntoBoxed, sql_types, Connection, PgConnection};
+use diesel::{
+    helper_types::IntoBoxed,
+    pg::Pg,
+    query_builder::{AstPass, QueryFragment, SelectQuery},
+    sql_types, Connection, Expression, PgConnection, QueryResult,
+};
 use object_id::ProjectId;
 
 pub type Pool = deadpool_diesel::postgres::Pool;
