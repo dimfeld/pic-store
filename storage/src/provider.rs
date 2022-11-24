@@ -1,6 +1,7 @@
+use std::sync::Arc;
+
 use aws_sdk_s3::client::Client as S3Client;
-use backon::ExponentialBackoff;
-use opendal::layers::{RetryLayer, TracingLayer};
+use object_store::{local::LocalFileSystem, ObjectStore};
 
 use pic_store_db as db;
 
@@ -41,20 +42,14 @@ impl ProviderConfig {
 
 #[derive(Debug)]
 pub enum Provider {
-    S3 {
-        config: S3ProviderConfig,
-        client: S3Client,
-    },
+    S3 { config: S3ProviderConfig },
     Local,
 }
 
 impl Provider {
     pub fn new(config: ProviderConfig) -> Self {
         match config {
-            ProviderConfig::S3(config) => {
-                let client = crate::s3::create_client(&config);
-                Provider::S3 { config, client }
-            }
+            ProviderConfig::S3(config) => Provider::S3 { config },
             ProviderConfig::Local => Provider::Local,
         }
     }
@@ -64,37 +59,41 @@ impl Provider {
         Ok(Provider::new(config))
     }
 
-    pub async fn create_operator(&self, base_location: &str) -> Result<Operator, anyhow::Error> {
-        let (operator, supports_multipart) = match self {
-            Self::S3 { config, .. } => (
-                crate::s3::create_opendal_operator(config, base_location).await?,
-                true,
-            ),
-            Self::Local => {
-                let mut builder = opendal::services::fs::Builder::default();
-
-                if !base_location.is_empty() {
-                    let path = std::path::PathBuf::from(base_location);
-                    if !path.is_absolute() {
-                        let full_path = path.canonicalize()?;
-                        let new_root = full_path.to_string_lossy();
-                        builder.root(&new_root);
+    pub async fn create_operator(&self, base_location: &str) -> Result<Operator, eyre::Report> {
+        let (operator, supports_multipart, manual_prefix): (Box<dyn ObjectStore>, bool, bool) =
+            match self {
+                Self::S3 { config, .. } => (
+                    Box::new(crate::s3::create_store(config, base_location)?),
+                    true,
+                    true,
+                ),
+                Self::Local => {
+                    let store = if !base_location.is_empty() {
+                        let path = std::path::PathBuf::from(base_location);
+                        if !path.is_absolute() {
+                            let full_path = path.canonicalize()?;
+                            LocalFileSystem::new_with_prefix(&full_path)?
+                        } else {
+                            LocalFileSystem::new_with_prefix(&path)?
+                        }
                     } else {
-                        builder.root(base_location);
-                    }
-                }
+                        LocalFileSystem::new()
+                    };
 
-                let acc = builder.build()?;
-                (opendal::Operator::new(acc), false)
-            }
+                    (Box::new(store), false, false)
+                }
+            };
+
+        let path_prefix = if manual_prefix {
+            None
+        } else {
+            Some(object_store::path::Path::from(base_location))
         };
 
-        let operator = operator
-            .layer(RetryLayer::new(ExponentialBackoff::default()))
-            .layer(TracingLayer);
         Ok(Operator {
             operator,
             supports_multipart,
+            path_prefix,
         })
     }
 }

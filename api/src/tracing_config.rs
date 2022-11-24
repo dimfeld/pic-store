@@ -16,7 +16,7 @@ pub enum TracingExportConfig {
     Jaeger(String),
 }
 
-pub fn configure(export_config: TracingExportConfig) -> Result<(), anyhow::Error> {
+pub fn configure(export_config: TracingExportConfig) -> Result<(), eyre::Report> {
     LogTracer::builder()
         .ignore_crate("rustls")
         .with_max_level(log::LevelFilter::Debug)

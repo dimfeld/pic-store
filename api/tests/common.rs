@@ -1,5 +1,5 @@
-use anyhow::Result;
 use diesel::RunQueryDsl;
+use eyre::Result;
 use futures::Future;
 use once_cell::sync::Lazy;
 
@@ -113,7 +113,7 @@ async fn start_app(
 pub async fn run_app_test<F, R>(f: F)
 where
     F: FnOnce(TestApp) -> R,
-    R: Future<Output = Result<(), anyhow::Error>>,
+    R: Future<Output = Result<(), eyre::Report>>,
 {
     let (database, db_info) = create_database().await.expect("Creating database");
     let app = start_app(database.clone(), db_info.team_id, db_info.admin_user)
@@ -138,7 +138,7 @@ impl TestApp {
                 diesel::insert_into(pic_store_db::teams::table)
                     .values(&team)
                     .execute(conn)?;
-                Ok::<_, anyhow::Error>(())
+                Ok::<_, eyre::Report>(())
             })
             .await?;
 
@@ -180,7 +180,7 @@ impl TestApp {
 
                 let key = pic_store_api::api_key::make_key(conn, user_id, false, None, None)?;
 
-                Ok::<_, anyhow::Error>(key)
+                Ok::<_, eyre::Report>(key)
             })
             .await?
             .key;

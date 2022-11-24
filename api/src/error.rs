@@ -22,7 +22,7 @@ pub enum Error {
     ServerError(hyper::Error),
 
     #[error("Database Error: {0}")]
-    DeadpoolInteract(anyhow::Error),
+    DeadpoolInteract(eyre::Report),
 
     #[error("Missing Permission {0}")]
     MissingPermission(Permission),
@@ -64,7 +64,7 @@ pub enum Error {
     RequestTooLarge,
 
     #[error(transparent)]
-    Generic(#[from] anyhow::Error),
+    Generic(#[from] eyre::Report),
 
     #[error("Invalid session id")]
     InvalidSessionId,

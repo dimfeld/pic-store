@@ -105,7 +105,7 @@ where
 mod test {
     use axum::{
         body::Body,
-        http::{Method, Request, Response, StatusCode},
+        http::{Method, Request, StatusCode},
         routing::get,
         Router,
     };

@@ -1,7 +1,7 @@
-use anyhow::Result;
 use chrono::{DateTime, TimeZone, Utc};
 use clap::Args;
 use diesel::{prelude::*, Connection, PgConnection};
+use eyre::Result;
 use pic_store_db::object_id::*;
 
 use pic_store_api::api_key::make_key;

@@ -12,12 +12,12 @@ use crate::upload_profiles::NewUploadProfile;
 use crate::user_roles::UserAndRole;
 use crate::users::NewUser;
 use crate::{Permission, Pool, PoolExt};
-use anyhow::{anyhow, Result};
 use deadpool_diesel::Manager;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::Connection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
+use eyre::{eyre, Result};
 use futures::Future;
 use lazy_static::lazy_static;
 use std::str::FromStr;
@@ -53,7 +53,7 @@ fn escape(s: &str) -> String {
 pub async fn run_database_test<F, R>(f: F)
 where
     F: FnOnce(TestDatabase) -> R,
-    R: Future<Output = Result<(), anyhow::Error>>,
+    R: Future<Output = Result<()>>,
 {
     let (database, _) = create_database().await.expect("Creating database");
     f(database.clone()).await.unwrap();
@@ -69,8 +69,8 @@ pub async fn create_database() -> Result<(TestDatabase, DatabaseInfo)> {
         .unwrap_or_else(|_| "localhost".to_string());
     let port = std::env::var("TEST_DATABASE_PORT")
         .or_else(|_| std::env::var("DATABASE_PORT"))
-        .map_err(anyhow::Error::new)
-        .and_then(|val| val.parse::<u16>().map_err(|e| anyhow!(e)))
+        .map_err(eyre::Report::new)
+        .and_then(|val| val.parse::<u16>().map_err(|e| eyre!(e)))
         .unwrap_or(5432);
     let user = std::env::var("TEST_DATABASE_USER").unwrap_or_else(|_| "postgres".to_string());
     let password = std::env::var("TEST_DATABASE_PASSWORD").unwrap_or_else(|_| "".to_string());
@@ -109,7 +109,7 @@ END; $$;
         .interact(|conn| {
             conn.run_pending_migrations(MIGRATIONS).unwrap();
             let admin_user = populate_database(conn)?;
-            Ok::<_, anyhow::Error>(admin_user)
+            Ok::<_, eyre::Report>(admin_user)
         })
         .await?;
 
@@ -145,7 +145,7 @@ pub struct DatabaseInfo {
     pub conversion_profile_id: ConversionProfileId,
 }
 
-fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, anyhow::Error> {
+fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, eyre::Report> {
     let user_id = *ADMIN_USER_ID;
     let team_id = TeamId::new();
 

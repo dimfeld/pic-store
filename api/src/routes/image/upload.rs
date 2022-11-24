@@ -7,9 +7,8 @@ use axum::{
 use bytes::Bytes;
 use chrono::Utc;
 use diesel::{prelude::*, upsert::excluded};
-use futures::{AsyncWrite, AsyncWriteExt, TryStreamExt};
+use futures::TryStreamExt;
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
-use opendal::{ObjectMultipart, ObjectPart};
 use serde_json::json;
 
 use pic_store_db as db;
@@ -21,6 +20,7 @@ use db::{
     output_images::{self, NewOutputImage},
     Permission, PoolExt,
 };
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{event, Level};
 
 use crate::{
@@ -103,7 +103,7 @@ impl Header {
 }
 
 async fn handle_upload(
-    upload: &mut storage::Writer,
+    upload: &mut Box<dyn AsyncWrite + Unpin + Send>,
     mut stream: BodyStream,
 ) -> Result<(String, ImageInfo), Error> {
     let mut hasher = blake3::Hasher::new();
@@ -123,7 +123,7 @@ async fn handle_upload(
             }
         }
 
-        upload.add_part(chunk).await?;
+        upload.write_all(&chunk).await?;
     }
 
     let info = info.ok_or(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat))?;
@@ -184,18 +184,19 @@ pub async fn upload_image(
 
     let operator = provider
         .create_operator(output_path.base_location.as_str())
-        .await
-        .map_err(storage::Error::OperatorError)?;
+        .await?;
 
-    let object = operator.object(base_image.location.as_str());
-    let mut upload = operator.writer(object).await?;
-    let (hash_hex, info) = match handle_upload(&mut upload, stream).await {
+    let (upload_id, mut writer) = operator.put_multipart(&base_image.location).await?;
+    let (hash_hex, info) = match handle_upload(&mut writer, stream).await {
         Ok((hash_hex, info)) => {
-            upload.complete().await?;
+            writer.shutdown().await?;
             (hash_hex, info)
         }
         Err(e) => {
-            upload.abort().await?;
+            operator
+                .abort_multipart(&base_image.location, &upload_id)
+                .await
+                .ok();
             return Err(e);
         }
     };
@@ -299,7 +300,7 @@ pub async fn upload_image(
                 .returning(output_images::id)
                 .get_results(conn)?;
 
-            Ok::<_, anyhow::Error>(output_image_ids)
+            Ok::<_, eyre::Report>(output_image_ids)
         })
         .await?;
 

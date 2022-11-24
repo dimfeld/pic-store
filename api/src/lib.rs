@@ -91,14 +91,14 @@ impl Server {
     }
 }
 
-pub async fn create_server(config: config::Config) -> Result<Server, anyhow::Error> {
+pub async fn create_server(config: config::Config) -> Result<Server, eyre::Report> {
     let db = pic_store_db::connect(config.database_url.as_str(), 32)?;
 
     let production = config.env != "development" && !cfg!(debug_assertions);
 
     let (queue, worker) = jobs::create_job_queue(&PathBuf::from(config.queue_db_path), db.clone())
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to create job queue: {}", e))?;
+        .map_err(|e| eyre::eyre!("Failed to create job queue: {}", e))?;
 
     let state = Arc::new(InnerState {
         production,

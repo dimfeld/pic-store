@@ -126,7 +126,7 @@ async fn new_base_image(
     ))
 }
 
-async fn get_base_image(
+async fn get_base_image_by_id(
     Extension(ref state): Extension<State>,
     Authenticated(user): Authenticated,
     Path(image_id): Path<BaseImageId>,
@@ -319,7 +319,7 @@ async fn update_base_image_info() -> impl IntoResponse {
 pub fn configure() -> Router {
     let routes = Router::new()
         .route("/", post(new_base_image))
-        .route("/:image_id", get(get_base_image))
+        .route("/:image_id", get(get_base_image_by_id))
         .route("/:image_id", put(update_base_image_info))
         .route("/:image_id", delete(remove_base_image))
         .route("/:image_id/upload", post(upload::upload_image));

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bytes::Bytes;
 use diesel::prelude::*;
 use image::DynamicImage;
 use prefect::RunningJob;
@@ -31,7 +32,7 @@ pub struct CreateOutputImagesJobPayload {
 pub async fn create_output_images_job(
     job: RunningJob,
     context: JobContext,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), eyre::Report> {
     let mut payload = job.json_payload::<CreateOutputImagesJobPayload>()?;
 
     event!(Level::INFO, ?payload);
@@ -69,7 +70,7 @@ pub async fn create_output_images_job(
                     ost.field(db::storage_locations::provider),
                 ))
                 .first::<(String, String, Provider, String, Provider)>(conn)
-                .map_err(anyhow::Error::new)
+                .map_err(eyre::Report::new)
         })
         .await?;
 
@@ -100,7 +101,7 @@ pub async fn create_output_images_job(
                         db::output_images::size,
                     ))
                     .get_result::<(String, ConversionFormat, ConversionSize)>(conn)
-                    .map_err(anyhow::Error::new)
+                    .map_err(eyre::Report::new)
             })
             .await?;
 
@@ -126,8 +127,7 @@ pub async fn create_output_images_job(
                 .await??;
 
         output_operator
-            .object(output_location.as_str())
-            .write(convert_result.image)
+            .put(output_location.as_str(), Bytes::from(convert_result.image))
             .await?;
 
         context
@@ -143,7 +143,7 @@ pub async fn create_output_images_job(
                     ))
                     .execute(conn)?;
 
-                Ok::<_, anyhow::Error>(())
+                Ok::<_, eyre::Report>(())
             })
             .await?;
 
@@ -159,7 +159,7 @@ pub async fn create_output_images_job(
                 .set(db::base_images::status.eq(BaseImageStatus::Ready))
                 .execute(conn)?;
 
-            Ok::<_, anyhow::Error>(())
+            Ok::<_, eyre::Report>(())
         })
         .await?;
 
@@ -170,9 +170,10 @@ async fn read_image(
     storage_provider: pic_store_storage::Provider,
     base_location: &str,
     location: &str,
-) -> Result<Arc<DynamicImage>, anyhow::Error> {
+) -> Result<Arc<DynamicImage>, eyre::Report> {
     let op = storage_provider.create_operator(base_location).await?;
-    let base_image_data = op.object(location).read().await?;
-    let base_image = Arc::new(convert::image_from_bytes(base_image_data.as_slice())?);
+    let base_image_data = op.get(location).await?;
+    let buffer = base_image_data.bytes().await?;
+    let base_image = Arc::new(convert::image_from_bytes(&buffer)?);
     Ok(base_image)
 }

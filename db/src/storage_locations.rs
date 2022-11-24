@@ -20,8 +20,8 @@ pub enum Provider {
     S3 {
         endpoint: Option<String>,
         region: Option<String>,
-        access_key_id: String,
-        secret_key: String,
+        access_key_id: Option<String>,
+        secret_key: Option<String>,
         virtual_host_style: Option<bool>,
     },
 }

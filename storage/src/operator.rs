@@ -1,117 +1,51 @@
-use std::ops::Deref;
-
 use bytes::Bytes;
-use futures::stream::TryStreamExt;
-use opendal::{Object, ObjectPart};
-use std::io::Result;
+use object_store::{path::Path, GetResult, MultipartId, ObjectStore};
+use tokio::io::AsyncWrite;
+use tracing::instrument;
+
+use crate::error::{Error, Result};
 
 pub struct Operator {
-    pub operator: opendal::Operator,
+    pub operator: Box<dyn ObjectStore>,
     pub supports_multipart: bool,
-}
-
-impl Deref for Operator {
-    type Target = opendal::Operator;
-
-    fn deref(&self) -> &Self::Target {
-        &self.operator
-    }
+    pub path_prefix: Option<Path>,
 }
 
 impl Operator {
-    pub async fn writer(&self, object: Object) -> Result<Writer> {
-        let writer = match self.supports_multipart {
-            true => Writer::Multipart(MultipartWriter::new(object).await?),
-            false => Writer::Simple(SimpleWriter::new(object)),
-        };
-
-        Ok(writer)
-    }
-}
-
-pub enum Writer {
-    Multipart(MultipartWriter),
-    Simple(SimpleWriter),
-}
-
-impl Writer {
-    pub async fn complete(self) -> Result<Object> {
-        match self {
-            Self::Multipart(w) => w.complete().await,
-            Self::Simple(w) => w.complete().await,
+    fn make_full_path(&self, location: &str) -> Path {
+        match &self.path_prefix {
+            Some(prefix) => prefix.child(location),
+            None => Path::from(location),
         }
     }
 
-    pub async fn abort(self) -> Result<()> {
-        match self {
-            Self::Multipart(w) => w.abort().await,
-            Self::Simple(w) => w.abort(),
-        }
+    #[instrument(skip(self))]
+    pub async fn get(&self, location: &str) -> Result<GetResult> {
+        let p = self.make_full_path(location);
+        self.operator.get(&p).await.map_err(Error::from)
     }
 
-    pub async fn add_part(&mut self, bytes: Bytes) -> Result<()> {
-        match self {
-            Self::Multipart(w) => w.add_part(bytes).await,
-            Self::Simple(w) => w.add_part(bytes),
-        }
-    }
-}
-
-pub struct MultipartWriter {
-    upload: opendal::ObjectMultipart,
-    parts: Vec<ObjectPart>,
-}
-
-impl MultipartWriter {
-    async fn new(object: Object) -> Result<Self> {
-        Ok(MultipartWriter {
-            upload: object.create_multipart().await?,
-            parts: Vec::new(),
-        })
+    #[instrument(skip(self))]
+    pub async fn put(&self, location: &str, bytes: Bytes) -> Result<()> {
+        let p = self.make_full_path(location);
+        self.operator.put(&p, bytes).await.map_err(Error::from)
     }
 
-    pub async fn complete(self) -> Result<Object> {
-        self.upload.complete(self.parts).await
+    #[instrument(skip(self))]
+    pub async fn put_multipart(
+        &self,
+        location: &str,
+    ) -> Result<(MultipartId, Box<dyn AsyncWrite + Unpin + Send>)> {
+        let p = self.make_full_path(location);
+        self.operator.put_multipart(&p).await.map_err(Error::from)
     }
 
-    pub async fn abort(&self) -> Result<()> {
-        self.upload.abort().await
-    }
-
-    pub async fn add_part(&mut self, bytes: Bytes) -> std::io::Result<()> {
-        self.parts
-            .push(self.upload.write(self.parts.len(), bytes).await?);
-        Ok(())
-    }
-}
-
-pub struct SimpleWriter {
-    object: Object,
-    buffer: Vec<Bytes>,
-}
-
-impl SimpleWriter {
-    fn new(object: Object) -> Self {
-        SimpleWriter {
-            object,
-            buffer: Vec::new(),
-        }
-    }
-
-    pub async fn complete(self) -> Result<Object> {
-        let len = self.buffer.iter().map(|b| b.len() as u64).sum::<u64>();
-        let stream = futures::stream::iter(self.buffer.into_iter().map(Ok)).into_async_read();
-        self.object.write_from(len, stream).await?;
-        Ok(self.object)
-    }
-
-    pub fn abort(&self) -> Result<()> {
-        // Nothing to do here, we just ignore the data.
-        Ok(())
-    }
-
-    pub fn add_part(&mut self, bytes: Bytes) -> Result<()> {
-        self.buffer.push(bytes);
-        Ok(())
+    #[instrument(skip(self))]
+    pub async fn abort_multipart(&self, location: &str, id: &MultipartId) -> Result<()> {
+        let p = self.make_full_path(location);
+        self.operator
+            .abort_multipart(&p, id)
+            .await
+            .map_err(Error::from)
     }
 }

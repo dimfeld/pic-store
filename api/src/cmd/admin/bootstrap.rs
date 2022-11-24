@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Error};
 use chrono::{DateTime, Utc};
 use clap::Args;
 use diesel::{prelude::*, sql_query};
+use eyre::{eyre, Result};
 use pic_store_api::auth::API_KEY_PREFIX;
 use serde::Deserialize;
 use std::{collections::HashMap, env, path::Path};
@@ -17,7 +17,7 @@ pub struct BootstrapArgs {
     location: String,
 }
 
-pub fn bootstrap(args: BootstrapArgs) -> Result<(), anyhow::Error> {
+pub fn bootstrap(args: BootstrapArgs) -> Result<(), eyre::Report> {
     let database_url = env::var("DATABASE_URL")?;
     let mut conn = PgConnection::establish(database_url.as_str())?;
 
@@ -36,7 +36,7 @@ pub fn bootstrap(args: BootstrapArgs) -> Result<(), anyhow::Error> {
             apply_file(conn, &parser, &vars, &file)?;
         }
 
-        Ok::<_, anyhow::Error>(())
+        Ok::<_, eyre::Report>(())
     })?;
 
     Ok(())
@@ -47,7 +47,7 @@ fn apply_file(
     parser: &liquid::Parser,
     vars: &liquid::Object,
     filename: &Path,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), eyre::Report> {
     println!("Applying {}", filename.display());
 
     let template = parser.parse_file(filename)?;
@@ -62,12 +62,12 @@ fn apply_file(
                 if let serde_json::Value::Object(_) = &obj {
                     apply_object(conn, final_path.as_ref(), obj)?;
                 } else {
-                    return Err(anyhow!("Expected object, found {obj:?}"));
+                    return Err(eyre!("Expected object, found {obj:?}"));
                 }
             }
         }
         objs @ serde_json::Value::Object(_) => apply_object(conn, final_path.as_ref(), objs)?,
-        _ => return Err(anyhow!("Expected object, found {objs:?}")),
+        _ => return Err(eyre!("Expected object, found {objs:?}")),
     }
 
     Ok(())
@@ -94,11 +94,11 @@ fn apply_object(
     conn: &mut PgConnection,
     filename: &str,
     obj: serde_json::Value,
-) -> Result<(), Error> {
+) -> eyre::Result<()> {
     let object_type = filename
         .rsplit('.')
         .nth(1)
-        .ok_or_else(|| anyhow!("No object type found in filename {filename:?}"))?;
+        .ok_or_else(|| eyre!("No object type found in filename {filename:?}"))?;
 
     match object_type {
         "user" | "users" => insert_object!(db::users::table, db::users::NewUser, conn, obj),
@@ -143,11 +143,11 @@ fn apply_object(
             // Parse the key into its component parts, so we can recreate it.
             let parts = input.key.split('.').collect::<Vec<_>>();
             if parts.len() != 3 {
-                return Err(anyhow!("API key must have 3 parts"));
+                return Err(eyre!("API key must have 3 parts"));
             }
 
             if parts[0] != API_KEY_PREFIX {
-                return Err(anyhow!("API KEY must start with {API_KEY_PREFIX}."));
+                return Err(eyre!("API KEY must start with {API_KEY_PREFIX}."));
             }
 
             let id_data = base64::decode_config(parts[1], base64::URL_SAFE_NO_PAD)?;
@@ -178,7 +178,7 @@ fn apply_object(
                 .values(&value)
                 .execute(conn)?;
         }
-        _ => return Err(anyhow!("Unknown object type in filename {filename:?}")),
+        _ => return Err(eyre!("Unknown object type in filename {filename:?}")),
     };
 
     Ok(())

@@ -61,7 +61,7 @@ pub struct HashPassword {
     password: String,
 }
 
-pub fn admin_commands(cmd: AdminArgs) -> Result<(), anyhow::Error> {
+pub fn admin_commands(cmd: AdminArgs) -> Result<(), eyre::Report> {
     match cmd.commands {
         #[cfg(feature = "bootstrap")]
         Commands::Bootstrap(args) => bootstrap::bootstrap(args)?,
@@ -99,7 +99,7 @@ fn make_id(id: IdType) {
     println!("{id}");
 }
 
-fn hash_password(password: String) -> Result<(), anyhow::Error> {
+fn hash_password(password: String) -> Result<(), eyre::Report> {
     let hash = pic_store_auth::password::new_hash(password.as_str())?;
     println!("{hash}");
     Ok(())
