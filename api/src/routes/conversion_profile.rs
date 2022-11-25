@@ -1,9 +1,9 @@
 use axum::{
-    extract::Path,
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
-    Extension, Json, Router,
+    Json, Router,
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
@@ -22,7 +22,7 @@ use pic_store_db as db;
 use crate::{
     auth::{Authenticated, UserInfo},
     create_object, disable_object, get_object, list_project_and_global_objects,
-    shared_state::State,
+    shared_state::AppState,
     write_object, Error,
 };
 
@@ -60,7 +60,7 @@ pub struct ProjectConversionProfilePath {
 
 /// List conversion profiles for the project and also the global projects.
 async fn list_project_profiles(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -68,14 +68,14 @@ async fn list_project_profiles(
 }
 
 async fn list_global_profiles(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
 ) -> Result<impl IntoResponse, Error> {
     list_profiles(state, user, None).await
 }
 
 async fn list_profiles(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     project_id: Option<ProjectId>,
 ) -> Result<impl IntoResponse, Error> {
@@ -93,7 +93,7 @@ async fn list_profiles(
 }
 
 async fn write_project_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(path): Path<ProjectConversionProfilePath>,
     Json(body): Json<ConversionProfileInput>,
@@ -109,7 +109,7 @@ async fn write_project_profile(
 }
 
 async fn write_global_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(profile_id): Path<ConversionProfileId>,
     Json(body): Json<ConversionProfileInput>,
@@ -118,7 +118,7 @@ async fn write_global_profile(
 }
 
 async fn write_profile(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     project_id: Option<ProjectId>,
     profile_id: ConversionProfileId,
@@ -144,7 +144,7 @@ async fn write_profile(
 }
 
 async fn new_project_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
     Json(body): Json<ConversionProfileInput>,
@@ -153,7 +153,7 @@ async fn new_project_profile(
 }
 
 async fn new_global_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Json(body): Json<ConversionProfileInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -161,7 +161,7 @@ async fn new_global_profile(
 }
 
 async fn new_profile(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     project_id: Option<ProjectId>,
     body: ConversionProfileInput,
@@ -189,7 +189,7 @@ async fn new_profile(
 }
 
 async fn get_global_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(profile_id): Path<ConversionProfileId>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -197,7 +197,7 @@ async fn get_global_profile(
 }
 
 async fn get_project_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(path): Path<ProjectConversionProfilePath>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -205,7 +205,7 @@ async fn get_project_profile(
 }
 
 async fn get_profile(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     profile_id: ConversionProfileId,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -229,7 +229,7 @@ async fn get_profile(
 }
 
 async fn disable_project_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(path): Path<ProjectConversionProfilePath>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -243,7 +243,7 @@ async fn disable_project_profile(
 }
 
 async fn disable_global_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(profile_id): Path<ConversionProfileId>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -251,7 +251,7 @@ async fn disable_global_profile(
 }
 
 async fn disable_profile(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     project_id: Option<ProjectId>,
     profile_id: ConversionProfileId,
@@ -269,7 +269,7 @@ async fn disable_profile(
     Ok((StatusCode::OK, Json(json!({}))))
 }
 
-pub fn configure() -> Router {
+pub fn configure() -> Router<AppState> {
     let project_routes = Router::new()
         .route("/", get(list_project_profiles))
         .route("/", post(new_project_profile))

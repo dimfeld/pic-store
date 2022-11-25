@@ -1,7 +1,7 @@
 mod upload;
 
 use axum::{
-    extract::{DefaultBodyLimit, Path},
+    extract::{DefaultBodyLimit, Path, State},
     response::IntoResponse,
     routing::{delete, get, post, put},
     Extension, Json, Router,
@@ -24,7 +24,7 @@ use tracing::{event, Level};
 use crate::{
     auth::{Authenticated, UserInfo},
     get_object_by_field_query, get_object_query,
-    shared_state::State,
+    shared_state::AppState,
     Error, Result,
 };
 
@@ -44,7 +44,7 @@ struct NewBaseImageInput {
 }
 
 async fn new_base_image(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Json(payload): Json<NewBaseImageInput>,
 ) -> Result<impl IntoResponse, Error> {
@@ -134,7 +134,7 @@ enum BaseImageFetchType {
 }
 
 async fn get_base_image_by_hash(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(hash): Path<String>,
 ) -> Result<impl IntoResponse> {
@@ -142,7 +142,7 @@ async fn get_base_image_by_hash(
 }
 
 async fn get_base_image_by_id(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(image_id): Path<BaseImageId>,
 ) -> Result<impl IntoResponse> {
@@ -150,7 +150,7 @@ async fn get_base_image_by_id(
 }
 
 async fn get_base_image(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     lookup: BaseImageFetchType,
 ) -> Result<impl IntoResponse> {
@@ -348,7 +348,7 @@ async fn update_base_image_info() -> impl IntoResponse {
     todo!();
 }
 
-pub fn configure() -> Router {
+pub fn configure() -> Router<AppState> {
     let routes = Router::new()
         .route("/", post(new_base_image))
         .route("/:image_id", get(get_base_image_by_id))

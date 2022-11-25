@@ -1,8 +1,8 @@
-use axum::{http::StatusCode, response::IntoResponse, routing::get, Extension, Json, Router};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Json, Router};
 use diesel::{sql_query, RunQueryDsl};
 use serde::Serialize;
 
-use crate::{shared_state::State, Error};
+use crate::{shared_state::AppState, Error};
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -12,7 +12,7 @@ struct HealthResponse {
     healthy: bool,
 }
 
-async fn check_db(state: &State) -> Result<(), Error> {
+async fn check_db(state: &AppState) -> Result<(), Error> {
     let conn = state.db.get().await?;
     conn.interact(|conn| sql_query("SELECT 1").execute(conn))
         .await??;
@@ -20,8 +20,8 @@ async fn check_db(state: &State) -> Result<(), Error> {
     Ok(())
 }
 
-async fn health(Extension(ref state): Extension<State>) -> impl IntoResponse {
-    let db_result = check_db(state).await;
+async fn health(State(state): State<AppState>) -> impl IntoResponse {
+    let db_result = check_db(&state).await;
 
     (
         StatusCode::OK,
@@ -32,6 +32,6 @@ async fn health(Extension(ref state): Extension<State>) -> impl IntoResponse {
     )
 }
 
-pub fn configure() -> Router {
+pub fn configure() -> Router<AppState> {
     Router::new().route("/health", get(health))
 }

@@ -35,7 +35,7 @@ use crate::{
     auth::auth_layer,
     error::{Error, Result},
     obfuscate_errors::ObfuscateErrorLayer,
-    shared_state::InnerState,
+    shared_state::{AppState, InnerState},
     tracing_config::{HoneycombConfig, TracingExportConfig},
 };
 
@@ -119,7 +119,7 @@ pub async fn create_server(config: config::Config) -> Result<Server, eyre::Repor
             .unwrap(),
     });
 
-    let app = routes::configure_routes(Router::new()).layer(
+    let app: Router<AppState> = routes::configure_routes(Router::new()).layer(
         // Global middlewares
         ServiceBuilder::new()
             .layer(CatchPanicLayer::custom(move |err| {
@@ -131,7 +131,6 @@ pub async fn create_server(config: config::Config) -> Result<Server, eyre::Repor
             .layer(CookieManagerLayer::new())
             .set_x_request_id(MakeRequestUuid)
             .propagate_x_request_id()
-            .layer(Extension(state.clone()))
             .layer(auth_layer(
                 db.clone(),
                 config.session_cookie_name.clone(),
@@ -145,6 +144,8 @@ pub async fn create_server(config: config::Config) -> Result<Server, eyre::Repor
             )
             .into_inner(),
     );
+
+    let app: Router<()> = app.with_state::<()>(state.clone());
 
     let bind_ip: IpAddr = config.host.parse()?;
     let bind_addr = SocketAddr::from((bind_ip, config.port));

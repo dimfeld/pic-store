@@ -1,8 +1,8 @@
 use axum::{
-    extract::{BodyStream, Path},
+    extract::{BodyStream, Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Extension, Json,
+    Json,
 };
 use bytes::Bytes;
 use diesel::{prelude::*, upsert::excluded};
@@ -22,7 +22,7 @@ use db::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{event, Level};
 
-use crate::{auth::Authenticated, shared_state::State, Error};
+use crate::{auth::Authenticated, shared_state::AppState, Error};
 
 struct Header {
     buf: HeaderBuf,
@@ -130,7 +130,7 @@ async fn handle_upload(
 }
 
 pub async fn upload_image(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(image_id): Path<BaseImageId>,
     stream: BodyStream,

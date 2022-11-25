@@ -1,5 +1,5 @@
 use axum::{
-    extract::Path,
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
@@ -21,7 +21,7 @@ use pic_store_db as db;
 use crate::{
     auth::{must_have_permission_on_project, Authenticated, UserInfo},
     create_object, disable_object, get_object, list_project_objects,
-    shared_state::State,
+    shared_state::AppState,
     write_object, Error, Result,
 };
 
@@ -45,7 +45,7 @@ struct UploadProfileOutput {
 }
 
 async fn list_project_upload_profiles(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
 ) -> Result<impl IntoResponse> {
@@ -63,7 +63,7 @@ async fn list_project_upload_profiles(
 }
 
 async fn get_project_upload_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
 ) -> Result<impl IntoResponse> {
@@ -87,7 +87,7 @@ async fn get_project_upload_profile(
 }
 
 async fn write_project_upload_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
     Json(body): Json<UploadProfileInput>,
@@ -108,7 +108,7 @@ async fn write_project_upload_profile(
 }
 
 async fn new_project_upload_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
     Json(payload): Json<UploadProfileInput>,
@@ -141,7 +141,7 @@ async fn new_project_upload_profile(
 }
 
 async fn disable_project_upload_profile(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path((project_id, profile_id)): Path<(ProjectId, UploadProfileId)>,
 ) -> Result<impl IntoResponse> {
@@ -158,7 +158,7 @@ async fn disable_project_upload_profile(
     Ok((StatusCode::OK, Json(json!({}))))
 }
 
-pub fn configure() -> Router {
+pub fn configure() -> Router<AppState> {
     let project_routes = Router::new()
         .route("/", get(list_project_upload_profiles))
         .route("/", post(new_project_upload_profile))

@@ -1,9 +1,9 @@
 use axum::{
-    extract::Path,
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post, put},
-    Extension, Json, Router,
+    Json, Router,
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
@@ -21,7 +21,7 @@ use serde_json::json;
 use crate::{
     auth::{Authenticated, UserInfo},
     create_object, disable_object, get_object, list_project_and_global_objects,
-    shared_state::State,
+    shared_state::AppState,
     write_object, Error,
 };
 
@@ -51,14 +51,14 @@ pub struct StorageLocationOutput {
 }
 
 async fn list_global_locations(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
 ) -> Result<impl IntoResponse, Error> {
     list_locations(state, user, None).await
 }
 
 async fn list_project_locations(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
 ) -> Result<impl IntoResponse, Error> {
@@ -66,7 +66,7 @@ async fn list_project_locations(
 }
 
 async fn list_locations(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     project_id: Option<ProjectId>,
 ) -> Result<impl IntoResponse, Error> {
@@ -84,7 +84,7 @@ async fn list_locations(
 }
 
 async fn write_project_location(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(path): Path<ProjectStorageLocationPath>,
     Json(body): Json<StorageLocationInput>,
@@ -100,7 +100,7 @@ async fn write_project_location(
 }
 
 async fn write_global_location(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(location_id): Path<StorageLocationId>,
     Json(body): Json<StorageLocationInput>,
@@ -109,7 +109,7 @@ async fn write_global_location(
 }
 
 async fn write_location(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     project_id: Option<ProjectId>,
     location_id: StorageLocationId,
@@ -137,7 +137,7 @@ async fn write_location(
 }
 
 async fn new_project_location(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(project_id): Path<ProjectId>,
     Json(body): Json<StorageLocationInput>,
@@ -146,7 +146,7 @@ async fn new_project_location(
 }
 
 async fn new_global_location(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Json(body): Json<StorageLocationInput>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -154,7 +154,7 @@ async fn new_global_location(
 }
 
 async fn new_location(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     project_id: Option<ProjectId>,
     body: StorageLocationInput,
@@ -184,7 +184,7 @@ async fn new_location(
 }
 
 async fn get_global_location(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(location_id): Path<StorageLocationId>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -192,7 +192,7 @@ async fn get_global_location(
 }
 
 async fn get_project_location(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(path): Path<ProjectStorageLocationPath>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -200,7 +200,7 @@ async fn get_project_location(
 }
 
 async fn get_location(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     location_id: StorageLocationId,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -224,7 +224,7 @@ async fn get_location(
 }
 
 async fn disable_project_location(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(path): Path<ProjectStorageLocationPath>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -232,7 +232,7 @@ async fn disable_project_location(
 }
 
 async fn disable_global_location(
-    Extension(ref state): Extension<State>,
+    State(state): State<AppState>,
     Authenticated(user): Authenticated,
     Path(location_id): Path<StorageLocationId>,
 ) -> Result<impl IntoResponse, crate::Error> {
@@ -240,7 +240,7 @@ async fn disable_global_location(
 }
 
 async fn disable_location(
-    state: &State,
+    state: AppState,
     user: UserInfo,
     project_id: Option<ProjectId>,
     location_id: StorageLocationId,
@@ -258,7 +258,7 @@ async fn disable_location(
     Ok((StatusCode::OK, Json(json!({}))))
 }
 
-pub fn configure() -> Router {
+pub fn configure() -> Router<AppState> {
     let project_routes = Router::new()
         .route("/", get(list_project_locations))
         .route("/", post(new_project_location))

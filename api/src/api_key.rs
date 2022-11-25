@@ -1,5 +1,5 @@
 use chrono::{DateTime, TimeZone, Utc};
-use diesel::{prelude::*, Connection, PgConnection};
+use diesel::{prelude::*, PgConnection};
 use eyre::Result;
 use pic_store_auth::api_key::ApiKeyData;
 use pic_store_db::object_id::UserId;

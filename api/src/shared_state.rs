@@ -28,4 +28,4 @@ impl std::fmt::Debug for InnerState {
     }
 }
 
-pub type State = Arc<InnerState>;
+pub type AppState = Arc<InnerState>;
