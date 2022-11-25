@@ -10,8 +10,8 @@ image = { version = "0.24.5", features= ["webp"]}
 imageinfo = { git = "https://github.com/dimfeld/imageinfo-rs" }
 libavif = { version = "0.10.1", default-features = false, features = ["codec-dav1d"] }
 ravif = "0.9.1"
-rgb = "0.8.32"
-thiserror = "1.0.31"
+rgb = "0.8.34"
+thiserror = "1.0.37"
 webp = "0.2.2"
 
 [features]

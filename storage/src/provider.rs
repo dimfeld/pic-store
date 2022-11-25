@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use aws_sdk_s3::client::Client as S3Client;
 use object_store::{local::LocalFileSystem, ObjectStore};
 
 use pic_store_db as db;
