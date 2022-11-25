@@ -22,8 +22,10 @@ use pic_store_db as db;
 use tracing::{event, Level};
 
 use crate::{
-    auth::Authenticated, get_object_by_field_query, get_object_query, shared_state::State, Error,
-    Result,
+    auth::{Authenticated, UserInfo},
+    get_object_by_field_query, get_object_query,
+    shared_state::State,
+    Error, Result,
 };
 
 #[derive(Debug, Deserialize)]
@@ -126,10 +128,31 @@ async fn new_base_image(
     ))
 }
 
+enum BaseImageFetchType {
+    ById(BaseImageId),
+    ByHash(String),
+}
+
+async fn get_base_image_by_hash(
+    Extension(ref state): Extension<State>,
+    Authenticated(user): Authenticated,
+    Path(hash): Path<String>,
+) -> Result<impl IntoResponse> {
+    get_base_image(state, user, BaseImageFetchType::ByHash(hash)).await
+}
+
 async fn get_base_image_by_id(
     Extension(ref state): Extension<State>,
     Authenticated(user): Authenticated,
     Path(image_id): Path<BaseImageId>,
+) -> Result<impl IntoResponse> {
+    get_base_image(state, user, BaseImageFetchType::ById(image_id)).await
+}
+
+async fn get_base_image(
+    state: &State,
+    user: UserInfo,
+    lookup: BaseImageFetchType,
 ) -> Result<impl IntoResponse> {
     #[derive(Debug, Queryable, Selectable)]
     #[diesel(table_name = output_images)]
@@ -176,8 +199,7 @@ async fn get_base_image_by_id(
     let (info, base_storage, output_storage, output_images) = state
         .db
         .interact(move |conn| {
-            let (info, base_storage, output_storage, allowed) = base_images::table
-                .filter(base_images::id.eq(image_id))
+            let mut query = base_images::table
                 .filter(base_images::deleted.is_null())
                 .filter(base_images::team_id.eq(user.team_id))
                 .inner_join(
@@ -211,20 +233,30 @@ async fn get_base_image_by_id(
                         db::Permission::ProjectRead
                     ),
                 ))
+                .into_boxed();
+
+            query = match lookup {
+                BaseImageFetchType::ById(id) => query.filter(base_images::id.eq(id)),
+                BaseImageFetchType::ByHash(hash) => query.filter(base_images::hash.eq(hash)),
+            };
+
+            let (info, base_storage, output_storage, allowed) = query
                 .first::<(
                     BaseImageQueryResult,
                     StorageLocationInfo,
                     StorageLocationInfo,
                     bool,
                 )>(conn)
-                .map_err(Error::from)?;
+                .optional()
+                .map_err(Error::from)?
+                .ok_or(Error::NotFound)?;
 
             if !allowed {
                 return Err(Error::NotFound);
             }
 
             let oi = output_images::table
-                .filter(output_images::base_image_id.eq(image_id))
+                .filter(output_images::base_image_id.eq(info.id))
                 .select(OutputImageQueryResult::as_select())
                 .load::<OutputImageQueryResult>(conn)
                 .map_err(Error::from)?;
@@ -324,5 +356,9 @@ pub fn configure() -> Router {
         .route("/:image_id", delete(remove_base_image))
         .route("/:image_id/upload", post(upload::upload_image));
 
-    Router::new().nest("/images", routes)
+    let image_id_routes = Router::new().nest("/images", routes);
+
+    Router::new()
+        .route("/image_by_hash/:hash", get(get_base_image_by_hash))
+        .merge(image_id_routes)
 }
