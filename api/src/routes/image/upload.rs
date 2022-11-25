@@ -1,11 +1,10 @@
 use axum::{
-    extract::{BodyStream, ContentLengthLimit, Path},
+    extract::{BodyStream, Path},
     http::StatusCode,
     response::IntoResponse,
     Extension, Json,
 };
 use bytes::Bytes;
-use chrono::Utc;
 use diesel::{prelude::*, upsert::excluded};
 use futures::TryStreamExt;
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
@@ -16,18 +15,14 @@ use pic_store_storage as storage;
 
 use db::{
     conversion_profiles::{self, ConversionOutput},
-    object_id::{BaseImageId, OutputImageId, StorageLocationId},
+    object_id::{BaseImageId, OutputImageId},
     output_images::{self, NewOutputImage},
     Permission, PoolExt,
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{event, Level};
 
-use crate::{
-    auth::{Authenticated, UserInfo},
-    shared_state::State,
-    Error,
-};
+use crate::{auth::Authenticated, shared_state::State, Error};
 
 struct Header {
     buf: HeaderBuf,
@@ -137,8 +132,8 @@ async fn handle_upload(
 pub async fn upload_image(
     Extension(ref state): Extension<State>,
     Authenticated(user): Authenticated,
-    ContentLengthLimit(stream): ContentLengthLimit<BodyStream, { 250 * 1048576 }>,
     Path(image_id): Path<BaseImageId>,
+    stream: BodyStream,
 ) -> Result<impl IntoResponse, Error> {
     use db::{base_images, storage_locations, upload_profiles};
 
@@ -318,11 +313,7 @@ pub async fn upload_image(
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        fs::File,
-        io::{BufRead, Read, Seek},
-        path::PathBuf,
-    };
+    use std::{fs::File, io::Read, path::PathBuf};
 
     use bytes::Bytes;
     use imageinfo::*;

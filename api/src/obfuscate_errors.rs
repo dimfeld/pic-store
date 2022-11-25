@@ -8,6 +8,7 @@ use futures::future::BoxFuture;
 use serde_json::json;
 use tower::{Layer, Service};
 
+#[derive(Clone)]
 pub struct ObfuscateErrorLayer {
     enabled: bool,
     obfuscate_forbidden: bool,

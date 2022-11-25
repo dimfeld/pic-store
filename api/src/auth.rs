@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use auth::session::{SessionCookieManager, SessionManager};
 use auth::{AuthenticationLayer, RequestUser};
-use axum::extract::{FromRequest, RequestParts};
-use axum::Extension;
+use axum::extract::FromRequestParts;
 use chrono::{DateTime, Utc};
 use db::PoolExt;
 use diesel::dsl::sql;
 use diesel::prelude::*;
+use http::request::Parts;
 use serde::Deserialize;
 use ulid::Ulid;
 use uuid::Uuid;
@@ -288,14 +288,14 @@ pub fn auth_layer(
 pub struct Authenticated(pub UserInfo);
 
 #[async_trait]
-impl<B> FromRequest<B> for Authenticated
+impl<S> FromRequestParts<S> for Authenticated
 where
-    B: Send,
+    S: Send + Sync,
 {
     type Rejection = Error;
 
-    async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
-        req.extensions()
+    async fn from_request_parts(req: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        req.extensions
             .get::<UserInfo>()
             .cloned()
             .map(Self)

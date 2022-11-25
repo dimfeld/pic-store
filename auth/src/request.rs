@@ -18,6 +18,7 @@ struct AuthStores<APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore> {
     sessions: SessionManager<SESSIONSTORE>,
 }
 
+#[derive(Clone)]
 pub struct AuthenticationLayer<USERDATA, APIKEYSTORE: ApiKeyStore, SESSIONSTORE: SessionStore>
 where
     USERDATA: From<RequestUser<APIKEYSTORE::FetchData, SESSIONSTORE::SessionFetchData>>
