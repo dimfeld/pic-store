@@ -1160,6 +1160,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "enumn"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "038b1afa59052df211f9efd58f8b1d84c242935ede1c3dbaed26b018a9e06ae2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2174,6 +2185,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "libheif-rs"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edf58b5301fc9c13d446e2a75e363ebf848f624ab7026d5cda567b11a6f21056"
+dependencies = [
+ "enumn",
+ "libheif-sys",
+]
+
+[[package]]
+name = "libheif-sys"
+version = "1.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9426b3c799fe53b9636aac80ddc60efa5060c1959faee2e9d3edf0da6b8536a"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "libhoney-rust"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3069,9 +3099,11 @@ dependencies = [
 name = "pic-store-convert"
 version = "0.1.0"
 dependencies = [
+ "eyre",
  "image",
  "imageinfo",
  "libavif",
+ "libheif-rs",
  "ravif",
  "rgb",
  "thiserror",

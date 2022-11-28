@@ -8,6 +8,7 @@ pub enum ImageFormat {
     Jpg,
     Avif,
     Webp,
+    Heic,
 }
 
 impl From<ImageFormat> for image::ImageFormat {
@@ -17,6 +18,7 @@ impl From<ImageFormat> for image::ImageFormat {
             ImageFormat::Jpg => image::ImageFormat::Jpeg,
             ImageFormat::Avif => image::ImageFormat::Avif,
             ImageFormat::Webp => image::ImageFormat::WebP,
+            ImageFormat::Heic => panic!("Heic output not supported"),
         }
     }
 }

@@ -6,9 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+eyre = "0.6.8"
 image = { version = "0.24.5", features= ["webp"]}
 imageinfo = { git = "https://github.com/dimfeld/imageinfo-rs" }
 libavif = { version = "0.10.1", default-features = false, features = ["codec-dav1d"] }
+libheif-rs = "0.15.1"
 ravif = "0.9.1"
 rgb = "0.8.34"
 thiserror = "1.0.37"
