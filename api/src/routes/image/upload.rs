@@ -5,20 +5,18 @@ use axum::{
     Json,
 };
 use bytes::Bytes;
-use diesel::{prelude::*, upsert::excluded};
-use futures::TryStreamExt;
-use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
-use serde_json::json;
-
-use pic_store_db as db;
-use pic_store_storage as storage;
-
 use db::{
     conversion_profiles::{self, ConversionOutput},
     object_id::{BaseImageId, OutputImageId},
     output_images::{self, NewOutputImage},
     Permission, PoolExt,
 };
+use diesel::{prelude::*, upsert::excluded};
+use futures::TryStreamExt;
+use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
+use pic_store_db as db;
+use pic_store_storage as storage;
+use serde_json::json;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{event, Level};
 
@@ -106,8 +104,7 @@ async fn handle_upload(
     let mut header = Header::new();
     let mut info: Option<ImageInfo> = None;
 
-    while let Some(chunk) = stream.try_next().await.transpose() {
-        let chunk = chunk?;
+    while let Some(chunk) = stream.try_next().await? {
         hasher.update(&chunk);
 
         if info.is_none() {

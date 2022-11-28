@@ -1,6 +1,7 @@
+use std::{borrow::Cow, io::Write};
+
 use image::{DynamicImage, GenericImageView, ImageEncoder, ImageFormat};
 use rgb::FromSlice;
-use std::{borrow::Cow, io::Write};
 use thiserror::Error;
 
 fn to_8bit(image: &'_ DynamicImage) -> Cow<'_, DynamicImage> {
@@ -37,6 +38,14 @@ fn write_webp(image: &DynamicImage, mut writer: impl Write) -> Result<(), std::i
     let output = encoder.encode(60.0);
 
     writer.write_all(&output)
+}
+
+fn write_jpeg(image: &DynamicImage, mut writer: impl Write) -> Result<(), image::ImageError> {
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut writer, 70);
+    let image = to_8bit(image);
+    let (width, height) = image.dimensions();
+
+    encoder.write_image(image.as_bytes(), width, height, image.color())
 }
 
 /// `cleared_alpha` only takes a Vec<RGBA<u8>>, not a slice, so recast the data as a Vec<rgb::RGBA<u8>>.
@@ -97,6 +106,7 @@ pub fn write_image(
         ImageFormat::Png => write_png(image, writer)?,
         ImageFormat::WebP => write_webp(image, writer)?,
         ImageFormat::Avif => write_avif(image, writer)?,
+        ImageFormat::Jpeg => write_jpeg(image, writer)?,
         _ => Err(EncodeError::UnsupportedFormat(output_format))?,
     };
 
@@ -171,6 +181,18 @@ mod tests {
 
         let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
         assert_eq!(info.format, imageinfo::ImageFormat::WEBP);
+        assert_eq!(info.size.width as u32, image.width());
+        assert_eq!(info.size.height as u32, image.height());
+    }
+
+    #[test]
+    fn write_jpeg() {
+        let image = read_test_image("test-input.png");
+        let mut output = Vec::new();
+        super::write_image(&image, image::ImageFormat::Jpeg, &mut output).unwrap();
+
+        let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
+        assert_eq!(info.format, imageinfo::ImageFormat::JPEG);
         assert_eq!(info.size.width as u32, image.width());
         assert_eq!(info.size.height as u32, image.height());
     }
