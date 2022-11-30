@@ -1,26 +1,25 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use diesel::prelude::*;
-use image::DynamicImage;
-use prefect::RunningJob;
-use serde::{Deserialize, Serialize};
-
-use pic_store_convert as convert;
-use pic_store_db as db;
-use pic_store_storage as storage;
-
-use crate::Result;
 use db::{
     base_images,
     conversion_profiles::{ConversionFormat, ConversionSize},
+    image_base_location,
     object_id::{BaseImageId, OutputImageId},
     storage_locations::Provider,
     upload_profiles, BaseImageStatus, OutputImageStatus, PoolExt,
 };
+use diesel::prelude::*;
+use image::DynamicImage;
+use pic_store_convert as convert;
+use pic_store_db as db;
+use pic_store_storage as storage;
+use prefect::RunningJob;
+use serde::{Deserialize, Serialize};
 use tracing::{event, instrument, Level};
 
 use super::JobContext;
+use crate::Result;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateOutputImagesJobPayload {
@@ -40,10 +39,13 @@ pub async fn create_output_images_job(
     let (bst, ost) = diesel::alias!(db::storage_locations as bst, db::storage_locations as ost);
 
     let (
+        project_base_location,
         base_image_location,
         base_image_base_location,
+        base_image_profile_base_path,
         base_image_storage_provider,
         output_image_base_location,
+        output_image_profile_base_path,
         output_image_storage_provider,
     ) = context
         .pool
@@ -61,30 +63,57 @@ pub async fn create_output_images_job(
                                 .eq(ost.field(db::storage_locations::id))),
                         ),
                 )
+                .inner_join(
+                    db::projects::table.on(db::projects::id.eq(db::base_images::project_id)),
+                )
                 .filter(db::base_images::id.eq(payload.base_image))
                 .select((
+                    db::projects::base_location,
                     db::base_images::location,
                     bst.field(db::storage_locations::base_location),
+                    upload_profiles::base_storage_location_path,
                     bst.field(db::storage_locations::provider),
                     ost.field(db::storage_locations::base_location),
+                    upload_profiles::output_storage_location_path,
                     ost.field(db::storage_locations::provider),
                 ))
-                .first::<(String, String, Provider, String, Provider)>(conn)
+                .first::<(
+                    String,
+                    String,
+                    String,
+                    Option<String>,
+                    Provider,
+                    String,
+                    Option<String>,
+                    Provider,
+                )>(conn)
                 .map_err(eyre::Report::new)
         })
         .await?;
 
+    let base_image_base_location = image_base_location(
+        &base_image_base_location,
+        &project_base_location,
+        &base_image_profile_base_path,
+    );
+
     let base_image_storage = storage::Provider::from_db(base_image_storage_provider)?;
     let base_image = read_image(
         base_image_storage,
-        base_image_base_location.as_str(),
+        base_image_base_location.as_ref(),
         base_image_location.as_str(),
     )
     .await?;
 
+    let output_image_base_location = image_base_location(
+        &output_image_base_location,
+        &project_base_location,
+        &output_image_profile_base_path,
+    );
+
     let output_image_storage = storage::Provider::from_db(output_image_storage_provider)?;
     let output_operator = output_image_storage
-        .create_operator(output_image_base_location.as_str())
+        .create_operator(output_image_base_location.as_ref())
         .await?;
 
     while let Some(output_image_id) = payload.conversions.pop() {

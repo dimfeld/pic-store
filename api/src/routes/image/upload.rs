@@ -7,9 +7,10 @@ use axum::{
 use bytes::Bytes;
 use db::{
     conversion_profiles::{self, ConversionOutput},
+    image_base_location,
     object_id::{BaseImageId, OutputImageId},
     output_images::{self, NewOutputImage},
-    Permission, PoolExt,
+    projects, Permission, PoolExt,
 };
 use diesel::{prelude::*, upsert::excluded};
 use futures::TryStreamExt;
@@ -136,7 +137,14 @@ pub async fn upload_image(
 
     let conn = state.db.get().await?;
 
-    let (base_image, output_path, conversion_profile, allowed) = conn
+    let (
+        base_image,
+        output_path,
+        conversion_profile,
+        project_base_path,
+        base_image_profile_location,
+        allowed,
+    ) = conn
         .interact(move |conn| {
             base_images::table
                 .inner_join(
@@ -146,12 +154,15 @@ pub async fn upload_image(
                         ))
                         .inner_join(conversion_profiles::table),
                 )
+                .inner_join(projects::table.on(projects::id.eq(base_images::project_id)))
                 .filter(base_images::id.eq(image_id))
                 .filter(base_images::team_id.eq(user.team_id))
                 .select((
                     base_images::all_columns,
                     storage_locations::all_columns,
                     conversion_profiles::all_columns,
+                    projects::base_location,
+                    upload_profiles::base_storage_location_path,
                     db::obj_allowed!(
                         user.team_id,
                         &user.roles,
@@ -163,6 +174,8 @@ pub async fn upload_image(
                     base_images::BaseImage,
                     storage_locations::StorageLocation,
                     conversion_profiles::ConversionProfile,
+                    String,
+                    Option<String>,
                     bool,
                 )>(conn)
         })
@@ -174,8 +187,14 @@ pub async fn upload_image(
 
     let provider = storage::Provider::from_db(output_path.provider)?;
 
+    let output_base_location = image_base_location(
+        &output_path.base_location,
+        &project_base_path,
+        &base_image_profile_location,
+    );
+
     let operator = provider
-        .create_operator(output_path.base_location.as_str())
+        .create_operator(output_base_location.as_ref())
         .await?;
 
     let (upload_id, mut writer) = operator.put_multipart(&base_image.location).await?;
