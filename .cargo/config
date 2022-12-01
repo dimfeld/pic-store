@@ -1,4 +1,4 @@
 [target.aarch64-apple-darwin]
 # Needed to find libheif when installed through Homebrew
-rustflags = "-L /opt/homebrew/lib"
+rustflags = "-L /opt/homebrew/opt/libheif/lib"
 
