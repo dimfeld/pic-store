@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use object_store::{local::LocalFileSystem, ObjectStore};
-
 use pic_store_db as db;
 
 use crate::{error::Error, s3::S3ProviderConfig, Operator};
@@ -92,6 +91,7 @@ impl Provider {
         Ok(Operator {
             operator,
             supports_multipart,
+            base_location: base_location.to_string(),
             path_prefix,
         })
     }

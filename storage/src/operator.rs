@@ -7,6 +7,7 @@ use crate::error::{Error, Result};
 
 pub struct Operator {
     pub operator: Box<dyn ObjectStore>,
+    pub base_location: String,
     pub supports_multipart: bool,
     pub path_prefix: Option<Path>,
 }
@@ -19,19 +20,19 @@ impl Operator {
         }
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(base=%self.base_location, path_prefix=?self.path_prefix))]
     pub async fn get(&self, location: &str) -> Result<GetResult> {
         let p = self.make_full_path(location);
         self.operator.get(&p).await.map_err(Error::from)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, bytes), fields(base=%self.base_location, path_prefix=?self.path_prefix))]
     pub async fn put(&self, location: &str, bytes: Bytes) -> Result<()> {
         let p = self.make_full_path(location);
         self.operator.put(&p, bytes).await.map_err(Error::from)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(base=%self.base_location, path_prefix=?self.path_prefix))]
     pub async fn put_multipart(
         &self,
         location: &str,
