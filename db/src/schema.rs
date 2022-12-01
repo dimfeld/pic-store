@@ -204,6 +204,8 @@ diesel::table! {
         conversion_profile_id -> Uuid,
         updated -> Timestamptz,
         deleted -> Nullable<Timestamptz>,
+        base_storage_location_path -> Nullable<Text>,
+        output_storage_location_path -> Nullable<Text>,
     }
 }
 

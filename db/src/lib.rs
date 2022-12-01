@@ -22,17 +22,12 @@ pub mod upload_profiles;
 pub mod user_roles;
 pub mod users;
 
-pub use enums::*;
-pub use json::*;
+use std::borrow::Cow;
 
 use async_trait::async_trait;
-use diesel::{
-    helper_types::IntoBoxed,
-    pg::Pg,
-    query_builder::{AstPass, QueryFragment, SelectQuery},
-    sql_types, Connection, Expression, PgConnection, QueryResult,
-};
-use object_id::ProjectId;
+use diesel::{sql_types, Connection, PgConnection};
+pub use enums::*;
+pub use json::*;
 
 pub type Pool = deadpool_diesel::postgres::Pool;
 
@@ -109,4 +104,33 @@ sql_function! {
 sql_function! {
     #[aggregate]
     fn bool_or(x: sql_types::Bool) -> sql_types::Bool
+}
+
+pub fn image_path(
+    storage_location_path: &str,
+    project_base_path: &str,
+    profile_path: &Option<String>,
+    image_location: &str,
+) -> String {
+    match (project_base_path, profile_path) {
+        ("", Some(p2)) => format!("{}/{}/{}", storage_location_path, p2, image_location),
+        ("", None) => format!("{}/{}", storage_location_path, image_location),
+        (p1, Some(p2)) => {
+            format!("{}/{}/{}/{}", storage_location_path, p1, p2, image_location)
+        }
+        (p1, None) => format!("{}/{}/{}", storage_location_path, p1, image_location),
+    }
+}
+
+pub fn image_base_location<'a, 'b>(
+    storage_location_path: &'a str,
+    project_base_path: &'b str,
+    profile_path: &'b Option<String>,
+) -> Cow<'a, str> {
+    match (project_base_path, profile_path) {
+        ("", Some(p2)) => format!("{}/{}", storage_location_path, p2).into(),
+        ("", None) => storage_location_path.into(),
+        (p1, Some(p2)) => format!("{}/{}/{}", storage_location_path, p1, p2).into(),
+        (p1, None) => format!("{}/{}", storage_location_path, p1).into(),
+    }
 }

@@ -4,21 +4,21 @@ use axum::{
     extract::{DefaultBodyLimit, Path, State},
     response::IntoResponse,
     routing::{delete, get, post, put},
-    Extension, Json, Router,
+    Json, Router,
 };
 use db::{
     base_images,
     conversion_profiles::{ConversionFormat, ConversionSize},
+    image_path,
     object_id::{BaseImageId, OutputImageId, ProjectId, UploadProfileId},
-    output_images, storage_locations, upload_profiles, BaseImageStatus, ImageFormat,
+    output_images, projects, storage_locations, upload_profiles, BaseImageStatus, ImageFormat,
     OutputImageStatus, Permission, PoolExt,
 };
 use diesel::prelude::*;
 use http::StatusCode;
+use pic_store_db as db;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-
-use pic_store_db as db;
 use tracing::{event, Level};
 
 use crate::{
@@ -196,7 +196,15 @@ async fn get_base_image(
     }
 
     let (bst, ost) = diesel::alias!(storage_locations as bst, storage_locations as ost);
-    let (info, base_storage, output_storage, output_images) = state
+    let (
+        info,
+        base_storage,
+        output_storage,
+        project_base_path,
+        profile_base_path,
+        profile_output_path,
+        output_images,
+    ) = state
         .db
         .interact(move |conn| {
             let mut query = base_images::table
@@ -214,6 +222,7 @@ async fn get_base_image(
                                 .eq(ost.field(db::storage_locations::id))),
                         ),
                 )
+                .inner_join(db::projects::table.on(base_images::project_id.eq(db::projects::id)))
                 .select((
                     BaseImageQueryResult::as_select(),
                     (
@@ -226,6 +235,9 @@ async fn get_base_image(
                         ost.field(storage_locations::base_location),
                         ost.field(storage_locations::public_url_base),
                     ),
+                    projects::base_location,
+                    upload_profiles::base_storage_location_path,
+                    upload_profiles::output_storage_location_path,
                     db::obj_allowed!(
                         user.team_id,
                         &user.roles,
@@ -240,11 +252,22 @@ async fn get_base_image(
                 BaseImageFetchType::ByHash(hash) => query.filter(base_images::hash.eq(hash)),
             };
 
-            let (info, base_storage, output_storage, allowed) = query
+            let (
+                info,
+                base_storage,
+                output_storage,
+                project_base_path,
+                profile_base_location,
+                profile_output_location,
+                allowed,
+            ) = query
                 .first::<(
                     BaseImageQueryResult,
                     StorageLocationInfo,
                     StorageLocationInfo,
+                    String,
+                    Option<String>,
+                    Option<String>,
                     bool,
                 )>(conn)
                 .optional()
@@ -261,7 +284,15 @@ async fn get_base_image(
                 .load::<OutputImageQueryResult>(conn)
                 .map_err(Error::from)?;
 
-            Ok((info, base_storage, output_storage, oi))
+            Ok((
+                info,
+                base_storage,
+                output_storage,
+                project_base_path,
+                profile_base_location,
+                profile_output_location,
+                oi,
+            ))
         })
         .await?;
 
@@ -302,18 +333,46 @@ async fn get_base_image(
         pub output: Vec<OutputImageResult>,
     }
 
+    let base_image_path = image_path(
+        &base_storage.base_location,
+        &project_base_path,
+        &profile_base_path,
+        &info.location,
+    );
+    let base_image_url = image_path(
+        &base_storage.public_url_base,
+        &project_base_path,
+        &profile_base_path,
+        &info.location,
+    );
+
     let output_images = output_images
         .into_iter()
-        .map(|o| OutputImageResult {
-            id: o.id,
-            location: format!("{}/{}", output_storage.base_location, o.location),
-            url: format!("{}/{}", output_storage.public_url_base, o.location),
-            width: o.width,
-            height: o.height,
-            size: o.size,
-            format: o.format,
-            status: o.status,
-            updated: o.updated,
+        .map(|o| {
+            let location = image_path(
+                &output_storage.base_location,
+                &project_base_path,
+                &profile_output_path,
+                &o.location,
+            );
+            let url = image_path(
+                &output_storage.public_url_base,
+                &project_base_path,
+                &profile_output_path,
+                &o.location,
+            );
+
+            OutputImageResult {
+                id: o.id,
+                location,
+                url,
+                width: o.width,
+                height: o.height,
+                size: o.size,
+                format: o.format,
+                status: o.status,
+                updated: o.updated,
+            }
         })
         .collect::<Vec<_>>();
 
@@ -322,8 +381,8 @@ async fn get_base_image(
         project_id: info.project_id,
         hash: info.hash,
         filename: info.filename,
-        location: format!("{}/{}", base_storage.base_location, info.location),
-        url: format!("{}/{}", base_storage.public_url_base, info.location),
+        location: base_image_path,
+        url: base_image_url,
         width: info.width,
         height: info.height,
         format: info.format,

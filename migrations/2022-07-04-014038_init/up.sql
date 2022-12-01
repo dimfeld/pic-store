@@ -57,7 +57,9 @@ CREATE TABLE upload_profiles (
   name text not null,
   short_id text,
   base_storage_location_id uuid not null references storage_locations(id) DEFERRABLE INITIALLY IMMEDIATE,
+  base_storage_location_path text,
   output_storage_location_id uuid not null references storage_locations(id) DEFERRABLE INITIALLY IMMEDIATE,
+  output_storage_location_path text,
   conversion_profile_id uuid not null references conversion_profiles(id) DEFERRABLE INITIALLY IMMEDIATE,
   updated timestamptz not null default now(),
   deleted timestamptz
