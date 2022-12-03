@@ -14,7 +14,7 @@ use image::DynamicImage;
 use pic_store_convert as convert;
 use pic_store_db as db;
 use pic_store_storage as storage;
-use prefect::RunningJob;
+use effectum::RunningJob;
 use serde::{Deserialize, Serialize};
 use tracing::{event, instrument, Level};
 

@@ -73,7 +73,7 @@ pub enum Error {
     NoUploadProfile,
 
     #[error("Queue error: {0}")]
-    Queue(#[from] prefect::Error),
+    Queue(#[from] effectum::Error),
 }
 
 impl Error {

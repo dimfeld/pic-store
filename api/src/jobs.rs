@@ -5,7 +5,7 @@ use std::path::Path;
 pub use create_output_images::*;
 
 use pic_store_db as db;
-use prefect::{JobRunner, Queue, Worker};
+use effectum::{JobRunner, Queue, Worker};
 use tracing::{event, Level};
 
 #[derive(Clone)]
@@ -24,7 +24,7 @@ pub const CREATE_OUTPUT_IMAGES: &str = "create_output_images";
 pub async fn create_job_queue(
     db_path: &Path,
     pool: db::Pool,
-) -> Result<(Queue, Worker), prefect::Error> {
+) -> Result<(Queue, Worker), effectum::Error> {
     event!(Level::INFO, "Starting background worker task");
     let queue = Queue::new(db_path).await?;
     let context = JobContext { pool };

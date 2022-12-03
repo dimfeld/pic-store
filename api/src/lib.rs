@@ -44,7 +44,7 @@ pub struct Server {
     pub port: u16,
     pub server: axum::Server<AddrIncoming, IntoMakeService<Router>>,
     pub state: Arc<InnerState>,
-    pub worker: prefect::Worker,
+    pub worker: effectum::Worker,
 }
 
 impl Server {

@@ -309,7 +309,7 @@ pub async fn upload_image(
         })
         .await?;
 
-    let job_id = prefect::Job::builder(crate::jobs::CREATE_OUTPUT_IMAGES)
+    let job_id = effectum::Job::builder(crate::jobs::CREATE_OUTPUT_IMAGES)
         .json_payload(&crate::jobs::CreateOutputImagesJobPayload {
             base_image: image_id,
             conversions: output_image_ids,

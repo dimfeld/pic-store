@@ -9,7 +9,7 @@ use crate::auth::ApiKeyStore;
 pub struct InnerState {
     pub production: bool,
     pub db: db::Pool,
-    pub queue: prefect::Queue,
+    pub queue: effectum::Queue,
 
     // Hardcoded values until we have real user auth and such.
     pub user_id: UserId,
