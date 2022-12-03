@@ -143,13 +143,7 @@ pub async fn create_output_images_job(
             preserve_aspect_ratio: conversion_size.preserve_aspect_ratio.unwrap_or(true),
         };
 
-        let output_format = match conversion_format {
-            ConversionFormat::Png => image::ImageFormat::Png,
-            ConversionFormat::Jpg => image::ImageFormat::Jpeg,
-            ConversionFormat::Webp => image::ImageFormat::WebP,
-            ConversionFormat::Avif => image::ImageFormat::Avif,
-        };
-
+        let output_format = image::ImageFormat::from(&conversion_format);
         let b = base_image.clone();
         let convert_result =
             tokio::task::spawn_blocking(move || convert::convert(&b, output_format, &size))

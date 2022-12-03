@@ -1,17 +1,20 @@
-use diesel::prelude::*;
-use diesel::sql_types;
+use diesel::{prelude::*, sql_types};
 use serde::{Deserialize, Serialize};
 
-use crate::object_id::{ConversionProfileId, ProjectId, TeamId};
-use crate::{diesel_jsonb, schema::*};
-
 pub use crate::schema::conversion_profiles::*;
+use crate::{
+    diesel_jsonb,
+    object_id::{ConversionProfileId, ProjectId, TeamId},
+    schema::*,
+    ImageFormat,
+};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, AsExpression, FromSqlRow)]
 #[diesel(sql_type = sql_types::Jsonb)]
 pub struct ConversionSize {
     pub width: Option<u32>,
     pub height: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub preserve_aspect_ratio: Option<bool>,
 }
 
@@ -22,21 +25,71 @@ diesel_jsonb!(ConversionSize);
 #[diesel(sql_type = sql_types::Jsonb)]
 #[serde(tag = "format", rename_all = "lowercase")]
 pub enum ConversionFormat {
-    Png,
-    Jpg,
-    Avif,
-    Webp,
+    Png {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        condition: Option<FormatConversionCondition>,
+    },
+    Jpg {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        condition: Option<FormatConversionCondition>,
+    },
+    Avif {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        condition: Option<FormatConversionCondition>,
+    },
+    Webp {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        condition: Option<FormatConversionCondition>,
+    },
 }
 
 diesel_jsonb!(ConversionFormat);
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum FormatConversionCondition {
+    Must { formats: Vec<ImageFormat> },
+    MustNot { formats: Vec<ImageFormat> },
+}
+
+impl FormatConversionCondition {
+    pub fn matches(&self, input_format: ImageFormat) -> bool {
+        match self {
+            FormatConversionCondition::Must { formats } => formats.contains(&input_format),
+            FormatConversionCondition::MustNot { formats } => !formats.contains(&input_format),
+        }
+    }
+}
+
 impl ConversionFormat {
     pub fn extension(&self) -> &'static str {
         match self {
-            Self::Png => "png",
-            Self::Jpg => "jpg",
-            Self::Avif => "avif",
-            Self::Webp => "webp",
+            Self::Png { .. } => "png",
+            Self::Jpg { .. } => "jpg",
+            Self::Avif { .. } => "avif",
+            Self::Webp { .. } => "webp",
+        }
+    }
+
+    pub fn matches_condition(&self, input_format: ImageFormat) -> bool {
+        let condition = match self {
+            Self::Png { condition } => condition.as_ref(),
+            Self::Jpg { condition } => condition.as_ref(),
+            Self::Avif { condition } => condition.as_ref(),
+            Self::Webp { condition } => condition.as_ref(),
+        };
+
+        condition.map(|c| c.matches(input_format)).unwrap_or(true)
+    }
+}
+
+impl From<&ConversionFormat> for image::ImageFormat {
+    fn from(format: &ConversionFormat) -> Self {
+        match format {
+            ConversionFormat::Png { .. } => image::ImageFormat::Png,
+            ConversionFormat::Jpg { .. } => image::ImageFormat::Jpeg,
+            ConversionFormat::Webp { .. } => image::ImageFormat::WebP,
+            ConversionFormat::Avif { .. } => image::ImageFormat::Avif,
         }
     }
 }

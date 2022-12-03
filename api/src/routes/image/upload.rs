@@ -212,7 +212,7 @@ pub async fn upload_image(
         }
     };
 
-    let format = match info.format {
+    let upload_format = match info.format {
         ImageFormat::PNG => db::ImageFormat::Png,
         ImageFormat::AVIF => db::ImageFormat::Avif,
         ImageFormat::JPEG => db::ImageFormat::Jpg,
@@ -226,22 +226,16 @@ pub async fn upload_image(
     };
 
     let output_images = match &conversion_profile.output {
-        ConversionOutput::Cross { formats, sizes } => formats
+        ConversionOutput::Cross { formats, sizes, .. } => formats
             .iter()
+            .filter(|format| format.matches_condition(upload_format))
             .flat_map(|format| {
                 sizes.iter().map(|size| {
                     let size_str = match (size.width, size.height) {
                         (Some(w), Some(h)) => format!("{w}x{h}"),
                         (Some(w), None) => format!("w{w}"),
                         (None, Some(h)) => format!("h{h}"),
-                        (None, None) => {
-                            event!(
-                                Level::ERROR,
-                                ?conversion_profile,
-                                "Conversion profile has size-less item",
-                            );
-                            "szun".to_string()
-                        }
+                        (None, None) => "szun".to_string(),
                     };
 
                     let output_image_id = OutputImageId::new();
@@ -275,7 +269,7 @@ pub async fn upload_image(
                 .filter(base_images::team_id.eq(user.team_id))
                 .set((
                     base_images::hash.eq(hash_hex),
-                    base_images::format.eq(Some(format)),
+                    base_images::format.eq(Some(upload_format)),
                     base_images::width.eq(info.size.width as i32),
                     base_images::height.eq(info.size.height as i32),
                     base_images::status.eq(db::BaseImageStatus::Converting),

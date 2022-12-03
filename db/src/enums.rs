@@ -1,7 +1,7 @@
 use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, DbEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, DbEnum, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ImageFormat {
     Png,

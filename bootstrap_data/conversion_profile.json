@@ -11,6 +11,20 @@
       },
       {
         "format": "webp"
+      },
+      {
+        "format": "jpg",
+        "condition": {
+          "type": "must",
+          "formats": ["jpg"]
+        }
+      },
+      {
+        "format": "png",
+        "condition": {
+          "type": "must",
+          "formats": ["png"]
+        }
       }
     ],
     "sizes": [

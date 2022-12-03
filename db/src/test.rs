@@ -1,26 +1,28 @@
-use crate::conversion_profiles::{
-    ConversionFormat, ConversionOutput, ConversionSize, NewConversionProfile,
-};
-use crate::object_id::{
-    ConversionProfileId, ProjectId, RoleId, StorageLocationId, TeamId, UploadProfileId, UserId,
-};
-use crate::projects::NewProject;
-use crate::role_permissions::RolePermission;
-use crate::roles::NewRole;
-use crate::storage_locations::NewStorageLocation;
-use crate::upload_profiles::NewUploadProfile;
-use crate::user_roles::UserAndRole;
-use crate::users::NewUser;
-use crate::{Permission, Pool, PoolExt};
+use std::str::FromStr;
+
 use deadpool_diesel::Manager;
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
-use diesel::Connection;
+use diesel::{pg::PgConnection, prelude::*, Connection};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 use eyre::{eyre, Result};
 use futures::Future;
 use lazy_static::lazy_static;
-use std::str::FromStr;
+
+use crate::{
+    conversion_profiles::{
+        ConversionFormat, ConversionOutput, ConversionSize, NewConversionProfile,
+    },
+    object_id::{
+        ConversionProfileId, ProjectId, RoleId, StorageLocationId, TeamId, UploadProfileId, UserId,
+    },
+    projects::NewProject,
+    role_permissions::RolePermission,
+    roles::NewRole,
+    storage_locations::NewStorageLocation,
+    upload_profiles::NewUploadProfile,
+    user_roles::UserAndRole,
+    users::NewUser,
+    Permission, Pool, PoolExt,
+};
 
 #[derive(Clone)]
 pub struct TestDatabase {
@@ -209,7 +211,10 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, eyre::Repo
             name: "Default Conversion Profile".to_string(),
             project_id: None,
             output: ConversionOutput::Cross {
-                formats: vec![ConversionFormat::Avif, ConversionFormat::Webp],
+                formats: vec![
+                    ConversionFormat::Avif { condition: None },
+                    ConversionFormat::Webp { condition: None },
+                ],
                 sizes: vec![
                     ConversionSize {
                         width: Some(200),
