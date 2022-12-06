@@ -81,6 +81,21 @@ impl ConversionFormat {
 
         condition.map(|c| c.matches(input_format)).unwrap_or(true)
     }
+
+    pub fn as_db_image_format(&self) -> crate::ImageFormat {
+        match self {
+            ConversionFormat::Png { .. } => crate::ImageFormat::Png,
+            ConversionFormat::Jpg { .. } => crate::ImageFormat::Jpg,
+            ConversionFormat::Webp { .. } => crate::ImageFormat::Webp,
+            ConversionFormat::Avif { .. } => crate::ImageFormat::Avif,
+        }
+    }
+}
+
+impl From<&ConversionFormat> for crate::ImageFormat {
+    fn from(format: &ConversionFormat) -> Self {
+        format.as_db_image_format()
+    }
 }
 
 impl From<&ConversionFormat> for image::ImageFormat {

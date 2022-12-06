@@ -304,8 +304,8 @@ async fn get_base_image(
 
         pub width: Option<i32>,
         pub height: Option<i32>,
-        pub size: ConversionSize,
-        pub format: ConversionFormat,
+        pub size_rule: ConversionSize,
+        pub format: ImageFormat,
 
         pub status: OutputImageStatus,
 
@@ -368,8 +368,8 @@ async fn get_base_image(
                 url,
                 width: o.width,
                 height: o.height,
-                size: o.size,
-                format: o.format,
+                size_rule: o.size,
+                format: o.format.as_db_image_format(),
                 status: o.status,
                 updated: o.updated,
             }
