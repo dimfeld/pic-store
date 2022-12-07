@@ -265,7 +265,9 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, eyre::Repo
             conversion_profile_id,
             short_id: "blog".to_string(),
             base_storage_location_id,
+            base_storage_location_path: None,
             output_storage_location_id,
+            output_storage_location_path: None,
         })
         .execute(conn)?;
 

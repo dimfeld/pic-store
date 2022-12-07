@@ -13,10 +13,9 @@ use db::{
     Permission, PoolExt,
 };
 use diesel::prelude::*;
+use pic_store_db as db;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-
-use pic_store_db as db;
 
 use crate::{
     auth::{must_have_permission_on_project, Authenticated, UserInfo},
@@ -30,17 +29,22 @@ struct UploadProfileInput {
     pub name: String,
     pub short_id: Option<String>,
     pub base_storage_location_id: StorageLocationId,
+    pub base_storage_location_path: Option<String>,
     pub output_storage_location_id: StorageLocationId,
+    pub output_storage_location_path: Option<String>,
     pub conversion_profile_id: ConversionProfileId,
 }
 
 #[derive(Debug, Serialize, Queryable, Selectable)]
 #[diesel(table_name = upload_profiles)]
 struct UploadProfileOutput {
+    pub id: UploadProfileId,
     pub name: String,
     pub short_id: Option<String>,
     pub base_storage_location_id: StorageLocationId,
+    pub base_storage_location_path: Option<String>,
     pub output_storage_location_id: StorageLocationId,
+    pub output_storage_location_path: Option<String>,
     pub conversion_profile_id: ConversionProfileId,
 }
 
@@ -100,7 +104,15 @@ async fn write_project_upload_profile(
         project_id,
         UploadProfileOutput,
         ProjectPermission::ProjectWrite,
-        (dsl::name.eq(body.name), dsl::updated.eq(Utc::now()))
+        (
+            dsl::name.eq(body.name),
+            dsl::updated.eq(Utc::now()),
+            dsl::short_id.eq(body.short_id),
+            dsl::base_storage_location_id.eq(body.base_storage_location_id),
+            dsl::base_storage_location_path.eq(body.base_storage_location_path),
+            dsl::output_storage_location_id.eq(body.output_storage_location_id),
+            dsl::output_storage_location_path.eq(body.output_storage_location_path),
+        )
     )
     .await?;
 
@@ -120,7 +132,9 @@ async fn new_project_upload_profile(
         name: payload.name,
         short_id: payload.short_id.unwrap_or_default(),
         base_storage_location_id: payload.base_storage_location_id,
+        base_storage_location_path: payload.base_storage_location_path,
         output_storage_location_id: payload.output_storage_location_id,
+        output_storage_location_path: payload.output_storage_location_path,
         conversion_profile_id: payload.conversion_profile_id,
         project_id,
         team_id: user.team_id,

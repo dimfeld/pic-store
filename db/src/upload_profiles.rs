@@ -20,11 +20,11 @@ pub struct UploadProfile {
     /// output.
     pub base_storage_location_id: StorageLocationId,
     /// A path within the base storage location where the base image will be stored.
-    pub base_storage_location_path: String,
+    pub base_storage_location_path: Option<String>,
     /// Where to store the converted output images.
     pub output_storage_location_id: StorageLocationId,
     /// A path within the output storage location where the output images will be stored.
-    pub output_storage_location_path: String,
+    pub output_storage_location_path: Option<String>,
     pub conversion_profile_id: ConversionProfileId,
 
     pub updated: chrono::DateTime<chrono::Utc>,
@@ -44,7 +44,11 @@ pub struct NewUploadProfile {
     /// Where to store the input images, since they may not want to be in the same place as the
     /// output.
     pub base_storage_location_id: StorageLocationId,
+    /// A path within the base storage location where the base image will be stored.
+    pub base_storage_location_path: Option<String>,
     /// Where to store the converted output images.
     pub output_storage_location_id: StorageLocationId,
+    /// A path within the output storage location where the output images will be stored.
+    pub output_storage_location_path: Option<String>,
     pub conversion_profile_id: ConversionProfileId,
 }
