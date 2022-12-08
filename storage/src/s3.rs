@@ -14,18 +14,17 @@ pub struct S3ProviderConfig {
     pub virtual_host_style: Option<bool>,
 }
 
-pub(crate) fn create_store(
+pub(crate) fn create_store<'a>(
     config: &S3ProviderConfig,
-    base_location: &str,
-) -> Result<AmazonS3, eyre::Report> {
+    base_location: &'a str,
+) -> Result<(AmazonS3, &'a str), eyre::Report> {
     let virtual_host_style = config.virtual_host_style.unwrap_or(false);
 
     if base_location.is_empty() {
         return Err(eyre::eyre!("base_location is required"));
     }
 
-    // Get just the bucket name. The base path is handled in [[Operator]].
-    let (bucket, _) = match base_location.find('/') {
+    let (bucket, base_path) = match base_location.find('/') {
         Some(slash_pos) => base_location.split_at(slash_pos),
         None => (base_location, ""),
     };
@@ -80,5 +79,5 @@ pub(crate) fn create_store(
 
     let acc = builder.build()?;
 
-    Ok(acc)
+    Ok((acc, base_path))
 }

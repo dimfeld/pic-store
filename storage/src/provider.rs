@@ -58,13 +58,12 @@ impl Provider {
     }
 
     pub async fn create_operator(&self, base_location: &str) -> Result<Operator, eyre::Report> {
-        let (operator, supports_multipart, manual_prefix): (Box<dyn ObjectStore>, bool, bool) =
+        let (operator, supports_multipart, manual_prefix): (Box<dyn ObjectStore>, bool, &str) =
             match self {
-                Self::S3 { config, .. } => (
-                    Box::new(crate::s3::create_store(config, base_location)?),
-                    true,
-                    true,
-                ),
+                Self::S3 { config, .. } => {
+                    let (store, base_path) = crate::s3::create_store(config, base_location)?;
+                    (Box::new(store), true, base_path)
+                }
                 Self::Local => {
                     let store = if !base_location.is_empty() {
                         let path = std::path::PathBuf::from(base_location);
@@ -78,14 +77,14 @@ impl Provider {
                         LocalFileSystem::new()
                     };
 
-                    (Box::new(store), false, false)
+                    (Box::new(store), false, "")
                 }
             };
 
-        let path_prefix = if manual_prefix {
+        let path_prefix = if manual_prefix.is_empty() {
             None
         } else {
-            Some(object_store::path::Path::from(base_location))
+            Some(object_store::path::Path::from(manual_prefix))
         };
 
         Ok(Operator {
