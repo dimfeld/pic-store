@@ -3071,6 +3071,7 @@ dependencies = [
  "pic-store-http-errors",
  "pic-store-storage",
  "pic-store-test",
+ "regex",
  "reqwest 0.11.13",
  "serde",
  "serde_json",

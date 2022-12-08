@@ -94,15 +94,25 @@ async fn new_base_image(
 
             let new_image_id = BaseImageId::new();
 
+            // TODO sanitize file path for standard path exploits
+            // URL encoding is inconsistent between providers, so just replace any url-encoded
+            // characters with a dash.
+            static URLENCODED: once_cell::sync::OnceCell<regex::Regex> =
+                once_cell::sync::OnceCell::new();
+            let url_encoded =
+                URLENCODED.get_or_init(|| regex::Regex::new(r##"[^a-zA-Z0-9-_.~]+"##).unwrap());
+            let location = url_encoded
+                .replace_all(payload.location.as_ref().unwrap_or(&payload.filename), "-")
+                .to_string();
+
             let new_image = db::base_images::NewBaseImage {
                 id: new_image_id,
                 user_id: user.user_id,
                 team_id: user.team_id,
                 project_id: profile.project_id,
                 upload_profile_id: profile.id,
-                filename: payload.filename.clone(),
-                // TODO sanitize file path for standard path exploits
-                location: payload.location.unwrap_or(payload.filename),
+                filename: payload.filename,
+                location,
                 format: None,
                 hash: String::new(),
                 width: 0,
