@@ -1,11 +1,12 @@
-use crate::conversion_profiles::{ConversionFormat, ConversionSize};
-use crate::enums::OutputImageStatus;
-use crate::object_id::{BaseImageId, OutputImageId, TeamId};
 use diesel::prelude::*;
 
 pub use crate::schema::output_images::*;
-
-use crate::schema::*;
+use crate::{
+    conversion_profiles::{ConversionFormat, ConversionSize},
+    enums::OutputImageStatus,
+    object_id::{BaseImageId, OutputImageId, TeamId},
+    schema::*,
+};
 
 #[derive(Clone, Debug, Queryable, Insertable, Identifiable)]
 pub struct OutputImage {
@@ -13,6 +14,7 @@ pub struct OutputImage {
     pub team_id: TeamId,
     pub base_image_id: BaseImageId,
     pub location: String,
+    pub file_size: i32,
     pub width: Option<i32>,
     pub height: Option<i32>,
     pub size: ConversionSize,

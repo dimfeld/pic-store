@@ -1,12 +1,13 @@
 use diesel::prelude::*;
 
-use crate::enums::{BaseImageStatus, ImageFormat};
-use crate::object_id::{BaseImageId, ProjectId, TeamId, UploadProfileId, UserId};
-use crate::schema::*;
-
 pub use crate::schema::base_images::*;
+use crate::{
+    enums::{BaseImageStatus, ImageFormat},
+    object_id::{BaseImageId, ProjectId, TeamId, UploadProfileId, UserId},
+    schema::*,
+};
 
-#[derive(Clone, Debug, Queryable, Identifiable)]
+#[derive(Clone, Debug, Queryable, Selectable, Identifiable)]
 pub struct BaseImage {
     pub id: BaseImageId,
     pub team_id: TeamId,
@@ -16,6 +17,7 @@ pub struct BaseImage {
 
     /// The original filename of the image.
     pub filename: String,
+    pub file_size: i32,
 
     /// A subpath at which the image can be found, with the linked StorageLocation in the
     /// UploadProfile as the root location.
@@ -30,7 +32,7 @@ pub struct BaseImage {
     pub alt_text: String,
     pub placeholder: Option<String>,
 
-    pub uodated: chrono::DateTime<chrono::Utc>,
+    pub updated: chrono::DateTime<chrono::Utc>,
     pub deleted: Option<chrono::DateTime<chrono::Utc>>,
 }
 

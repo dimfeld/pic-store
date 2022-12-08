@@ -10,11 +10,11 @@ use db::{
     upload_profiles, BaseImageStatus, OutputImageStatus, PoolExt,
 };
 use diesel::prelude::*;
+use effectum::RunningJob;
 use image::DynamicImage;
 use pic_store_convert as convert;
 use pic_store_db as db;
 use pic_store_storage as storage;
-use effectum::RunningJob;
 use serde::{Deserialize, Serialize};
 use tracing::{event, instrument, Level};
 
@@ -149,6 +149,7 @@ pub async fn create_output_images_job(
             tokio::task::spawn_blocking(move || convert::convert(&b, output_format, &size))
                 .await??;
 
+        let size_bytes = convert_result.image.len() as i32;
         output_operator
             .put(output_location.as_str(), Bytes::from(convert_result.image))
             .await?;
@@ -161,6 +162,7 @@ pub async fn create_output_images_job(
                     .filter(db::output_images::id.eq(output_image_id))
                     .set((
                         db::output_images::status.eq(OutputImageStatus::Ready),
+                        db::output_images::file_size.eq(size_bytes),
                         db::output_images::width.eq(convert_result.width as i32),
                         db::output_images::height.eq(convert_result.height as i32),
                     ))

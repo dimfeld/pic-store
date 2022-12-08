@@ -6,6 +6,7 @@ use axum::{
 };
 use bytes::Bytes;
 use db::{
+    base_images::BaseImage,
     conversion_profiles::{self, ConversionOutput},
     image_base_location,
     object_id::{BaseImageId, OutputImageId},
@@ -99,14 +100,16 @@ impl Header {
 async fn handle_upload(
     upload: &mut Box<dyn AsyncWrite + Unpin + Send>,
     mut stream: BodyStream,
-) -> Result<(String, ImageInfo), Error> {
+) -> Result<(String, usize, ImageInfo), Error> {
     let mut hasher = blake3::Hasher::new();
 
     let mut header = Header::new();
+    let mut total_size = 0;
     let mut info: Option<ImageInfo> = None;
 
     while let Some(chunk) = stream.try_next().await? {
         hasher.update(&chunk);
+        total_size += chunk.len();
 
         if info.is_none() {
             header.add_chunk(&chunk);
@@ -124,7 +127,7 @@ async fn handle_upload(
     let hash = hasher.finalize();
     let hash_hex = hash.to_string();
 
-    Ok((hash_hex, info))
+    Ok((hash_hex, total_size, info))
 }
 
 pub async fn upload_image(
@@ -158,7 +161,7 @@ pub async fn upload_image(
                 .filter(base_images::id.eq(image_id))
                 .filter(base_images::team_id.eq(user.team_id))
                 .select((
-                    base_images::all_columns,
+                    BaseImage::as_select(),
                     storage_locations::all_columns,
                     conversion_profiles::all_columns,
                     projects::base_location,
@@ -198,10 +201,10 @@ pub async fn upload_image(
         .await?;
 
     let (upload_id, mut writer) = operator.put_multipart(&base_image.location).await?;
-    let (hash_hex, info) = match handle_upload(&mut writer, stream).await {
-        Ok((hash_hex, info)) => {
+    let (hash_hex, total_size, info) = match handle_upload(&mut writer, stream).await {
+        Ok(result) => {
             writer.shutdown().await?;
-            (hash_hex, info)
+            result
         }
         Err(e) => {
             operator
@@ -269,6 +272,7 @@ pub async fn upload_image(
                 .filter(base_images::team_id.eq(user.team_id))
                 .set((
                     base_images::hash.eq(hash_hex),
+                    base_images::file_size.eq(total_size as i32),
                     base_images::format.eq(Some(upload_format)),
                     base_images::width.eq(info.size.width as i32),
                     base_images::height.eq(info.size.height as i32),

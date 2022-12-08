@@ -72,6 +72,7 @@ diesel::table! {
         placeholder -> Nullable<Text>,
         updated -> Timestamptz,
         deleted -> Nullable<Timestamptz>,
+        file_size -> Int4,
     }
 }
 
@@ -107,6 +108,7 @@ diesel::table! {
         status -> OutputImageStatus,
         updated -> Timestamptz,
         deleted -> Nullable<Timestamptz>,
+        file_size -> Int4,
     }
 }
 
