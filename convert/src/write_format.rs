@@ -35,7 +35,7 @@ fn write_webp(image: &DynamicImage, mut writer: impl Write) -> Result<(), std::i
     let image = to_8bit(image);
     let (width, height) = image.dimensions();
     let encoder = webp::Encoder::new(image.as_bytes(), format, width, height);
-    let output = encoder.encode(60.0);
+    let output = encoder.encode(80.0);
 
     writer.write_all(&output)
 }

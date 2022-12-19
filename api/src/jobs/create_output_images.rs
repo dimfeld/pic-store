@@ -123,7 +123,10 @@ pub async fn create_output_images_job(
             .interact(move |conn| {
                 diesel::update(db::output_images::table)
                     .filter(db::output_images::id.eq(output_image_id))
-                    .set(db::output_images::status.eq(OutputImageStatus::Converting))
+                    .set((
+                        db::output_images::status.eq(OutputImageStatus::Converting),
+                        db::output_images::updated.eq(diesel::dsl::now),
+                    ))
                     .returning((
                         db::output_images::location,
                         db::output_images::format,
@@ -165,6 +168,7 @@ pub async fn create_output_images_job(
                         db::output_images::file_size.eq(size_bytes),
                         db::output_images::width.eq(convert_result.width as i32),
                         db::output_images::height.eq(convert_result.height as i32),
+                        db::output_images::updated.eq(diesel::dsl::now),
                     ))
                     .execute(conn)?;
 

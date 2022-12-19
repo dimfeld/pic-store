@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use db::{
-    base_images,
+    array_agg, base_images, bool_or,
     conversion_profiles::{ConversionFormat, ConversionSize},
     image_path,
     object_id::{BaseImageId, OutputImageId, ProjectId, UploadProfileId},
@@ -413,6 +413,63 @@ async fn get_base_image(
     Ok((StatusCode::OK, Json(result)))
 }
 
+async fn reconvert_base_image(
+    State(state): State<AppState>,
+    Authenticated(user): Authenticated,
+    Path(image_id): Path<BaseImageId>,
+) -> impl IntoResponse {
+    let (base_image_id, output_image_ids) = state
+        .db
+        .interact(move |conn| {
+            let (base_image_id, output_image_ids, allowed) = base_images::table
+                .filter(base_images::id.eq(image_id))
+                .filter(base_images::deleted.is_null())
+                .filter(base_images::team_id.eq(user.team_id))
+                .filter(output_images::status.ne(OutputImageStatus::Queued))
+                .filter(output_images::status.ne(OutputImageStatus::QueuedForDelete))
+                .inner_join(
+                    db::output_images::table.on(base_images::id.eq(output_images::base_image_id)),
+                )
+                .group_by(base_images::id)
+                .select((
+                    base_images::id,
+                    array_agg(output_images::id),
+                    bool_or(db::obj_allowed!(
+                        user.team_id,
+                        &user.roles,
+                        base_images::project_id.assume_not_null(),
+                        db::Permission::ImageEdit
+                    )),
+                ))
+                .first::<(BaseImageId, Vec<OutputImageId>, bool)>(conn)
+                .optional()?
+                .ok_or(Error::NotFound)?;
+
+            if !allowed {
+                return Err(Error::MissingPermission(Permission::ImageEdit));
+            }
+
+            Ok((base_image_id, output_image_ids))
+        })
+        .await?;
+
+    if output_image_ids.is_empty() {
+        return Ok((StatusCode::OK, Json(json!({ "images": [] }))));
+    }
+
+    let job_id = effectum::Job::builder(crate::jobs::CREATE_OUTPUT_IMAGES)
+        .json_payload(&crate::jobs::CreateOutputImagesJobPayload {
+            base_image: image_id,
+            conversions: output_image_ids.clone(),
+        })?
+        .add_to(&state.queue)
+        .await?;
+
+    event!(Level::INFO, %job_id, "enqueued image conversion job");
+
+    Ok::<_, Error>((StatusCode::OK, Json(json!({ "images": output_image_ids }))))
+}
+
 async fn remove_base_image() -> impl IntoResponse {
     // Set the base image to deleting, and queue jobs to delete
     // all the output images.
@@ -428,7 +485,8 @@ pub fn configure() -> Router<AppState> {
         .route("/", post(new_base_image))
         .route("/:image_id", get(get_base_image_by_id))
         .route("/:image_id", put(update_base_image_info))
-        .route("/:image_id", delete(remove_base_image));
+        .route("/:image_id", delete(remove_base_image))
+        .route("/:image_id/reconvert", post(reconvert_base_image));
 
     let upload_route = Router::new()
         .route("/:image_id/upload", post(upload::upload_image))
