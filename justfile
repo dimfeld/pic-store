@@ -17,12 +17,13 @@ upload-image imagepath:
   const file = `{{imagepath}}`;
   const filename = path.basename(file);
 
-  const createReq = await $`http -b -A ${process.env.DEFAULT_API_KEY} POST {{server}}/images filename=${filename}`;
+  const createReq = await $`http -b -A bearer -a ${process.env.DEFAULT_API_KEY} POST {{server}}/api/images filename=${filename}`;
   const id = JSON.parse(createReq.stdout).id;
 
-  const url = `{{server}}/images/${id}/upload`;
+  const url = `{{server}}/api/images/${id}`;
   console.log('Uploading image ID ${id}');
-  await spinner(() => $`http -b -A ${process.env.DEFAULT_API_KEY}` POST ${url} @${file}`);
+  await $`http -b -A bearer -a ${process.env.DEFAULT_API_KEY} POST ${url}/upload @${file}`;
+  await $`http -b -A bearer -a ${process.env.DEFAULT_API_KEY} GET ${url}`;
 
 image-status id:
   just send-request GET /images/{{id}}
