@@ -17,7 +17,6 @@ pub mod roles;
 pub mod sessions;
 pub mod storage_locations;
 pub mod teams;
-#[cfg(test)]
 pub mod test;
 pub mod upload_profiles;
 pub mod user_roles;

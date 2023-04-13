@@ -67,14 +67,11 @@ fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), Encode
 
     let (width, height) = image.dimensions();
 
-    let config = ravif::Config {
-        quality,
-        alpha_quality,
-        speed: 4,
-        premultiplied_alpha: false,
-        color_space: ravif::ColorSpace::YCbCr,
-        threads: None,
-    };
+    let encoder = ravif::Encoder::new()
+        .with_quality(quality)
+        .with_alpha_quality(alpha_quality)
+        .with_speed(4)
+        .with_alpha_color_mode(ravif::AlphaColorMode::Premultiplied);
 
     let image = to_8bit(image);
 
@@ -82,18 +79,16 @@ fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), Encode
         let data = image.into_owned().into_rgba8();
         let rgba_vec = cast_as_rgb_crate_format(data);
 
-        let input_buf = ravif::Img::new(rgba_vec, width as usize, height as usize);
-
-        let input_buf = ravif::cleared_alpha(input_buf);
-        ravif::encode_rgba(input_buf.as_ref(), &config).map(|(o, _, _)| o)
+        let input_buf = ravif::Img::new(rgba_vec.as_slice(), width as usize, height as usize);
+        encoder.encode_rgba(input_buf)
     } else {
         let input_buf = ravif::Img::new(image.as_bytes().as_rgb(), width as usize, height as usize);
-        ravif::encode_rgb(input_buf, &config).map(|(o, _)| o)
+        encoder.encode_rgb(input_buf)
     };
 
     let output = output.map_err(|e| EncodeError::StringError(e.to_string()))?;
 
-    writer.write_all(output.as_ref())?;
+    writer.write_all(&output.avif_file)?;
     Ok(())
 }
 

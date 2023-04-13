@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, DbEnum, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[ExistingTypePath = "crate::schema::sql_types::ImageFormat"]
 pub enum ImageFormat {
     Png,
     Jpg,
@@ -25,6 +26,7 @@ impl From<ImageFormat> for image::ImageFormat {
 
 #[derive(Debug, Clone, Copy, DbEnum, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[ExistingTypePath = "crate::schema::sql_types::BaseImageStatus"]
 pub enum BaseImageStatus {
     AwaitingUpload,
     Converting,
@@ -42,6 +44,7 @@ impl Default for BaseImageStatus {
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, DbEnum, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[ExistingTypePath = "crate::schema::sql_types::OutputImageStatus"]
 pub enum OutputImageStatus {
     Queued,
     Converting,
@@ -57,6 +60,7 @@ impl Default for OutputImageStatus {
 }
 
 #[derive(Copy, Clone, Debug, DbEnum, Deserialize)]
+#[ExistingTypePath = "crate::schema::sql_types::Permission"]
 pub enum Permission {
     #[db_rename = "team:admin"]
     #[serde(rename = "team:admin")]

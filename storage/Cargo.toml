@@ -7,15 +7,15 @@ edition = "2021"
 
 [dependencies]
 pic-store-db = { path = "../db" }
-async-trait = "0.1.58"
+async-trait = "0.1.68"
 backon = "0.2.0"
-http = "0.2.8"
-thiserror = "1.0.37"
-tokio = { version = "1.22.0", features = ["fs"] }
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = "1.0.89"
-bytes = "1.3.0"
-futures = "0.3.25"
-object_store = { version = "0.5.1", features = ["aws"] }
+http = "0.2.9"
+thiserror = "1.0.40"
+tokio = { version = "1.27.0", features = ["fs"] }
+serde = { version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.96"
+bytes = "1.4.0"
+futures = "0.3.28"
+object_store = { version = "0.5.6", features = ["aws"] }
 tracing = "0.1.37"
 eyre = "0.6.8"

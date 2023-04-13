@@ -24,8 +24,9 @@ fn load_avif(bytes: &[u8]) -> eyre::Result<DynamicImage> {
 }
 
 fn load_heic(bytes: &[u8]) -> eyre::Result<DynamicImage> {
-    use libheif_rs::{ColorSpace, HeifContext, RgbChroma};
+    use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 
+    let lib_heif = LibHeif::new();
     let context = HeifContext::read_from_bytes(bytes)?;
     let handle = context.primary_image_handle()?;
 
@@ -39,7 +40,7 @@ fn load_heic(bytes: &[u8]) -> eyre::Result<DynamicImage> {
         RgbChroma::Rgb
     };
 
-    let image = handle.decode(ColorSpace::Rgb(chroma), false)?;
+    let image = lib_heif.decode(&handle, ColorSpace::Rgb(chroma), None)?;
 
     let plane = image
         .planes()
