@@ -70,16 +70,13 @@ fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), Encode
     let encoder = ravif::Encoder::new()
         .with_quality(quality)
         .with_alpha_quality(alpha_quality)
-        .with_speed(4)
-        .with_alpha_color_mode(ravif::AlphaColorMode::Premultiplied);
+        .with_speed(4);
 
     let image = to_8bit(image);
 
     let output = if image.color().has_alpha() {
-        let data = image.into_owned().into_rgba8();
-        let rgba_vec = cast_as_rgb_crate_format(data);
-
-        let input_buf = ravif::Img::new(rgba_vec.as_slice(), width as usize, height as usize);
+        let input_buf =
+            ravif::Img::new(image.as_bytes().as_rgba(), width as usize, height as usize);
         encoder.encode_rgba(input_buf)
     } else {
         let input_buf = ravif::Img::new(image.as_bytes().as_rgb(), width as usize, height as usize);
@@ -153,6 +150,21 @@ mod tests {
         assert_eq!(info.format, imageinfo::ImageFormat::AVIF);
         assert_eq!(info.size.width as u32, image.width());
         assert_eq!(info.size.height as u32, image.height());
+    }
+
+    #[test]
+    #[cfg(feature = "test-slow")]
+    fn write_avif_with_alpha() {
+        let image = read_test_image("test-with-alpha.png");
+        let mut output = Vec::new();
+        super::write_image(&image, image::ImageFormat::Avif, &mut output).unwrap();
+
+        let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
+        assert_eq!(info.format, imageinfo::ImageFormat::AVIF);
+        assert_eq!(info.size.width as u32, image.width());
+        assert_eq!(info.size.height as u32, image.height());
+
+        std::fs::write("test-output.avif", &output).unwrap();
     }
 
     #[test]
