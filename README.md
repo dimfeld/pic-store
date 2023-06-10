@@ -6,10 +6,10 @@ WIP Web service to convert images into multiple formats and sizes, and upload th
 
 ### v1
 
-- User/Team Authentication, Authorization, API Keys
-- Upload images, convert them into other sizes and formats, and upload to S3 or similar storage for hosting.
-- Autogenerate `<picture>` tags for uploaded images.
-- Generate blurhash or something similar for an image placeholder.
+- [X] User/Team Authentication, Authorization, API Keys
+- [X] Upload images, convert them into other sizes and formats, and upload to S3 or similar storage for hosting.
+- [ ] Autogenerate `<picture>` tags for uploaded images.
+- [ ] Generate blurhash or something similar for an image placeholder.
 
 ### v2
 
