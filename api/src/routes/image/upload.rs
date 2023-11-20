@@ -6,14 +6,10 @@ use axum::{
 };
 use bytes::Bytes;
 use db::{
-    base_images::BaseImage,
-    conversion_profiles::{self, ConversionOutput},
-    image_base_location,
-    object_id::{BaseImageId, OutputImageId},
-    output_images::{self, NewOutputImage},
+    base_images::BaseImage, conversion_profiles, image_base_location, object_id::BaseImageId,
     projects, Permission, PoolExt,
 };
-use diesel::{prelude::*, upsert::excluded};
+use diesel::prelude::*;
 use futures::TryStreamExt;
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
 use pic_store_db as db;
@@ -22,7 +18,12 @@ use serde_json::json;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{event, Level};
 
-use crate::{auth::Authenticated, shared_state::AppState, Error};
+use crate::{
+    auth::Authenticated,
+    routes::image::{generate_output_images, replace_output_images},
+    shared_state::AppState,
+    Error,
+};
 
 struct Header {
     buf: HeaderBuf,
@@ -223,46 +224,13 @@ pub async fn upload_image(
         _ => return Err(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat)),
     };
 
-    let basename = match base_image.location.rsplit_once('.') {
-        Some((base, _ext)) => base,
-        None => base_image.location.as_str(),
-    };
-
-    let output_images = match &conversion_profile.output {
-        ConversionOutput::Cross { formats, sizes, .. } => formats
-            .iter()
-            .filter(|format| format.matches_condition(upload_format))
-            .flat_map(|format| {
-                sizes.iter().map(|size| {
-                    let size_str = match (size.width, size.height) {
-                        (Some(w), Some(h)) => format!("{w}x{h}"),
-                        (Some(w), None) => format!("w{w}"),
-                        (None, Some(h)) => format!("h{h}"),
-                        (None, None) => "szun".to_string(),
-                    };
-
-                    let output_image_id = OutputImageId::new();
-                    let location = format!(
-                        "{basename}-{size_str}-{}.{}",
-                        base_image.id.display_without_prefix(),
-                        format.extension()
-                    );
-
-                    NewOutputImage {
-                        id: output_image_id,
-                        base_image_id: image_id,
-                        width: None,
-                        height: None,
-                        size: size.clone(),
-                        format: format.clone(),
-                        team_id: user.team_id,
-                        status: db::OutputImageStatus::Queued,
-                        location,
-                    }
-                })
-            })
-            .collect::<Vec<_>>(),
-    };
+    let output_images = generate_output_images(
+        user.team_id,
+        &conversion_profile,
+        base_image.id,
+        &base_image.location,
+        upload_format,
+    );
 
     let output_image_ids = state
         .db
@@ -279,37 +247,7 @@ pub async fn upload_image(
                     base_images::status.eq(db::BaseImageStatus::Converting),
                 ))
                 .execute(conn)?;
-
-            let output_image_locations = output_images
-                .iter()
-                .map(|oi| &oi.location)
-                .collect::<Vec<_>>();
-
-            // Set the existing output images to be deleted, but don't delete them yet since the
-            // user may need to transition some other code away that uses it.
-            // (Alternatively, should we just replace the files with the same parameters? I'm leaning
-            // toward that.)
-            diesel::update(output_images::table)
-                .filter(output_images::base_image_id.eq(image_id))
-                .filter(output_images::team_id.eq(user.team_id))
-                .filter(output_images::location.ne_all(output_image_locations))
-                .set((output_images::status.eq(db::OutputImageStatus::QueuedForDelete),))
-                .execute(conn)?;
-
-            let output_image_ids = diesel::insert_into(db::output_images::table)
-                .values(&output_images)
-                .on_conflict((output_images::base_image_id, output_images::location))
-                .do_update()
-                .set((
-                    output_images::status.eq(db::OutputImageStatus::Queued),
-                    output_images::updated.eq(diesel::dsl::now),
-                    output_images::size.eq(excluded(output_images::size)),
-                    output_images::format.eq(excluded(output_images::format)),
-                ))
-                .returning(output_images::id)
-                .get_results(conn)?;
-
-            Ok::<_, eyre::Report>(output_image_ids)
+            replace_output_images(conn, user.team_id, image_id, output_images)
         })
         .await?;
 

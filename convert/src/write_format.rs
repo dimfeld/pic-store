@@ -38,9 +38,13 @@ fn write_webp(
 
     let image = to_8bit(image);
     let (width, height) = image.dimensions();
+    let quality = quality.unwrap_or(70.0);
     let encoder = webp::Encoder::new(image.as_bytes(), format, width, height);
-    let quality = quality.unwrap_or(80.0);
-    let output = encoder.encode(quality);
+    let output = if quality < 100.0 {
+        encoder.encode(quality)
+    } else {
+        encoder.encode_lossless()
+    };
 
     writer.write_all(&output)
 }
@@ -56,18 +60,6 @@ fn write_jpeg(
     let (width, height) = image.dimensions();
 
     encoder.write_image(image.as_bytes(), width, height, image.color())
-}
-
-/// `cleared_alpha` only takes a Vec<RGBA<u8>>, not a slice, so recast the data as a Vec<rgb::RGBA<u8>>.
-/// This is the same thing that the rgb crate functions do, except on a Vec.
-fn cast_as_rgb_crate_format(data: image::RgbaImage) -> Vec<rgb::RGBA<u8>> {
-    let data = data.into_vec();
-
-    let mut data = std::mem::ManuallyDrop::new(data);
-    let raw_data = data.as_mut_ptr();
-    let len = data.len();
-    let cap = data.capacity();
-    unsafe { Vec::from_raw_parts(raw_data as *mut rgb::RGBA<u8>, len, cap) }
 }
 
 fn write_avif(
