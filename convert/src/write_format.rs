@@ -38,9 +38,13 @@ fn write_webp(
 
     let image = to_8bit(image);
     let (width, height) = image.dimensions();
+    let quality = quality.unwrap_or(70.0);
     let encoder = webp::Encoder::new(image.as_bytes(), format, width, height);
-    let quality = quality.unwrap_or(80.0);
-    let output = encoder.encode(quality);
+    let output = if quality < 100.0 {
+        encoder.encode(quality)
+    } else {
+        encoder.encode_lossless()
+    };
 
     writer.write_all(&output)
 }
