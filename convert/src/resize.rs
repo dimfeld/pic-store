@@ -41,7 +41,7 @@ pub fn resize_image(input: &DynamicImage, transform: &ImageSizeTransform) -> Opt
 
     let (w, h) = match (tw, th, transform.preserve_aspect_ratio) {
         (Some(w), Some(h), false) => (w, h),
-        // No resize requested. Allow this so we don't have to check explciitly for it everywhere.
+        // No resize requested. Allow this so we don't have to check explicitly for it everywhere.
         (None, None, _) => (iw, ih),
         _ => calculate_size(iw, ih, transform),
     };
@@ -49,7 +49,13 @@ pub fn resize_image(input: &DynamicImage, transform: &ImageSizeTransform) -> Opt
     if w == iw && h == ih {
         None
     } else {
-        Some(input.resize_exact(w, h, imageops::FilterType::CatmullRom))
+        let filter_type = if w > iw {
+            imageops::FilterType::CatmullRom
+        } else {
+            imageops::FilterType::Lanczos3
+        };
+
+        Some(input.resize_exact(w, h, filter_type))
     }
 }
 
