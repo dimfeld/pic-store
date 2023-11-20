@@ -1,6 +1,7 @@
-use base64::display::Base64Display;
-use diesel::{deserialize::FromSql, serialize::ToSql};
 use std::{ops::Deref, str::FromStr};
+
+use base64::{display::Base64Display, engine::GeneralPurpose, Engine};
+use diesel::{deserialize::FromSql, serialize::ToSql};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -71,8 +72,11 @@ impl<const PREFIX: usize> ObjectId<PREFIX> {
         Self(Uuid::nil())
     }
 
-    pub fn display_without_prefix(&self) -> Base64Display {
-        base64::display::Base64Display::with_config(self.0.as_bytes(), base64::URL_SAFE_NO_PAD)
+    pub fn display_without_prefix(&self) -> Base64Display<GeneralPurpose> {
+        base64::display::Base64Display::new(
+            self.0.as_bytes(),
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+        )
     }
 }
 
@@ -125,7 +129,8 @@ impl<const PREFIX: usize> std::fmt::Display for ObjectId<PREFIX> {
 }
 
 pub fn decode_suffix(s: &str) -> Result<Uuid, ObjectIdError> {
-    let bytes = base64::decode_config(s, base64::URL_SAFE_NO_PAD)
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(s)
         .map_err(|_| ObjectIdError::DecodeFailure)?;
     Uuid::from_slice(&bytes).map_err(|_| ObjectIdError::DecodeFailure)
 }

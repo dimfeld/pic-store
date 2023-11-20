@@ -25,7 +25,11 @@ fn write_png(image: &DynamicImage, writer: impl Write) -> Result<(), image::Imag
     encoder.write_image(image.as_bytes(), width, height, image.color())
 }
 
-fn write_webp(image: &DynamicImage, mut writer: impl Write) -> Result<(), std::io::Error> {
+fn write_webp(
+    image: &DynamicImage,
+    quality: Option<f32>,
+    mut writer: impl Write,
+) -> Result<(), std::io::Error> {
     let format = if image.color().has_alpha() {
         webp::PixelLayout::Rgba
     } else {
@@ -35,13 +39,19 @@ fn write_webp(image: &DynamicImage, mut writer: impl Write) -> Result<(), std::i
     let image = to_8bit(image);
     let (width, height) = image.dimensions();
     let encoder = webp::Encoder::new(image.as_bytes(), format, width, height);
-    let output = encoder.encode(80.0);
+    let quality = quality.unwrap_or(80.0);
+    let output = encoder.encode(quality);
 
     writer.write_all(&output)
 }
 
-fn write_jpeg(image: &DynamicImage, mut writer: impl Write) -> Result<(), image::ImageError> {
-    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut writer, 70);
+fn write_jpeg(
+    image: &DynamicImage,
+    quality: Option<f32>,
+    mut writer: impl Write,
+) -> Result<(), image::ImageError> {
+    let quality = quality.unwrap_or(70.0) as u8;
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut writer, quality);
     let image = to_8bit(image);
     let (width, height) = image.dimensions();
 
@@ -60,8 +70,12 @@ fn cast_as_rgb_crate_format(data: image::RgbaImage) -> Vec<rgb::RGBA<u8>> {
     unsafe { Vec::from_raw_parts(raw_data as *mut rgb::RGBA<u8>, len, cap) }
 }
 
-fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), EncodeError> {
-    let quality = 60.0;
+fn write_avif(
+    image: &DynamicImage,
+    quality: Option<f32>,
+    mut writer: impl Write,
+) -> Result<(), EncodeError> {
+    let quality = quality.unwrap_or(60.0);
     // From https://github.com/kornelski/cavif-rs/blob/main/src/main.rs
     let alpha_quality = ((quality + 100.0_f32) / 2.).min(quality + quality / 4. + 2.);
 
@@ -92,13 +106,14 @@ fn write_avif(image: &DynamicImage, mut writer: impl Write) -> Result<(), Encode
 pub fn write_image(
     image: &DynamicImage,
     output_format: ImageFormat,
+    quality: Option<f32>,
     writer: impl Write,
 ) -> Result<(), EncodeError> {
     match output_format {
         ImageFormat::Png => write_png(image, writer)?,
-        ImageFormat::WebP => write_webp(image, writer)?,
-        ImageFormat::Avif => write_avif(image, writer)?,
-        ImageFormat::Jpeg => write_jpeg(image, writer)?,
+        ImageFormat::WebP => write_webp(image, quality, writer)?,
+        ImageFormat::Avif => write_avif(image, quality, writer)?,
+        ImageFormat::Jpeg => write_jpeg(image, quality, writer)?,
         _ => Err(EncodeError::UnsupportedFormat(output_format))?,
     };
 
@@ -144,7 +159,7 @@ mod tests {
     fn write_avif() {
         let image = read_test_image("test-input.png");
         let mut output = Vec::new();
-        super::write_image(&image, image::ImageFormat::Avif, &mut output).unwrap();
+        super::write_image(&image, image::ImageFormat::Avif, None, &mut output).unwrap();
 
         let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
         assert_eq!(info.format, imageinfo::ImageFormat::AVIF);
@@ -157,7 +172,7 @@ mod tests {
     fn write_avif_with_alpha() {
         let image = read_test_image("test-with-alpha.png");
         let mut output = Vec::new();
-        super::write_image(&image, image::ImageFormat::Avif, &mut output).unwrap();
+        super::write_image(&image, image::ImageFormat::Avif, None, &mut output).unwrap();
 
         let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
         assert_eq!(info.format, imageinfo::ImageFormat::AVIF);
@@ -172,7 +187,7 @@ mod tests {
     fn write_png() {
         let image = read_test_image("test-input.png");
         let mut output = Vec::new();
-        super::write_image(&image, image::ImageFormat::Png, &mut output).unwrap();
+        super::write_image(&image, image::ImageFormat::Png, None, &mut output).unwrap();
 
         let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
         assert_eq!(info.format, imageinfo::ImageFormat::PNG);
@@ -184,7 +199,7 @@ mod tests {
     fn write_webp() {
         let image = read_test_image("test-input.png");
         let mut output = Vec::new();
-        super::write_image(&image, image::ImageFormat::WebP, &mut output).unwrap();
+        super::write_image(&image, image::ImageFormat::WebP, None, &mut output).unwrap();
 
         let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
         assert_eq!(info.format, imageinfo::ImageFormat::WEBP);
@@ -196,7 +211,7 @@ mod tests {
     fn write_jpeg() {
         let image = read_test_image("test-input.png");
         let mut output = Vec::new();
-        super::write_image(&image, image::ImageFormat::Jpeg, &mut output).unwrap();
+        super::write_image(&image, image::ImageFormat::Jpeg, None, &mut output).unwrap();
 
         let info = imageinfo::ImageInfo::from_raw_data(&output).expect("Reading image");
         assert_eq!(info.format, imageinfo::ImageFormat::JPEG);

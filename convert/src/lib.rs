@@ -127,6 +127,7 @@ pub struct ConvertResult {
 pub fn convert(
     image: &DynamicImage,
     format: image::ImageFormat,
+    quality: Option<f32>,
     size: &ImageSizeTransform,
 ) -> Result<ConvertResult, EncodeError> {
     let resized = resize_image(image, size);
@@ -137,7 +138,7 @@ pub fn convert(
     let width = convert_input.width();
     let height = convert_input.height();
 
-    write_format::write_image(convert_input, format, &mut output)?;
+    write_format::write_image(convert_input, format, quality, &mut output)?;
     Ok(ConvertResult {
         width,
         height,
@@ -185,7 +186,7 @@ mod tests {
         assert_eq!(image.height(), 1024);
 
         let writer = std::fs::File::create("test-output.jpeg").unwrap();
-        write_image(&image, image::ImageFormat::Jpeg, writer).unwrap();
+        write_image(&image, image::ImageFormat::Jpeg, None, writer).unwrap();
     }
 
     #[test]

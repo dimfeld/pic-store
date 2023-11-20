@@ -31,13 +31,19 @@ pub enum ConversionFormat {
     },
     Jpg {
         #[serde(skip_serializing_if = "Option::is_none")]
+        quality: Option<f32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         condition: Option<FormatConversionCondition>,
     },
     Avif {
         #[serde(skip_serializing_if = "Option::is_none")]
+        quality: Option<f32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         condition: Option<FormatConversionCondition>,
     },
     Webp {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        quality: Option<f32>,
         #[serde(skip_serializing_if = "Option::is_none")]
         condition: Option<FormatConversionCondition>,
     },
@@ -71,12 +77,21 @@ impl ConversionFormat {
         }
     }
 
+    pub fn quality(&self) -> Option<f32> {
+        match self {
+            Self::Png { .. } => None,
+            Self::Jpg { quality, .. } => *quality,
+            Self::Avif { quality, .. } => *quality,
+            Self::Webp { quality, .. } => *quality,
+        }
+    }
+
     pub fn matches_condition(&self, input_format: ImageFormat) -> bool {
         let condition = match self {
             Self::Png { condition } => condition.as_ref(),
-            Self::Jpg { condition } => condition.as_ref(),
-            Self::Avif { condition } => condition.as_ref(),
-            Self::Webp { condition } => condition.as_ref(),
+            Self::Jpg { condition, .. } => condition.as_ref(),
+            Self::Avif { condition, .. } => condition.as_ref(),
+            Self::Webp { condition, .. } => condition.as_ref(),
         };
 
         condition.map(|c| c.matches(input_format)).unwrap_or(true)

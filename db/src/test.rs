@@ -212,8 +212,14 @@ fn populate_database(conn: &mut PgConnection) -> Result<DatabaseInfo, eyre::Repo
             project_id: None,
             output: ConversionOutput::Cross {
                 formats: vec![
-                    ConversionFormat::Avif { condition: None },
-                    ConversionFormat::Webp { condition: None },
+                    ConversionFormat::Avif {
+                        condition: None,
+                        quality: None,
+                    },
+                    ConversionFormat::Webp {
+                        condition: None,
+                        quality: None,
+                    },
                 ],
                 sizes: vec![
                     ConversionSize {

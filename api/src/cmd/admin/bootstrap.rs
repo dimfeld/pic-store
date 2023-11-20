@@ -1,14 +1,15 @@
+use std::{collections::HashMap, env, path::Path};
+
+use base64::Engine;
 use chrono::{DateTime, Utc};
 use clap::Args;
+use db::object_id::*;
 use diesel::{prelude::*, sql_query};
 use eyre::{eyre, Result};
 use pic_store_api::auth::API_KEY_PREFIX;
-use serde::Deserialize;
-use std::{collections::HashMap, env, path::Path};
-use uuid::Uuid;
-
-use db::object_id::*;
 use pic_store_db as db;
+use serde::Deserialize;
+use uuid::Uuid;
 
 #[derive(Debug, Args)]
 pub struct BootstrapArgs {
@@ -150,9 +151,10 @@ fn apply_object(
                 return Err(eyre!("API KEY must start with {API_KEY_PREFIX}."));
             }
 
-            let id_data = base64::decode_config(parts[1], base64::URL_SAFE_NO_PAD)?;
+            let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+            let id_data = engine.decode(parts[1])?;
             let id = Uuid::from_slice(&id_data)?;
-            let random_data = base64::decode_config(parts[2], base64::URL_SAFE_NO_PAD)?;
+            let random_data = engine.decode(parts[2])?;
             let random = Uuid::from_slice(&random_data)?;
 
             let data = pic_store_auth::api_key::ApiKeyData::from_params(

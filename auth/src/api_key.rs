@@ -1,15 +1,18 @@
-use crate::error::Error;
+use std::borrow::Borrow;
+
 use async_trait::async_trait;
 use axum::{
     body::Body,
     http::{header::AUTHORIZATION, Request},
     response::IntoResponse,
 };
+use base64::Engine;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::borrow::Borrow;
 use tracing::{event, instrument, Level};
 use uuid::Uuid;
+
+use crate::error::Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ApiKey {
@@ -46,8 +49,9 @@ impl ApiKeyData {
     /// Create an API key with pre-filled ID and random data. This should usually only be used
     /// for bootstrapping purposes when you want to create a key deterministically.
     pub fn from_params(prefix: &str, id: Uuid, random: Uuid, expires: DateTime<Utc>) -> ApiKeyData {
-        let base64_id = base64::encode_config(id.as_bytes(), base64::URL_SAFE_NO_PAD);
-        let random = base64::encode_config(random.as_bytes(), base64::URL_SAFE_NO_PAD);
+        let engine = &base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let base64_id = engine.encode(id.as_bytes());
+        let random = engine.encode(random.as_bytes());
         let key = format!("{prefix}.{base64_id}.{random}");
         let prefix = key[0..16].to_string();
         let hash = hash_key(&key);
@@ -76,7 +80,9 @@ fn decode_key<STORE: ApiKeyStore>(store: &STORE, key: &str) -> Result<(Uuid, Has
 
     let hash = hash_key(key);
     let id_portion = key.split('.').nth(1).ok_or(Error::InvalidApiKeyFormat)?;
-    let api_key_bytes = base64::decode_config(id_portion.as_bytes(), base64::URL_SAFE_NO_PAD)
+    let engine = &base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    let api_key_bytes = engine
+        .decode(id_portion.as_bytes())
         .map_err(|_| Error::InvalidApiKeyFormat)?;
     let api_key_id = Uuid::from_slice(&api_key_bytes).map_err(|_| Error::InvalidApiKeyFormat)?;
 

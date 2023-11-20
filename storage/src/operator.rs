@@ -29,7 +29,8 @@ impl Operator {
     #[instrument(skip(self, bytes), fields(base=%self.base_location, path_prefix=?self.path_prefix))]
     pub async fn put(&self, location: &str, bytes: Bytes) -> Result<()> {
         let p = self.make_full_path(location);
-        self.operator.put(&p, bytes).await.map_err(Error::from)
+        self.operator.put(&p, bytes).await.map_err(Error::from)?;
+        Ok(())
     }
 
     #[instrument(skip(self), fields(base=%self.base_location, path_prefix=?self.path_prefix))]

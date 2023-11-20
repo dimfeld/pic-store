@@ -1,0 +1,14 @@
+[target.aarch64-apple-darwin]
+# Needed to find libheif when installed through Homebrew
+#rustflags = "-L /opt/homebrew/lib -I /opt/homebrew/include"
+rustflags = "-L /opt/homebrew/lib"
+
+[target.aarch64-apple-darwin.libheif-sys]
+include = "/opt/homebrew/include"
+
+[env]
+PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig"
+LDFLAGS="-L/opt/homebrew/lib"
+CPPFLAGS="-I/opt/homebrew/include"
+BINDGEN_EXTRA_CLANG_ARGS="-I/opt/homebrew/include"
+

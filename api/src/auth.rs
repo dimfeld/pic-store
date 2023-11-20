@@ -1,20 +1,22 @@
 use async_trait::async_trait;
-use auth::session::{SessionCookieManager, SessionManager};
-use auth::{AuthenticationLayer, RequestUser};
+use auth::{
+    session::{SessionCookieManager, SessionManager},
+    AuthenticationLayer, RequestUser,
+};
 use axum::extract::FromRequestParts;
+use base64::Engine;
 use chrono::{DateTime, Utc};
-use db::PoolExt;
-use diesel::dsl::sql;
-use diesel::prelude::*;
+use db::{
+    object_id::{ProjectId, RoleId, TeamId, UploadProfileId, UserId},
+    PoolExt,
+};
+use diesel::{dsl::sql, prelude::*};
 use http::request::Parts;
+use pic_store_auth as auth;
+use pic_store_db as db;
 use serde::Deserialize;
 use ulid::Ulid;
 use uuid::Uuid;
-
-use db::object_id::{ProjectId, RoleId, TeamId, UploadProfileId, UserId};
-
-use pic_store_auth as auth;
-use pic_store_db as db;
 
 use crate::Error;
 
@@ -270,7 +272,9 @@ pub fn auth_layer(
     let session_store = SessionStore { db };
 
     let cookie_key = tower_cookies::Key::from(
-        &base64::decode(cookie_key_b64).expect("cookie_key must be base64"),
+        &base64::engine::general_purpose::STANDARD
+            .decode(cookie_key_b64)
+            .expect("cookie_key must be base64"),
     );
 
     let session_manager = SessionManager {

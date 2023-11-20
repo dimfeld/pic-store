@@ -147,10 +147,12 @@ pub async fn create_output_images_job(
         };
 
         let output_format = image::ImageFormat::from(&conversion_format);
+        let quality = conversion_format.quality();
         let b = base_image.clone();
-        let convert_result =
-            tokio::task::spawn_blocking(move || convert::convert(&b, output_format, &size))
-                .await??;
+        let convert_result = tokio::task::spawn_blocking(move || {
+            convert::convert(&b, output_format, quality, &size)
+        })
+        .await??;
 
         let size_bytes = convert_result.image.len() as i32;
         output_operator
