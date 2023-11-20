@@ -7,9 +7,9 @@ use axum::{
 use bytes::Bytes;
 use db::{
     base_images::BaseImage, conversion_profiles, image_base_location, object_id::BaseImageId,
-    output_images, projects, Permission, PoolExt,
+    projects, Permission, PoolExt,
 };
-use diesel::{prelude::*, upsert::excluded};
+use diesel::prelude::*;
 use futures::TryStreamExt;
 use imageinfo::{ImageFormat, ImageInfo, ImageInfoError};
 use pic_store_db as db;

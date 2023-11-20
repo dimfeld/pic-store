@@ -7,9 +7,7 @@ use axum::{
     Json, Router,
 };
 use db::{
-    array_agg,
-    base_images::{self, BaseImage},
-    bool_or,
+    base_images,
     conversion_profiles::{
         self, ConversionFormat, ConversionOutput, ConversionProfile, ConversionSize,
     },
@@ -491,9 +489,11 @@ async fn reconvert_base_image(
         return Ok((StatusCode::OK, Json(json!({ "images": [] }))));
     }
 
-    // TODO Add the new output images and queue the old ones for delete.
+    let output_image_ids = state
+        .db
+        .transaction(move |conn| replace_output_images(conn, user.team_id, image_id, output_images))
+        .await?;
 
-    let output_image_ids = output_images.iter().map(|i| i.id).collect::<Vec<_>>();
     let job_id = effectum::Job::builder(crate::jobs::CREATE_OUTPUT_IMAGES)
         .json_payload(&crate::jobs::CreateOutputImagesJobPayload {
             base_image: image_id,

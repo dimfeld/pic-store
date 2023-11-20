@@ -139,7 +139,6 @@ pub async fn create_output_images_job(
 
         //  Do the conversion
 
-        event!(Level::INFO, image=%output_location, "Converting image");
         let size = convert::ImageSizeTransform {
             width: conversion_size.width,
             height: conversion_size.height,
@@ -149,6 +148,8 @@ pub async fn create_output_images_job(
         let output_format = image::ImageFormat::from(&conversion_format);
         let quality = conversion_format.quality();
         let b = base_image.clone();
+
+        event!(Level::INFO, image=%output_location, format=?output_format, quality=?quality, "Converting image");
         let convert_result = tokio::task::spawn_blocking(move || {
             convert::convert(&b, output_format, quality, &size)
         })
