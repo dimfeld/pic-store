@@ -19,7 +19,7 @@ use db::{
     projects, storage_locations, upload_profiles, BaseImageStatus, ImageFormat, OutputImageStatus,
     Permission, PoolExt,
 };
-use diesel::prelude::*;
+use diesel::{prelude::*, upsert::excluded};
 use http::StatusCode;
 use pic_store_db as db;
 use serde::{Deserialize, Serialize};
@@ -566,6 +566,44 @@ fn generate_output_images(
     };
 
     output_images
+}
+
+fn replace_output_images(
+    conn: &mut PgConnection,
+    team_id: TeamId,
+    base_image_id: BaseImageId,
+    output_images: Vec<NewOutputImage>,
+) -> Result<Vec<OutputImageId>, eyre::Report> {
+    let output_image_locations = output_images
+        .iter()
+        .map(|oi| &oi.location)
+        .collect::<Vec<_>>();
+
+    // Set the existing output images to be deleted, but don't delete them yet since the
+    // user may need to transition some other code away that uses it.
+    // (Alternatively, should we just replace the files with the same parameters? I'm leaning
+    // toward that.)
+    diesel::update(output_images::table)
+        .filter(output_images::base_image_id.eq(base_image_id))
+        .filter(output_images::team_id.eq(team_id))
+        .filter(output_images::location.ne_all(output_image_locations))
+        .set((output_images::status.eq(db::OutputImageStatus::QueuedForDelete),))
+        .execute(conn)?;
+
+    let output_image_ids = diesel::insert_into(db::output_images::table)
+        .values(&output_images)
+        .on_conflict((output_images::base_image_id, output_images::location))
+        .do_update()
+        .set((
+            output_images::status.eq(db::OutputImageStatus::Queued),
+            output_images::updated.eq(diesel::dsl::now),
+            output_images::size.eq(excluded(output_images::size)),
+            output_images::format.eq(excluded(output_images::format)),
+        ))
+        .returning(output_images::id)
+        .get_results(conn)?;
+
+    Ok::<_, eyre::Report>(output_image_ids)
 }
 
 pub fn configure() -> Router<AppState> {

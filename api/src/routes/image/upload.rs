@@ -19,7 +19,10 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{event, Level};
 
 use crate::{
-    auth::Authenticated, routes::image::generate_output_images, shared_state::AppState, Error,
+    auth::Authenticated,
+    routes::image::{generate_output_images, replace_output_images},
+    shared_state::AppState,
+    Error,
 };
 
 struct Header {
@@ -224,7 +227,8 @@ pub async fn upload_image(
     let output_images = generate_output_images(
         user.team_id,
         &conversion_profile,
-        &base_image,
+        base_image.id,
+        &base_image.location,
         upload_format,
     );
 
@@ -243,37 +247,7 @@ pub async fn upload_image(
                     base_images::status.eq(db::BaseImageStatus::Converting),
                 ))
                 .execute(conn)?;
-
-            let output_image_locations = output_images
-                .iter()
-                .map(|oi| &oi.location)
-                .collect::<Vec<_>>();
-
-            // Set the existing output images to be deleted, but don't delete them yet since the
-            // user may need to transition some other code away that uses it.
-            // (Alternatively, should we just replace the files with the same parameters? I'm leaning
-            // toward that.)
-            diesel::update(output_images::table)
-                .filter(output_images::base_image_id.eq(image_id))
-                .filter(output_images::team_id.eq(user.team_id))
-                .filter(output_images::location.ne_all(output_image_locations))
-                .set((output_images::status.eq(db::OutputImageStatus::QueuedForDelete),))
-                .execute(conn)?;
-
-            let output_image_ids = diesel::insert_into(db::output_images::table)
-                .values(&output_images)
-                .on_conflict((output_images::base_image_id, output_images::location))
-                .do_update()
-                .set((
-                    output_images::status.eq(db::OutputImageStatus::Queued),
-                    output_images::updated.eq(diesel::dsl::now),
-                    output_images::size.eq(excluded(output_images::size)),
-                    output_images::format.eq(excluded(output_images::format)),
-                ))
-                .returning(output_images::id)
-                .get_results(conn)?;
-
-            Ok::<_, eyre::Report>(output_image_ids)
+            replace_output_images(conn, user.team_id, image_id, output_images)
         })
         .await?;
 
