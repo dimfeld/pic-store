@@ -7,12 +7,17 @@ use axum::{
     Json, Router,
 };
 use db::{
-    array_agg, base_images, bool_or,
-    conversion_profiles::{ConversionFormat, ConversionSize},
+    array_agg,
+    base_images::{self, BaseImage},
+    bool_or,
+    conversion_profiles::{
+        self, ConversionFormat, ConversionOutput, ConversionProfile, ConversionSize,
+    },
     image_path,
-    object_id::{BaseImageId, OutputImageId, ProjectId, UploadProfileId},
-    output_images, projects, storage_locations, upload_profiles, BaseImageStatus, ImageFormat,
-    OutputImageStatus, Permission, PoolExt,
+    object_id::{BaseImageId, OutputImageId, ProjectId, TeamId, UploadProfileId},
+    output_images::{self, NewOutputImage},
+    projects, storage_locations, upload_profiles, BaseImageStatus, ImageFormat, OutputImageStatus,
+    Permission, PoolExt,
 };
 use diesel::prelude::*;
 use http::StatusCode;
@@ -418,30 +423,39 @@ async fn reconvert_base_image(
     Authenticated(user): Authenticated,
     Path(image_id): Path<BaseImageId>,
 ) -> impl IntoResponse {
-    let (base_image_id, output_image_ids) = state
+    let (base_image_id, base_image_location, base_image_format, conversion_profile) = state
         .db
         .interact(move |conn| {
-            let (base_image_id, output_image_ids, allowed) = base_images::table
+            let (
+                base_image_id,
+                base_image_location,
+                base_image_format,
+                conversion_profile,
+                allowed,
+            ) = base_images::table
                 .filter(base_images::id.eq(image_id))
                 .filter(base_images::deleted.is_null())
                 .filter(base_images::team_id.eq(user.team_id))
-                .filter(output_images::status.ne(OutputImageStatus::Queued))
-                .filter(output_images::status.ne(OutputImageStatus::QueuedForDelete))
-                .inner_join(
-                    db::output_images::table.on(base_images::id.eq(output_images::base_image_id)),
-                )
-                .group_by(base_images::id)
+                .inner_join(upload_profiles::table.inner_join(conversion_profiles::table))
                 .select((
                     base_images::id,
-                    array_agg(output_images::id),
-                    bool_or(db::obj_allowed!(
+                    base_images::location,
+                    base_images::format,
+                    conversion_profiles::all_columns,
+                    db::obj_allowed!(
                         user.team_id,
                         &user.roles,
                         base_images::project_id.assume_not_null(),
                         db::Permission::ImageEdit
-                    )),
+                    ),
                 ))
-                .first::<(BaseImageId, Vec<OutputImageId>, bool)>(conn)
+                .first::<(
+                    BaseImageId,
+                    String,
+                    Option<ImageFormat>,
+                    ConversionProfile,
+                    bool,
+                )>(conn)
                 .optional()?
                 .ok_or(Error::NotFound)?;
 
@@ -449,14 +463,37 @@ async fn reconvert_base_image(
                 return Err(Error::MissingPermission(Permission::ImageEdit));
             }
 
-            Ok((base_image_id, output_image_ids))
+            Ok((
+                base_image_id,
+                base_image_location,
+                base_image_format,
+                conversion_profile,
+            ))
         })
         .await?;
 
-    if output_image_ids.is_empty() {
+    let Some(base_image_format) = base_image_format else {
+        return Ok((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "message": "Image has not been uploaded yet"})),
+        ));
+    };
+
+    let output_images = generate_output_images(
+        user.team_id,
+        &conversion_profile,
+        base_image_id,
+        &base_image_location,
+        base_image_format,
+    );
+
+    if output_images.is_empty() {
         return Ok((StatusCode::OK, Json(json!({ "images": [] }))));
     }
 
+    // TODO Add the new output images and queue the old ones for delete.
+
+    let output_image_ids = output_images.iter().map(|i| i.id).collect::<Vec<_>>();
     let job_id = effectum::Job::builder(crate::jobs::CREATE_OUTPUT_IMAGES)
         .json_payload(&crate::jobs::CreateOutputImagesJobPayload {
             base_image: image_id,
@@ -478,6 +515,57 @@ async fn remove_base_image() -> impl IntoResponse {
 
 async fn update_base_image_info() -> impl IntoResponse {
     todo!();
+}
+
+fn generate_output_images(
+    team_id: TeamId,
+    conversion_profile: &ConversionProfile,
+    base_image_id: BaseImageId,
+    base_image_location: &str,
+    base_image_format: ImageFormat,
+) -> Vec<NewOutputImage> {
+    let basename = match base_image_location.rsplit_once('.') {
+        Some((base, _ext)) => base,
+        None => base_image_location,
+    };
+
+    let output_images = match &conversion_profile.output {
+        ConversionOutput::Cross { formats, sizes, .. } => formats
+            .iter()
+            .filter(|format| format.matches_condition(base_image_format))
+            .flat_map(|format| {
+                sizes.iter().map(|size| {
+                    let size_str = match (size.width, size.height) {
+                        (Some(w), Some(h)) => format!("{w}x{h}"),
+                        (Some(w), None) => format!("w{w}"),
+                        (None, Some(h)) => format!("h{h}"),
+                        (None, None) => "szun".to_string(),
+                    };
+
+                    let output_image_id = OutputImageId::new();
+                    let location = format!(
+                        "{basename}-{size_str}-{}.{}",
+                        base_image_id.display_without_prefix(),
+                        format.extension()
+                    );
+
+                    NewOutputImage {
+                        id: output_image_id,
+                        base_image_id,
+                        width: None,
+                        height: None,
+                        size: size.clone(),
+                        format: format.clone(),
+                        team_id,
+                        status: db::OutputImageStatus::Queued,
+                        location,
+                    }
+                })
+            })
+            .collect::<Vec<_>>(),
+    };
+
+    output_images
 }
 
 pub fn configure() -> Router<AppState> {

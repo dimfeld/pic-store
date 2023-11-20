@@ -6,12 +6,8 @@ use axum::{
 };
 use bytes::Bytes;
 use db::{
-    base_images::BaseImage,
-    conversion_profiles::{self, ConversionOutput},
-    image_base_location,
-    object_id::{BaseImageId, OutputImageId},
-    output_images::{self, NewOutputImage},
-    projects, Permission, PoolExt,
+    base_images::BaseImage, conversion_profiles, image_base_location, object_id::BaseImageId,
+    output_images, projects, Permission, PoolExt,
 };
 use diesel::{prelude::*, upsert::excluded};
 use futures::TryStreamExt;
@@ -22,7 +18,9 @@ use serde_json::json;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{event, Level};
 
-use crate::{auth::Authenticated, shared_state::AppState, Error};
+use crate::{
+    auth::Authenticated, routes::image::generate_output_images, shared_state::AppState, Error,
+};
 
 struct Header {
     buf: HeaderBuf,
@@ -223,46 +221,12 @@ pub async fn upload_image(
         _ => return Err(Error::ImageHeaderDecode(ImageInfoError::UnrecognizedFormat)),
     };
 
-    let basename = match base_image.location.rsplit_once('.') {
-        Some((base, _ext)) => base,
-        None => base_image.location.as_str(),
-    };
-
-    let output_images = match &conversion_profile.output {
-        ConversionOutput::Cross { formats, sizes, .. } => formats
-            .iter()
-            .filter(|format| format.matches_condition(upload_format))
-            .flat_map(|format| {
-                sizes.iter().map(|size| {
-                    let size_str = match (size.width, size.height) {
-                        (Some(w), Some(h)) => format!("{w}x{h}"),
-                        (Some(w), None) => format!("w{w}"),
-                        (None, Some(h)) => format!("h{h}"),
-                        (None, None) => "szun".to_string(),
-                    };
-
-                    let output_image_id = OutputImageId::new();
-                    let location = format!(
-                        "{basename}-{size_str}-{}.{}",
-                        base_image.id.display_without_prefix(),
-                        format.extension()
-                    );
-
-                    NewOutputImage {
-                        id: output_image_id,
-                        base_image_id: image_id,
-                        width: None,
-                        height: None,
-                        size: size.clone(),
-                        format: format.clone(),
-                        team_id: user.team_id,
-                        status: db::OutputImageStatus::Queued,
-                        location,
-                    }
-                })
-            })
-            .collect::<Vec<_>>(),
-    };
+    let output_images = generate_output_images(
+        user.team_id,
+        &conversion_profile,
+        &base_image,
+        upload_format,
+    );
 
     let output_image_ids = state
         .db
