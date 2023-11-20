@@ -62,18 +62,6 @@ fn write_jpeg(
     encoder.write_image(image.as_bytes(), width, height, image.color())
 }
 
-/// `cleared_alpha` only takes a Vec<RGBA<u8>>, not a slice, so recast the data as a Vec<rgb::RGBA<u8>>.
-/// This is the same thing that the rgb crate functions do, except on a Vec.
-fn cast_as_rgb_crate_format(data: image::RgbaImage) -> Vec<rgb::RGBA<u8>> {
-    let data = data.into_vec();
-
-    let mut data = std::mem::ManuallyDrop::new(data);
-    let raw_data = data.as_mut_ptr();
-    let len = data.len();
-    let cap = data.capacity();
-    unsafe { Vec::from_raw_parts(raw_data as *mut rgb::RGBA<u8>, len, cap) }
-}
-
 fn write_avif(
     image: &DynamicImage,
     quality: Option<f32>,
